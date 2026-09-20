@@ -293,7 +293,8 @@ export function Landing({
             </span>
           </div>
 
-          <ul className="chat-scroll mt-3 max-h-[22.5rem] overflow-y-auto border-t border-foreground/25">
+          {/* 每行 4.5rem，5 行再加上边框，正好露出 5 卷 */}
+          <ul className="chat-scroll mt-3 max-h-[22.75rem] overflow-y-auto border-t border-foreground/25">
             {archives.map((game) => (
               <li key={game.id} className="rule-dashed flex h-[4.5rem] items-center gap-2">
                 {confirmingId === game.id ? (

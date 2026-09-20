@@ -161,6 +161,10 @@
     animation: pop 0.36s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
   }
 
+  .animate-sheet-up {
+    animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
   .animate-soft-pulse {
     animation: soft-pulse 2.4s ease-in-out infinite;
   }
@@ -218,6 +222,15 @@
   }
   50% {
     opacity: 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
   }
 }
 

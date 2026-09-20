@@ -141,7 +141,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b border-foreground px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground px-4 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
         <span className="font-mono text-[10px] font-bold tracking-[0.2em] sm:text-[11px] sm:tracking-[0.22em]">
           讯问记录 / TRANSCRIPT
         </span>

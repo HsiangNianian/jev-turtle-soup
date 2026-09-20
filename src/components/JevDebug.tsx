@@ -37,19 +37,19 @@ function Bars({
 }) {
   const entries = Object.entries(probabilities).sort((a, b) => b[1] - a[1])
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       {entries.map(([label, value]) => (
         <div key={label} className="flex items-center gap-2 font-mono">
-          <div className="w-20 shrink-0 truncate text-[11px] text-muted-foreground">
+          <div className="w-16 shrink-0 truncate text-[10px] text-muted-foreground/70">
             {labels[label] ?? label}
           </div>
-          <div className="h-1.5 flex-1 bg-foreground/10">
+          <div className="h-1 flex-1 bg-foreground/[0.07]">
             <div
-              className={cn('h-full', label === highlight ? 'bg-stamp' : 'bg-foreground/30')}
+              className={cn('h-full', label === highlight ? 'bg-stamp/50' : 'bg-foreground/20')}
               style={{ width: `${Math.max(2, Math.round(value * 100))}%` }}
             />
           </div>
-          <div className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+          <div className="w-8 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/60">
             {Math.round(value * 100)}%
           </div>
         </div>
@@ -60,8 +60,8 @@ function Bars({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="space-y-2">
-      <div className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">{title}</div>
+    <div className="space-y-1.5">
+      <div className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/55">{title}</div>
       {children}
     </div>
   )
@@ -77,12 +77,12 @@ export function TurnDebug({ debug, model }: { debug: DebugInfo; model?: string }
         : (VERDICT_LABEL[debug.verdict.choice] ?? debug.verdict.choice)
 
   return (
-    <details className="group mt-2">
-      <summary className="flex cursor-pointer list-none items-center gap-1 font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground">
+    <details className="group mt-2.5">
+      <summary className="flex w-fit cursor-pointer list-none items-center gap-1 py-0.5 font-mono text-[10px] tracking-[0.14em] text-muted-foreground/55 transition-colors hover:text-muted-foreground">
         <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
         JEV 判读 · {intent} · {tag}
       </summary>
-      <div className="mt-3 space-y-4 border border-foreground/20 bg-card p-3">
+      <div className="mt-2.5 space-y-3.5 border-l border-dashed border-foreground/15 pl-3.5">
         <Section title={`意图 INTENT · 置信度 ${debug.intent.confidence.toFixed(2)}`}>
           <Bars
             probabilities={debug.intent.probabilities}
@@ -98,8 +98,8 @@ export function TurnDebug({ debug, model }: { debug: DebugInfo; model?: string }
           />
         </Section>
         <Section title="推理接近度 GUESS_CLOSENESS">
-          <div className="flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
-            <span className="tabular-nums text-foreground">
+          <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground/70">
+            <span className="tabular-nums text-foreground/75">
               {debug.closeness.score.toFixed(2)} / 3
             </span>
             <span className="tabular-nums">solved {debug.solved.toFixed(2)}</span>
@@ -108,7 +108,7 @@ export function TurnDebug({ debug, model }: { debug: DebugInfo; model?: string }
             </span>
           </div>
         </Section>
-        <div className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/70">
+        <div className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground/35">
           TYPESAFE · {model ?? 'jev'}
         </div>
       </div>

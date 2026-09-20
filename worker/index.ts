@@ -7,13 +7,14 @@ import {
 } from '../shared/game.ts'
 import {
   clearedCookie,
+  destroySession,
   normaliseEmail,
   readCookie,
+  readSession,
   requestCode,
   SESSION_COOKIE,
   sessionCookie,
   verifyCode,
-  verifySession,
   type AuthDeps,
   type D1Like,
   type EmailLike,
@@ -65,11 +66,14 @@ function authDeps(env: Env): AuthDeps {
   }
 }
 
+function sessionToken(request: Request): string | null {
+  return readCookie(request.headers.get('cookie'), SESSION_COOKIE)
+}
+
 async function currentUser(request: Request, env: Env) {
   const secret = env.AUTH_SECRET
-  if (!secret) return null
-  const token = readCookie(request.headers.get('cookie'), SESSION_COOKIE)
-  const session = await verifySession(token, secret)
+  if (!secret || !env.AUTH_KV) return null
+  const session = await readSession(env.AUTH_KV, secret, sessionToken(request))
   if (!session) return null
   return { email: session.email, uid: session.uid }
 }
@@ -89,6 +93,7 @@ async function routeAuth(
 
   if (pathname === '/api/auth/logout') {
     if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+    await destroySession(env.AUTH_KV!, env.AUTH_SECRET!, sessionToken(request))
     return json({ ok: true }, 200, { 'set-cookie': clearedCookie() })
   }
 

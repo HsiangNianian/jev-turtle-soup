@@ -94,32 +94,76 @@ export interface SessionUser {
   exp: number
 }
 
-export async function signSession(
-  user: { uid: string; email: string },
-  secret: string,
-  ttlSeconds = SESSION_TTL_SECONDS,
-): Promise<string> {
-  const body = base64urlFromJson({
-    uid: user.uid,
-    email: user.email,
-    exp: Math.floor(Date.now() / 1000) + ttlSeconds,
-  } satisfies SessionUser)
+interface SessionPayload {
+  sid: string
+  exp: number
+}
+
+function sessionKey(sid: string): string {
+  return `sess:${sid}`
+}
+
+async function signPayload(payload: SessionPayload, secret: string): Promise<string> {
+  const body = base64urlFromJson(payload)
   return `${body}.${await hmac(secret, body)}`
 }
 
-export async function verifySession(
+async function verifySignedToken(
   token: string | null | undefined,
   secret: string,
-): Promise<SessionUser | null> {
+): Promise<SessionPayload | null> {
   if (!token) return null
   const [body, signature] = token.split('.')
   if (!body || !signature) return null
   if (!safeEqual(signature, await hmac(secret, body))) return null
-  const payload = jsonFromBase64url<SessionUser>(body)
-  if (!payload || typeof payload.exp !== 'number') return null
+  const payload = jsonFromBase64url<SessionPayload>(body)
+  if (!payload || typeof payload.exp !== 'number' || typeof payload.sid !== 'string') return null
   if (payload.exp * 1000 <= Date.now()) return null
-  if (typeof payload.uid !== 'string' || typeof payload.email !== 'string') return null
   return payload
+}
+
+/**
+ * Sessions are signed cookies backed by a KV record, so signing out (or
+ * revoking a session) actually invalidates the token server-side.
+ */
+export async function createSession(
+  kv: KVLike,
+  secret: string,
+  user: { id: string; email: string },
+  ttlSeconds = SESSION_TTL_SECONDS,
+): Promise<string> {
+  const sid = crypto.randomUUID()
+  await kv.put(sessionKey(sid), JSON.stringify({ uid: user.id, email: user.email }), {
+    expirationTtl: ttlSeconds,
+  })
+  return signPayload({ sid, exp: Math.floor(Date.now() / 1000) + ttlSeconds }, secret)
+}
+
+export async function readSession(
+  kv: KVLike,
+  secret: string,
+  token: string | null | undefined,
+): Promise<SessionUser | null> {
+  const payload = await verifySignedToken(token, secret)
+  if (!payload) return null
+  const raw = await kv.get(sessionKey(payload.sid))
+  if (!raw) return null
+  try {
+    const record = JSON.parse(raw) as { uid: string; email: string }
+    if (!record?.uid || !record.email) return null
+    return { uid: record.uid, email: record.email, exp: payload.exp }
+  } catch {
+    return null
+  }
+}
+
+export async function destroySession(
+  kv: KVLike,
+  secret: string,
+  token: string | null | undefined,
+): Promise<void> {
+  const payload = await verifySignedToken(token, secret)
+  if (payload) await kv.delete(sessionKey(payload.sid))
 }
 
 export function readCookie(header: string | null, name: string): string | null {
@@ -274,6 +318,6 @@ export async function verifyCode(
 
   await deps.kv.delete(otpKey(email))
   const user = await upsertUser(deps.db, email)
-  const token = await signSession({ uid: user.id, email: user.email }, deps.secret)
+  const token = await createSession(deps.kv, deps.secret, user)
   return { token, user }
 }

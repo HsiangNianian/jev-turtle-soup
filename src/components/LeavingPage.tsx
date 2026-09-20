@@ -1,7 +1,8 @@
+import { useEffect } from 'react'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 
 import { Button, Notice, PageShell } from '@/components/Bits'
-import { isSafeUrl } from '@/lib/external'
+import { isInternalUrl, isSafeUrl } from '@/lib/external'
 import { navigate } from '@/lib/router'
 
 /**
@@ -10,7 +11,14 @@ import { navigate } from '@/lib/router'
  */
 export function LeavingPage() {
   const target = new URLSearchParams(window.location.search).get('to') ?? ''
-  const safe = isSafeUrl(target)
+  const internal = isInternalUrl(target)
+
+  // 站内地址不需要警告：直接过去
+  useEffect(() => {
+    if (isSafeUrl(target) && internal) navigate(target, { replace: true })
+  }, [target, internal])
+
+  const safe = isSafeUrl(target) && !internal
 
   let host = ''
   try {

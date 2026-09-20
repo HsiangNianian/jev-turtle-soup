@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
 
-import { BARE_URL, externalHref, isSafeUrl } from '@/lib/external'
+import { BARE_URL, externalHref, isInternalUrl, isSafeUrl } from '@/lib/external'
+import { navigate } from '@/lib/router'
 
 /**
  * 极简内联 markdown：**粗体**、*斜体*、~~删除线~~、[文字](链接)，外加自动识别裸链接。
@@ -21,7 +22,7 @@ export function renderInline(source: string): ReactNode[] {
       const index = match.index ?? 0
       if (index > cursor) nodes.push(text.slice(cursor, index))
       const url = match[0]
-      nodes.push(externalNode(`u${key++}`, url, url))
+      nodes.push(linkNode(`u${key++}`, url, url))
       cursor = index + url.length
     }
     if (cursor < text.length) nodes.push(text.slice(cursor))
@@ -31,7 +32,7 @@ export function renderInline(source: string): ReactNode[] {
     {
       re: /\[([^\]]+)\]\(\s*([^)\s]+)\s*\)/,
       render: (m) =>
-        isSafeUrl(m[2]) ? externalNode(`l${key++}`, m[2], m[1]) : m[0],
+        isSafeUrl(m[2]) ? linkNode(`l${key++}`, m[2], m[1]) : m[0],
     },
     { re: /\*\*([^*]+)\*\*/, render: (m) => createElement('strong', { key: `b${key++}` }, m[1]) },
     { re: /~~([^~]+)~~/, render: (m) => createElement('del', { key: `s${key++}` }, m[1]) },
@@ -68,6 +69,27 @@ export function renderInline(source: string): ReactNode[] {
 
 const LINK_CLASS =
   'underline decoration-foreground/40 underline-offset-4 transition-colors hover:text-foreground'
+
+/** 站内链接直接走客户端路由，站外才经过警告页。 */
+function linkNode(key: string, url: string, label: string) {
+  if (isInternalUrl(url)) {
+    return createElement(
+      'a',
+      {
+        key,
+        href: url,
+        className: LINK_CLASS,
+        onClick: (event: MouseEvent) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+          event.preventDefault()
+          navigate(url)
+        },
+      },
+      label,
+    )
+  }
+  return externalNode(key, url, label)
+}
 
 function externalNode(key: string, url: string, label: string) {
   return createElement(

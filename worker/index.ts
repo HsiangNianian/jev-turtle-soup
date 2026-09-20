@@ -7,6 +7,7 @@ import {
   type GameEnv,
   type PuzzleStore,
 } from '../shared/game.ts'
+import { logTurn, submitReport } from '../shared/logs.ts'
 import {
   clearedCookie,
   destroySession,
@@ -303,6 +304,23 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     const handled = await routeAuth(request, env, pathname)
     return handled ?? json({ error: '未知接口' }, 404)
   }
+  if (pathname === '/api/reports') {
+    if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+    const body = await readJson(request)
+    const current = await viewer(request, env)
+    return json(
+      await submitReport(requireDb(env), {
+        puzzleId: typeof body.puzzleId === 'string' ? body.puzzleId : '',
+        kind: typeof body.kind === 'string' ? body.kind : '',
+        note: typeof body.note === 'string' ? body.note : '',
+        snapshot: body.snapshot,
+        playerKey:
+          current.uid ?? (typeof body.playerKey === 'string' ? body.playerKey : 'anon'),
+        locale: typeof body.locale === 'string' ? body.locale : '',
+      }),
+    )
+  }
+
   if (pathname === '/api/library/tags') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
     return json({ items: await listTags(requireDb(env)) })
@@ -327,7 +345,26 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const body = await readJson(request)
   if (pathname === '/api/game/new') return json(await startGame(env, store, body))
   if (pathname === '/api/game/reveal') return json(await revealGame(store, body))
-  return json(await askHost(env, store, body))
+
+  const turn = await askHost(env, store, body)
+  await logTurn(db, {
+    puzzleId: typeof body.puzzleId === 'string' ? body.puzzleId : '',
+    kind: 'session',
+    seq: typeof body.seq === 'number' ? body.seq : 0,
+    playerKey: typeof body.playerKey === 'string' ? body.playerKey : '',
+    locale: typeof body.locale === 'string' ? body.locale : '',
+    message: typeof body.message === 'string' ? body.message : '',
+    reply: turn.reply,
+    intent: turn.intent,
+    verdict: turn.verdict,
+    closeness: turn.closeness,
+    solved: turn.solved,
+    confidence: turn.confidence,
+    model: turn.model,
+    debug: turn.debug,
+    history: body.history,
+  })
+  return json(turn)
 }
 
 export default {

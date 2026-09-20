@@ -36,6 +36,7 @@ import {
   type GameStatus,
 } from '@/lib/archive'
 import { fetchMe, logout as logoutRequest, type AuthUser } from '@/lib/auth-client'
+import { submitReport } from '@/lib/report-client'
 import {
   askLibraryPuzzle,
   revealLibraryPuzzle,
@@ -63,7 +64,7 @@ function persist(games: ArchivedGame[]): ArchivedGame[] {
 }
 
 export default function App() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const path = usePath()
 
   const [health, setHealth] = useState<HealthInfo | null>(null)
@@ -231,15 +232,20 @@ export default function App() {
       setAsking(true)
       setTurnCount((count) => count + 1)
       try {
+        const context = {
+          locale,
+          playerKey: getDeviceId(),
+          seq: turnCount + 1,
+          luck: todayLuck,
+        }
         const turn = session.libraryId
           ? await askLibraryPuzzle(
               session.libraryId,
               text,
               history.map(({ role, text: body }) => ({ role, text: body })),
-              getDeviceId(),
-              todayLuck,
+              context,
             )
-          : await askHost(session, text, history, todayLuck)
+          : await askHost(session, text, history, context)
         setMessages((prev) => [
           ...prev,
           {
@@ -278,7 +284,7 @@ export default function App() {
         setAsking(false)
       }
     },
-    [messages, session, todayLuck, t],
+    [messages, session, todayLuck, locale, turnCount, t],
   )
 
   const handleReveal = useCallback(async () => {
@@ -378,6 +384,39 @@ export default function App() {
     [session],
   )
 
+  const handleReport = useCallback(
+    async (note: string) => {
+      if (!session) return
+      await submitReport({
+        puzzleId: session.libraryId ?? session.sessionId,
+        kind: session.libraryId ? 'library' : 'session',
+        note,
+        playerKey: getDeviceId(),
+        locale,
+        snapshot: {
+          title: session.title,
+          surface: session.surface,
+          difficulty: session.difficulty,
+          source: session.source,
+          turnCount,
+          closeness,
+          solved,
+          revealed,
+          url: window.location.href,
+          messages: messages.map(({ role, text, verdict, tone, debug, model }) => ({
+            role,
+            text,
+            verdict,
+            tone,
+            model,
+            debug,
+          })),
+        },
+      })
+    },
+    [session, locale, turnCount, closeness, solved, revealed, messages],
+  )
+
   const handleLogin = useCallback((next: AuthUser) => {
     setUser(next)
     navigate('/', { replace: true })
@@ -449,6 +488,7 @@ export default function App() {
               disabled={gameOver}
               onSend={handleSend}
               onQuick={handleQuick}
+              onReport={handleReport}
             />
           </section>
         </main>

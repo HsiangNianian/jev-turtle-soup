@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { externalHref } from '@/lib/external'
+import { externalHref, isInternalUrl } from '@/lib/external'
 import { navigate } from '@/lib/router'
 
 export function Link({
@@ -40,6 +40,8 @@ export function ExternalLink({
   className?: string
   children: ReactNode
 }) {
+  if (isInternalUrl(href)) return <Link to={href} className={className}>{children}</Link>
+
   const to = externalHref(href)
   return (
     <a

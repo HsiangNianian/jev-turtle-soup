@@ -92,17 +92,24 @@ export interface LuckPayload {
   bad: string
 }
 
+export interface AskContext {
+  locale: string
+  playerKey: string
+  seq: number
+  luck?: LuckPayload
+}
+
 export function askHost(
   session: GameSession,
   message: string,
   history: ChatMessage[],
-  luck?: LuckPayload,
+  context: AskContext,
 ) {
   return postJson<HostTurn>('/api/game/ask', {
     puzzleId: session.sessionId,
     message,
     history: history.map(({ role, text }) => ({ role, text })),
-    luck,
+    ...context,
   })
 }
 

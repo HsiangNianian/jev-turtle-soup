@@ -1,6 +1,7 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
 import { judge, type GameEnv } from './game.ts'
+import { logTurn } from './logs.ts'
 
 export type Visibility = 'public' | 'private'
 
@@ -180,6 +181,24 @@ export async function askLibraryPuzzle(
     { title: row.title, surface: row.surface, truth: row.truth, hint: row.hint },
     body,
   )
+
+  await logTurn(db, {
+    puzzleId: id,
+    kind: 'library',
+    seq: typeof body.seq === 'number' ? body.seq : 0,
+    playerKey: viewerKey,
+    locale: typeof body.locale === 'string' ? body.locale : '',
+    message: typeof body.message === 'string' ? body.message : '',
+    reply: turn.reply,
+    intent: turn.intent,
+    verdict: turn.verdict,
+    closeness: turn.closeness,
+    solved: turn.solved,
+    confidence: turn.confidence,
+    model: turn.model,
+    debug: turn.debug,
+    history: body.history,
+  })
 
   const now = Date.now()
   const existing = await db

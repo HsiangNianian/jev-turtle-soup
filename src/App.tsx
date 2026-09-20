@@ -375,12 +375,24 @@ export default function App() {
     const archiveMatch = matchPath(path, '/archive/:id')
     if (archiveMatch) {
       const game = allGames.find((item) => item.id === archiveMatch.id)
-      if (!game) return <Missing label="案卷 / CASE" message="找不到这一卷。" />
+      if (!game) {
+        return (
+          <ScrollArea>
+            <Missing label="案卷 / CASE" message="找不到这一卷。" />
+          </ScrollArea>
+        )
+      }
       return <ArchiveView game={game} onContinue={() => handleContinue(game.id)} />
     }
 
     if (path === '/play') {
-      if (!session) return <Missing label="对局 / PLAY" message="还没有开案。" />
+      if (!session) {
+        return (
+          <ScrollArea>
+            <Missing label="对局 / PLAY" message="还没有开案。" />
+          </ScrollArea>
+        )
+      }
       return (
         <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <section className="chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:w-[42%] lg:border-r lg:border-foreground/25">
@@ -408,35 +420,83 @@ export default function App() {
     }
 
     if (path === '/login') {
-      if (user) return <Missing label="登录 / SIGN IN" message="你已经登录了。" />
-      return <LoginPage onDone={handleLogin} />
+      return (
+        <ScrollArea>
+          {user ? (
+            <Missing label="登录 / SIGN IN" message="你已经登录了。" />
+          ) : (
+            <LoginPage onDone={handleLogin} />
+          )}
+        </ScrollArea>
+      )
     }
-    if (path === '/library') return <LibraryPage />
+    if (path === '/library') {
+      return (
+        <ScrollArea>
+          <LibraryPage />
+        </ScrollArea>
+      )
+    }
     const puzzleMatch = matchPath(path, '/library/:id')
-    if (puzzleMatch) return <PuzzleDetailPage id={puzzleMatch.id} onStart={startLibraryGame} />
+    if (puzzleMatch) {
+      return (
+        <ScrollArea>
+          <PuzzleDetailPage id={puzzleMatch.id} onStart={startLibraryGame} />
+        </ScrollArea>
+      )
+    }
     if (path === '/upload') {
-      if (!user) return <Missing label="上传 / NEW PUZZLE" message="请先登录。" />
-      return <UploadPage />
+      return (
+        <ScrollArea>
+          {user ? (
+            <UploadPage />
+          ) : (
+            <Missing label="上传 / NEW PUZZLE" message="请先登录。" />
+          )}
+        </ScrollArea>
+      )
     }
     if (path === '/me/profile') {
-      if (!user) return <Missing label="编辑资料 / PROFILE" message="请先登录。" />
-      return <ProfileEditPage />
+      return (
+        <ScrollArea>
+          {user ? (
+            <ProfileEditPage />
+          ) : (
+            <Missing label="编辑资料 / PROFILE" message="请先登录。" />
+          )}
+        </ScrollArea>
+      )
     }
     if (path === '/me') {
-      if (!user) return <Missing label="我的题库 / MY PUZZLES" message="请先登录。" />
-      return <MePage handle={user.handle ?? user.name ?? user.email} />
+      return (
+        <ScrollArea>
+          {user ? (
+            <MePage handle={user.handle ?? user.name ?? user.email} />
+          ) : (
+            <Missing label="我的题库 / MY PUZZLES" message="请先登录。" />
+          )}
+        </ScrollArea>
+      )
     }
     const profileMatch = matchPath(path, '/u/:handle')
     if (profileMatch) {
       return (
-        <ProfilePage handle={profileMatch.handle} isSelf={user?.handle === profileMatch.handle} />
+        <ScrollArea>
+          <ProfilePage handle={profileMatch.handle} isSelf={user?.handle === profileMatch.handle} />
+        </ScrollArea>
       )
     }
 
-    if (path !== '/') return <Missing label="404" message="这里什么都没有。" />
+    if (path !== '/') {
+      return (
+        <ScrollArea>
+          <Missing label="404" message="这里什么都没有。" />
+        </ScrollArea>
+      )
+    }
 
     return (
-      <main className="chat-scroll flex-1 overflow-y-auto">
+      <main className="chat-scroll min-h-0 flex-1 overflow-y-auto">
         <Landing
           difficulty={difficulty}
           theme={theme}
@@ -550,6 +610,11 @@ export default function App() {
       {renderBody()}
     </div>
   )
+}
+
+/** Document-style pages (library, profile, forms) scroll inside the fixed app shell. */
+function ScrollArea({ children }: { children: React.ReactNode }) {
+  return <main className="chat-scroll min-h-0 flex-1 overflow-y-auto">{children}</main>
 }
 
 function Missing({ label, message }: { label: string; message: string }) {

@@ -6,7 +6,11 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   display_name TEXT,
-  created_at INTEGER NOT NULL
+  handle TEXT,
+  bio TEXT NOT NULL DEFAULT '',
+  profile_public INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS puzzles (
@@ -25,6 +29,8 @@ CREATE TABLE IF NOT EXISTS puzzles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_puzzles_created ON puzzles (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_puzzles_visibility ON puzzles (visibility, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users (handle) WHERE handle IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_puzzles_owner ON puzzles (owner_id);
 
 CREATE TABLE IF NOT EXISTS attempts (

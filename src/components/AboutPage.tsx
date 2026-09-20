@@ -1,17 +1,38 @@
 import { Link } from '@/components/Link'
 import { PageShell } from '@/components/Bits'
 
-const HOW_IT_WORKS = [
-  ['出题', '你选难度和题材（本格 / 怪力乱神），大模型写出一则完整的汤。'],
-  ['盘问', '只能问能用「是 / 不是」回答的问题，主持人砚会读汤底后给出判断。'],
-  ['结案', '完全还原真相即通关；也可以随时拆封汤底，或者中止本案。'],
+const HOW_TO_PLAY = [
+  {
+    step: '出题',
+    body: '挑一个难度，再想想这碗汤要不要沾点鬼神，AI 就会写出一则完整的海龟汤。它分成两半：摆在你面前的怪事叫「汤面」，藏起来的真相叫「汤底」。',
+  },
+  {
+    step: '盘问',
+    body: '你只能问能用「是」或「不是」回答的问题，比如「他是自杀的吗？」。主持人砚看过汤底，只会回你「是」「不是」「无关」，或者「是，也不是」。',
+  },
+  {
+    step: '结案',
+    body: '想通了就把整件事说一遍，说对了就算通关；实在没头绪，也可以直接翻开汤底看答案，或者换一碗重来。',
+  },
 ]
 
-const STORAGE = [
-  ['邮箱', '登录用的邮箱地址，只用来发 6 位验证码，不做推广。'],
-  ['上传的汤', '汤面、汤底、提示存在 D1 里，按你设置的公开或私密展示。'],
-  ['生成的汤', '临时会话同样存在服务端，默认保留 90 天，之后自动清理。'],
-  ['本地进度', '对局进度、档案室和今日人品的设备码都存在浏览器 localStorage。'],
+const DATA = [
+  {
+    name: '邮箱',
+    body: '只有你登录时填的那个邮箱。它只用来给你发一封带 6 位登录码的邮件，我们不会拿它发别的东西。',
+  },
+  {
+    name: '你写的汤',
+    body: '你自己写的汤面和汤底会留在我们这边。想让所有人都能玩，还是只留给自己看，由你决定。',
+  },
+  {
+    name: '新开的汤',
+    body: '每次现熬的汤也暂时放在我们这边，90 天之后自动清掉，不会一直留着。',
+  },
+  {
+    name: '这台设备上的记录',
+    body: '你玩到哪儿、以前玩过的局、今日人品，都记在你这台设备的浏览器里。换一台设备打开就是新的。',
+  },
 ]
 
 export function AboutPage() {
@@ -26,8 +47,11 @@ export function AboutPage() {
       }
     >
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-        海龟汤调查局是一个机器主持的情境推理游戏：AI 负责出题，主持人「砚（Ellis）」
-        负责判读你的问题。它由 Meaningless Meaning Studio 的{' '}
+        海龟汤是一种猜真相的游戏：先给你一句反常的话，你只能靠问「是 /
+        不是」的问题，一点点把背后的故事问出来。 这里没有真人当主持，出题和判读都由 AI 完成。
+      </p>
+      <p className="mt-3 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
+        它由 Meaningless Meaning Studio 的{' '}
         <a
           href="https://academic.jyunko.cn"
           target="_blank"
@@ -40,69 +64,69 @@ export function AboutPage() {
       </p>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        怎么玩 / HOW IT WORKS
+        怎么玩 / HOW TO PLAY
       </div>
       <ul className="mt-3 border-t border-foreground/20">
-        {HOW_IT_WORKS.map(([title, body]) => (
-          <li key={title} className="rule-dashed flex gap-4 py-3.5">
-            <span className="w-10 shrink-0 font-mono text-[11px] text-stamp">{title}</span>
-            <span className="font-serif text-[14px] leading-7 text-foreground/80">{body}</span>
+        {HOW_TO_PLAY.map((item) => (
+          <li key={item.step} className="rule-dashed flex gap-4 py-3.5">
+            <span className="w-10 shrink-0 font-mono text-[11px] text-stamp">{item.step}</span>
+            <span className="font-serif text-[14px] leading-7 text-foreground/80">{item.body}</span>
           </li>
         ))}
       </ul>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        我们存了什么 / DATA
+        我们存了什么 / YOUR DATA
       </div>
       <ul className="mt-3 border-t border-foreground/20">
-        {STORAGE.map(([title, body]) => (
-          <li key={title} className="rule-dashed flex gap-4 py-3.5">
-            <span className="w-16 shrink-0 font-mono text-[11px] text-muted-foreground">
-              {title}
+        {DATA.map((item) => (
+          <li key={item.name} className="rule-dashed flex gap-4 py-3.5">
+            <span className="w-24 shrink-0 font-serif text-[13px] text-muted-foreground">
+              {item.name}
             </span>
-            <span className="font-serif text-[14px] leading-7 text-foreground/80">{body}</span>
+            <span className="font-serif text-[14px] leading-7 text-foreground/80">{item.body}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-4 border-l-2 border-l-foreground/40 bg-card px-4 py-3 font-mono text-[11px] leading-6 text-foreground/75">
-        没有第三方统计、没有广告、没有埋点。汤底只在你点「拆封汤底」时才会传给浏览器。
+      <p className="mt-4 border-l-2 border-l-foreground/40 bg-card px-4 py-3 font-serif text-[13px] leading-7 text-foreground/75">
+        没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。
       </p>
 
-      {/* <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground"> */}
-      {/*   技术 / STACK */}
-      {/* </div> */}
-      {/* <p className="mt-3 font-serif text-[14px] leading-7 text-foreground/80"> */}
-      {/*   React 19 · Vite · Tailwind v4 前端；Cloudflare Workers + D1 + KV 后端；出题用 DeepSeek， */}
-      {/*   主持判读用 TypeSafe System One。源码在{' '} */}
-      {/*   <a */}
-      {/*     href="https://github.com/HsiangNianian/jev-turtle-soup" */}
-      {/*     target="_blank" */}
-      {/*     rel="noreferrer" */}
-      {/*     className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground" */}
-      {/*   > */}
-      {/*     GitHub */}
-      {/*   </a> */}
-      {/*   ，更新记录见{' '} */}
-      {/*   <a */}
-      {/*     href="https://github.com/HsiangNianian/jev-turtle-soup/commits/main" */}
-      {/*     target="_blank" */}
-      {/*     rel="noreferrer" */}
-      {/*     className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground" */}
-      {/*   > */}
-      {/*     提交历史 */}
-      {/*   </a> */}
-      {/*   ，问题和建议请开{' '} */}
-      {/*   <a */}
-      {/*     href="https://github.com/HsiangNianian/jev-turtle-soup/issues" */}
-      {/*     target="_blank" */}
-      {/*     rel="noreferrer" */}
-      {/*     className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground" */}
-      {/*   > */}
-      {/*     Issue */}
-      {/*   </a> */}
-      {/*   。 */}
-      {/* </p> */}
-      {/**/}
+      <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+        技术 / STACK
+      </div>
+      <p className="mt-3 font-serif text-[14px] leading-7 text-foreground/80">
+        React 19 · Vite · Tailwind v4；Cloudflare Workers + D1 + KV；出题用 DeepSeek， 主持判读用
+        TypeSafe System One。源码在{' '}
+        <a
+          href="https://github.com/HsiangNianian/jev-turtle-soup"
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+        >
+          GitHub
+        </a>
+        ，更新记录见{' '}
+        <a
+          href="https://github.com/HsiangNianian/jev-turtle-soup/commits/main"
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+        >
+          提交历史
+        </a>
+        ，问题和建议请开{' '}
+        <a
+          href="https://github.com/HsiangNianian/jev-turtle-soup/issues"
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+        >
+          Issue
+        </a>
+        。
+      </p>
+
       <div className="mt-9">
         <Link
           to="/"

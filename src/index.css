@@ -35,8 +35,11 @@
   --v-partly: #a8791f;
   --v-irrelevant: #8c8677;
 
-  --font-sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Noto Serif SC', 'Songti SC', 'Source Han Serif SC', 'Noto Serif CJK SC', Georgia, serif;
+  --font-sans:
+    'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui,
+    sans-serif;
+  --font-serif:
+    'Noto Serif SC', 'Songti SC', 'Source Han Serif SC', 'Noto Serif CJK SC', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, 'PingFang SC', monospace;
 }
 

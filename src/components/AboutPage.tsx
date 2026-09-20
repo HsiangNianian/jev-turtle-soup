@@ -27,7 +27,16 @@ export function AboutPage() {
     >
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
         海龟汤调查局是一个机器主持的情境推理游戏：AI 负责出题，主持人「砚（Ellis）」
-        负责判读你的问题。它由 Meaningless Meaning Studio 制作。
+        负责判读你的问题。它由 Meaningless Meaning Studio 的{' '}
+        <a
+          href="https://academic.jyunko.cn"
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+        >
+          简律纯
+        </a>{' '}
+        制作。
       </p>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
@@ -59,41 +68,41 @@ export function AboutPage() {
         没有第三方统计、没有广告、没有埋点。汤底只在你点「拆封汤底」时才会传给浏览器。
       </p>
 
-      <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        技术 / STACK
-      </div>
-      <p className="mt-3 font-serif text-[14px] leading-7 text-foreground/80">
-        React 19 · Vite · Tailwind v4 前端；Cloudflare Workers + D1 + KV 后端；出题用 DeepSeek，
-        主持判读用 TypeSafe System One。源码在{' '}
-        <a
-          href="https://github.com/HsiangNianian/jev-turtle-soup"
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-        >
-          GitHub
-        </a>
-        ，更新记录见{' '}
-        <a
-          href="https://github.com/HsiangNianian/jev-turtle-soup/commits/main"
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-        >
-          提交历史
-        </a>
-        ，问题和建议请开{' '}
-        <a
-          href="https://github.com/HsiangNianian/jev-turtle-soup/issues"
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-        >
-          Issue
-        </a>
-        。
-      </p>
-
+      {/* <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground"> */}
+      {/*   技术 / STACK */}
+      {/* </div> */}
+      {/* <p className="mt-3 font-serif text-[14px] leading-7 text-foreground/80"> */}
+      {/*   React 19 · Vite · Tailwind v4 前端；Cloudflare Workers + D1 + KV 后端；出题用 DeepSeek， */}
+      {/*   主持判读用 TypeSafe System One。源码在{' '} */}
+      {/*   <a */}
+      {/*     href="https://github.com/HsiangNianian/jev-turtle-soup" */}
+      {/*     target="_blank" */}
+      {/*     rel="noreferrer" */}
+      {/*     className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground" */}
+      {/*   > */}
+      {/*     GitHub */}
+      {/*   </a> */}
+      {/*   ，更新记录见{' '} */}
+      {/*   <a */}
+      {/*     href="https://github.com/HsiangNianian/jev-turtle-soup/commits/main" */}
+      {/*     target="_blank" */}
+      {/*     rel="noreferrer" */}
+      {/*     className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground" */}
+      {/*   > */}
+      {/*     提交历史 */}
+      {/*   </a> */}
+      {/*   ，问题和建议请开{' '} */}
+      {/*   <a */}
+      {/*     href="https://github.com/HsiangNianian/jev-turtle-soup/issues" */}
+      {/*     target="_blank" */}
+      {/*     rel="noreferrer" */}
+      {/*     className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground" */}
+      {/*   > */}
+      {/*     Issue */}
+      {/*   </a> */}
+      {/*   。 */}
+      {/* </p> */}
+      {/**/}
       <div className="mt-9">
         <Link
           to="/"

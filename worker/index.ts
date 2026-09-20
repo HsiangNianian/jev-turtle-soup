@@ -108,7 +108,11 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
   if (pathname === '/api/auth/me') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
     const current = await viewer(request, env)
-    return json({ user: current.uid ? { email: current.email, uid: current.uid } : null }, current.uid ? 200 : 401)
+    if (!current.uid) return json({ user: null }, 401)
+    const profile = await getMyProfile(env.DB!, current.uid)
+    return json({
+      user: { email: current.email, uid: current.uid, name: profile.displayName, handle: profile.handle },
+    })
   }
 
   if (pathname === '/api/auth/logout') {

@@ -5,8 +5,10 @@ export interface GameSession {
   truth: string
   hint: string
   difficulty: string
-  source: 'llm' | 'builtin'
+  source: 'llm' | 'builtin' | 'library'
   hostGreeting: string
+  /** 题库里的题：汤底留在服务端，判读走 /api/library/puzzles/:id/ask */
+  libraryId?: string
 }
 
 export interface ChoiceDebug {

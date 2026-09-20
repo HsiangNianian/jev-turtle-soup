@@ -84,7 +84,12 @@ export function PuzzlePanel({
 
       <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-t border-dashed border-foreground/25 pt-4">
         <Field label="等级" value={session.difficulty} />
-        <Field label="来源" value={session.source === 'llm' ? 'AI 现熬' : '经典存档'} />
+        <Field
+          label="来源"
+          value={
+            session.source === 'llm' ? 'AI 现熬' : session.source === 'library' ? '题库' : '经典存档'
+          }
+        />
         <Field label="已问" value={`${turnCount} 轮`} />
         {progress !== null ? <Field label="接近度" value={`${progress}%`} /> : null}
       </div>

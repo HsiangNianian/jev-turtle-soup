@@ -36,7 +36,8 @@ interface LandingProps {
   theme: string
   generating: boolean
   error: string | null
-  activeGame: ArchivedGame | null
+  activeGames: ArchivedGame[]
+  canGenerate: boolean
   archives: ArchivedGame[]
   onDifficultyChange: (value: string) => void
   onThemeChange: (value: string) => void
@@ -51,7 +52,8 @@ export function Landing({
   theme,
   generating,
   error,
-  activeGame,
+  activeGames,
+  canGenerate,
   archives,
   onDifficultyChange,
   onThemeChange,
@@ -78,42 +80,48 @@ export function Landing({
         每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。
       </p>
 
-      {activeGame ? (
-        <div className="mt-9 border border-foreground bg-card">
-          <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
-            <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-              在办案件 / OPEN CASE
-            </span>
-            <span className="stamp px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
-              机密
-            </span>
-          </div>
-          <div className="px-4 py-5 sm:px-5">
-            <h2 className="font-serif text-2xl leading-snug font-semibold">{activeGame.title}</h2>
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-              <span>等级 {activeGame.difficulty}</span>
-              <span>已问 {activeGame.turnCount} 轮</span>
-              <span>更新 {formatWhen(activeGame.updatedAt)}</span>
+      {activeGames.length ? (
+        <div className="mt-9 space-y-4">
+          {activeGames.map((game) => (
+            <div key={game.id} className="border border-foreground bg-card">
+              <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
+                <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+                  {game.source === 'library' ? '别人的汤 / PLAYING' : '在办案件 / OPEN CASE'}
+                </span>
+                <span className="stamp px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
+                  机密
+                </span>
+              </div>
+              <div className="px-4 py-5 sm:px-5">
+                <h2 className="font-serif text-2xl leading-snug font-semibold">{game.title}</h2>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+                  <span>等级 {game.difficulty}</span>
+                  <span>已问 {game.turnCount} 轮</span>
+                  <span>更新 {formatWhen(game.updatedAt)}</span>
+                </div>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onContinue(game.id)}
+                    className="flex items-center gap-2.5 bg-foreground px-6 py-3 font-mono text-[12px] font-bold tracking-[0.22em] text-background transition-opacity hover:opacity-85"
+                  >
+                    继续调查 <ArrowRight className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onAbandon(game.id)}
+                    className="border border-foreground/30 px-5 py-3 font-mono text-[11px] tracking-[0.18em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+                  >
+                    中止本案
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onContinue(activeGame.id)}
-                className="flex items-center gap-2.5 bg-foreground px-6 py-3 font-mono text-[12px] font-bold tracking-[0.22em] text-background transition-opacity hover:opacity-85"
-              >
-                继续调查 <ArrowRight className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onAbandon(activeGame.id)}
-                className="border border-foreground/30 px-5 py-3 font-mono text-[11px] tracking-[0.18em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
-              >
-                中止本案
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
-      ) : (
+      ) : null}
+
+      {canGenerate ? (
         <>
           <div className="mt-9">
             <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
@@ -127,7 +135,9 @@ export function Landing({
                   onClick={() => onDifficultyChange(item.value)}
                   className={cn(
                     'border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r',
-                    difficulty === item.value ? 'bg-foreground text-background' : 'hover:bg-foreground/5',
+                    difficulty === item.value
+                      ? 'bg-foreground text-background'
+                      : 'hover:bg-foreground/5',
                   )}
                 >
                   <div className="font-mono text-[10px] tracking-[0.2em] opacity-60">
@@ -194,6 +204,10 @@ export function Landing({
             )}
           </button>
         </>
+      ) : (
+        <div className="mt-9 border-l-2 border-stamp bg-card px-4 py-3 font-mono text-[11px] leading-6 text-stamp">
+          自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。
+        </div>
       )}
 
       {archives.length ? (

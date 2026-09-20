@@ -7,7 +7,7 @@ export interface ArchivedGame {
   title: string
   surface: string
   difficulty: string
-  source: 'llm' | 'builtin'
+  source: 'llm' | 'builtin' | 'library'
   hostGreeting: string
   hint: string
   createdAt: number

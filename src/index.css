@@ -1,0 +1,290 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+  --radius: 1rem;
+
+  --background: oklch(0.155 0.012 62);
+  --foreground: oklch(0.93 0.014 82);
+  --card: oklch(0.195 0.014 62);
+  --card-foreground: oklch(0.93 0.014 82);
+  --popover: oklch(0.2 0.014 62);
+  --popover-foreground: oklch(0.93 0.014 82);
+  --primary: oklch(0.81 0.125 78);
+  --primary-foreground: oklch(0.19 0.035 60);
+  --secondary: oklch(0.26 0.02 64);
+  --secondary-foreground: oklch(0.92 0.015 82);
+  --muted: oklch(0.245 0.016 64);
+  --muted-foreground: oklch(0.7 0.022 76);
+  --accent: oklch(0.32 0.04 70);
+  --accent-foreground: oklch(0.95 0.02 82);
+  --destructive: oklch(0.68 0.18 25);
+  --destructive-foreground: oklch(0.98 0.01 80);
+  --border: oklch(0.86 0.05 82 / 13%);
+  --input: oklch(0.86 0.05 82 / 16%);
+  --ring: oklch(0.81 0.125 78 / 60%);
+
+  --v-yes: oklch(0.8 0.15 158);
+  --v-no: oklch(0.72 0.17 28);
+  --v-partly: oklch(0.84 0.14 82);
+  --v-irrelevant: oklch(0.72 0.02 78);
+
+  --font-sans:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
+  --font-serif:
+    'Source Han Serif SC', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', ui-serif, Georgia,
+    serif;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    background-image:
+      radial-gradient(90rem 55rem at 12% -18%, oklch(0.55 0.11 70 / 22%), transparent 60%),
+      radial-gradient(70rem 45rem at 108% 6%, oklch(0.5 0.08 40 / 16%), transparent 55%),
+      radial-gradient(60rem 50rem at 50% 120%, oklch(0.4 0.06 300 / 10%), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    pointer-events: none;
+    opacity: 0.045;
+    mix-blend-mode: overlay;
+    background-size: 150px 150px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  ::selection {
+    background: oklch(0.81 0.125 78 / 30%);
+  }
+}
+
+@layer utilities {
+  .font-serif {
+    font-family: var(--font-serif);
+  }
+
+  .tracking-wordmark {
+    letter-spacing: 0.42em;
+  }
+
+  .text-shadow-warm {
+    text-shadow: 0 1px 24px oklch(0.81 0.125 78 / 28%);
+  }
+
+  .surface-prose {
+    white-space: pre-wrap;
+    line-height: 2;
+  }
+
+  .card-ornament {
+    position: relative;
+  }
+
+  .card-ornament::before,
+  .card-ornament::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: oklch(0.81 0.125 78 / 45%);
+    border-style: solid;
+    pointer-events: none;
+  }
+
+  .card-ornament::before {
+    top: 10px;
+    left: 10px;
+    border-width: 1px 0 0 1px;
+  }
+
+  .card-ornament::after {
+    bottom: 10px;
+    right: 10px;
+    border-width: 0 1px 1px 0;
+  }
+
+  .verdict-yes {
+    --tone: var(--v-yes);
+  }
+
+  .verdict-no {
+    --tone: var(--v-no);
+  }
+
+  .verdict-partly {
+    --tone: var(--v-partly);
+  }
+
+  .verdict-irrelevant {
+    --tone: var(--v-irrelevant);
+  }
+
+  .verdict-token {
+    color: var(--tone);
+    border-color: color-mix(in oklch, var(--tone) 45%, transparent);
+    background: color-mix(in oklch, var(--tone) 14%, transparent);
+    box-shadow: 0 0 30px color-mix(in oklch, var(--tone) 18%, transparent);
+  }
+
+  .animate-rise-in {
+    animation: rise-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.7s ease both;
+  }
+
+  .animate-pop {
+    animation: pop 0.45s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+  }
+
+  .animate-steam {
+    animation: steam 4.2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 2.6s linear infinite;
+  }
+
+  .animate-soft-pulse {
+    animation: soft-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes steam {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scaleX(0.85);
+  }
+  25% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scaleX(1.35);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.81 0.125 78 / 25%) transparent;
+}
+
+.chat-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: oklch(0.81 0.125 78 / 22%);
+  border-radius: 999px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

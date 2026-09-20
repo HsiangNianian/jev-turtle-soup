@@ -1,7 +1,39 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 
-import { ApiError, askHost, health, startGame, type GameEnv } from '../shared/game.ts'
+import {
+  ApiError,
+  askHost,
+  health,
+  revealGame,
+  startGame,
+  type GameEnv,
+  type Puzzle,
+  type PuzzleStore,
+} from '../shared/game.ts'
+
+/** Dev-only in-memory stand-in for D1: sessions live as long as the process. */
+function memoryStore(): PuzzleStore {
+  const puzzles = new Map<string, Puzzle & { difficulty: string; createdAt: number }>()
+  return {
+    async create(puzzle, meta) {
+      const id = crypto.randomUUID()
+      puzzles.set(id, { ...puzzle, ...meta })
+      return id
+    },
+    async get(id) {
+      const found = puzzles.get(id)
+      return found ? { ...found } : null
+    },
+    async sweep(olderThan) {
+      for (const [id, puzzle] of puzzles) {
+        if (puzzle.createdAt < olderThan) puzzles.delete(id)
+      }
+    },
+  }
+}
+
+const store = memoryStore()
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
   const payload = JSON.stringify(body)
@@ -24,7 +56,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   }
 }
 
-const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask'])
+const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask', '/api/game/reveal'])
 
 async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
@@ -57,10 +89,14 @@ async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
 
   const body = await readJson(req)
   if (path === '/api/game/new') {
-    sendJson(res, 200, await startGame(env, body))
+    sendJson(res, 200, await startGame(env, store, body))
     return
   }
-  sendJson(res, 200, await askHost(env, body))
+  if (path === '/api/game/reveal') {
+    sendJson(res, 200, await revealGame(store, body))
+    return
+  }
+  sendJson(res, 200, await askHost(env, store, body))
 }
 
 async function handler(env: GameEnv, req: IncomingMessage, res: ServerResponse) {

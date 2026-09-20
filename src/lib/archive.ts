@@ -74,8 +74,6 @@ export function toSession(game: ArchivedGame): GameSession {
     sessionId: game.id,
     title: game.title,
     surface: game.surface,
-    truth: game.truth ?? '',
-    hint: game.hint ?? '',
     difficulty: game.difficulty,
     source: game.source,
     hostGreeting: game.hostGreeting,

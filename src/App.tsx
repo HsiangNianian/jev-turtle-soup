@@ -17,6 +17,7 @@ import {
   askHost,
   createGame,
   fetchHealth,
+  revealGame,
   type ChatMessage,
   type GameSession,
   type HealthInfo,
@@ -98,7 +99,7 @@ export default function App() {
         difficulty: session.difficulty,
         source: session.source,
         hostGreeting: session.hostGreeting,
-        hint: session.hint,
+        hint: '',
         createdAt: startedAt,
         updatedAt: Date.now(),
         messages,
@@ -163,7 +164,7 @@ export default function App() {
       setSession(created)
       setMessages([{ id: crypto.randomUUID(), role: 'host', text: created.hostGreeting }])
       setRevealed(false)
-      setTruth(created.truth)
+      setTruth(null)
       setSolved(false)
       setCloseness(null)
       setTurnCount(0)
@@ -182,8 +183,6 @@ export default function App() {
       sessionId: crypto.randomUUID(),
       title: puzzle.title,
       surface: puzzle.surface,
-      truth: '',
-      hint: '',
       difficulty: puzzle.difficulty,
       source: 'library',
       hostGreeting: '汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。',
@@ -265,31 +264,32 @@ export default function App() {
 
   const handleReveal = useCallback(async () => {
     if (!session || revealed) return
-    if (session.libraryId) {
-      try {
-        const result = await revealLibraryPuzzle(session.libraryId)
-        setTruth(result.truth)
-      } catch (error) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'host',
-            tone: 'error',
-            text: error instanceof Error ? error.message : '揭晓失败',
-          },
-        ])
-        return
-      }
-    } else {
-      setTruth(session.truth)
+    try {
+      const result = session.libraryId
+        ? await revealLibraryPuzzle(session.libraryId)
+        : await revealGame(session.sessionId)
+      setTruth(result.truth)
+      setRevealed(true)
+      setDrawerOpen(true)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'host',
+          text: '（主持人把碗底翻了过来，汤底就在案卷里。）',
+        },
+      ])
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'host',
+          tone: 'error',
+          text: error instanceof Error ? error.message : '揭晓失败',
+        },
+      ])
     }
-    setRevealed(true)
-    setDrawerOpen(true)
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: 'host', text: '（主持人把碗底翻了过来，汤底就在案卷里。）' },
-    ])
   }, [revealed, session])
 
   const handleQuick = useCallback(

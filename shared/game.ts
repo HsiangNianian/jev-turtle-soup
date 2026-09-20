@@ -490,7 +490,20 @@ export function health(env: GameEnv) {
   }
 }
 
-export async function startGame(env: GameEnv, body: Record<string, unknown>) {
+/**
+ * Somewhere to keep a puzzle's truth. The Worker backs this with D1, the Vite
+ * dev middleware with an in-memory map, so generated answers never travel to
+ * the browser.
+ */
+export interface PuzzleStore {
+  create(puzzle: Puzzle, meta: { difficulty: string; createdAt: number }): Promise<string>
+  get(id: string): Promise<(Puzzle & { difficulty: string }) | null>
+  sweep(olderThan: number): Promise<void>
+}
+
+const SESSION_RETENTION_MS = 1000 * 60 * 60 * 24 * 90
+
+export async function startGame(env: GameEnv, store: PuzzleStore, body: Record<string, unknown>) {
   const difficulty =
     typeof body.difficulty === 'string' && body.difficulty.trim() ? body.difficulty.trim() : '中等'
   const theme = typeof body.theme === 'string' ? body.theme : ''
@@ -515,19 +528,23 @@ export async function startGame(env: GameEnv, body: Record<string, unknown>) {
     source = 'builtin'
   }
 
+  await store.sweep(Date.now() - SESSION_RETENTION_MS)
+  const sessionId = await store.create(
+    { title: puzzle.title, surface: puzzle.surface, truth: puzzle.truth, hint: puzzle.hint },
+    { difficulty: puzzle.difficulty ?? difficulty, createdAt: Date.now() },
+  )
+
   return {
-    sessionId: crypto.randomUUID(),
+    sessionId,
     title: puzzle.title,
     surface: puzzle.surface,
-    truth: puzzle.truth,
-    hint: puzzle.hint,
     difficulty: puzzle.difficulty ?? difficulty,
     source,
     hostGreeting: '汤面已经端上来了。开始提问吧，我只会回答「是」「不是」「无关」或者「是，也不是」。',
   }
 }
 
-function readPuzzle(value: unknown): Puzzle {
+export function readPuzzle(value: unknown): Puzzle {
   if (!value || typeof value !== 'object') throw new ApiError(400, '缺少汤面与汤底')
   const puzzle = value as Partial<Puzzle>
   const title = typeof puzzle.title === 'string' ? puzzle.title.trim() : ''
@@ -538,8 +555,22 @@ function readPuzzle(value: unknown): Puzzle {
   return { title, surface, truth, hint }
 }
 
-export async function askHost(env: GameEnv, body: Record<string, unknown>) {
-  const puzzle = readPuzzle(body.puzzle)
+export async function askHost(env: GameEnv, store: PuzzleStore, body: Record<string, unknown>) {
+  const puzzleId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
+  const puzzle = puzzleId ? await store.get(puzzleId) : null
+  if (!puzzle) throw new ApiError(404, '这一局已经过期了，请重新生成一碗海龟汤')
+  return judge(env, puzzle, body)
+}
+
+export async function revealGame(store: PuzzleStore, body: Record<string, unknown>) {
+  const puzzleId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
+  const puzzle = puzzleId ? await store.get(puzzleId) : null
+  if (!puzzle) throw new ApiError(404, '这一局已经过期了，请重新生成一碗海龟汤')
+  return { title: puzzle.title, truth: puzzle.truth, hint: puzzle.hint }
+}
+
+/** Judge a single player message against a puzzle whose truth we already hold. */
+export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, unknown>) {
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   if (!message) throw new ApiError(400, '请输入内容')
   if (message.length > MAX_MESSAGE_CHARS) throw new ApiError(400, '内容太长了，缩短一点再问吧')

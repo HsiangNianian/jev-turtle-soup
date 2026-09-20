@@ -1,6 +1,6 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
-import { askHost, type GameEnv } from './game.ts'
+import { judge, type GameEnv } from './game.ts'
 
 export type Visibility = 'public' | 'private'
 
@@ -156,11 +156,11 @@ export async function askLibraryPuzzle(
   body: Record<string, unknown>,
 ) {
   const row = await loadPlayable(db, id, uid)
-  const turn = await askHost(env, {
-    puzzle: { title: row.title, surface: row.surface, truth: row.truth, hint: row.hint },
-    message: body.message,
-    history: body.history,
-  })
+  const turn = await judge(
+    env,
+    { title: row.title, surface: row.surface, truth: row.truth, hint: row.hint },
+    body,
+  )
 
   const now = Date.now()
   const existing = await db

@@ -1,4 +1,12 @@
-import { ApiError, askHost, health, startGame, type GameEnv } from '../shared/game.ts'
+import {
+  ApiError,
+  askHost,
+  health,
+  revealGame,
+  startGame,
+  type GameEnv,
+  type PuzzleStore,
+} from '../shared/game.ts'
 import {
   clearedCookie,
   destroySession,
@@ -68,6 +76,49 @@ async function readJson(request: Request): Promise<Record<string, unknown>> {
 
 function sessionToken(request: Request): string | null {
   return readCookie(request.headers.get('cookie'), SESSION_COOKIE)
+}
+
+const SESSION_VISIBILITY = 'session'
+
+function puzzleStore(db: D1Like): PuzzleStore {
+  return {
+    async create(puzzle, meta) {
+      const id = crypto.randomUUID()
+      await db
+        .prepare(
+          `INSERT INTO puzzles (id, owner_id, title, surface, truth, hint, difficulty, tags, visibility, plays, solves, created_at)
+           VALUES (?, '', ?, ?, ?, ?, ?, '[]', ?, 0, 0, ?)`,
+        )
+        .bind(
+          id,
+          puzzle.title,
+          puzzle.surface,
+          puzzle.truth,
+          puzzle.hint,
+          meta.difficulty,
+          SESSION_VISIBILITY,
+          meta.createdAt,
+        )
+        .run()
+      return id
+    },
+    async get(id) {
+      const row = await db
+        .prepare(
+          `SELECT title, surface, truth, hint, difficulty FROM puzzles
+           WHERE id = ? AND visibility = ?`,
+        )
+        .bind(id, SESSION_VISIBILITY)
+        .first<{ title: string; surface: string; truth: string; hint: string; difficulty: string }>()
+      return row ?? null
+    },
+    async sweep(olderThan) {
+      await db
+        .prepare('DELETE FROM puzzles WHERE visibility = ? AND created_at < ?')
+        .bind(SESSION_VISIBILITY, olderThan)
+        .run()
+    },
+  }
 }
 
 function requireDb(env: Env): D1Like {
@@ -241,7 +292,7 @@ async function routeProfile(request: Request, env: Env, pathname: string): Promi
   return json({ profile: await getPublicProfile(requireDb(env), handle) })
 }
 
-const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask'])
+const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask', '/api/game/reveal'])
 
 async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const pathname = url.pathname
@@ -264,9 +315,12 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   if (!POST_ROUTES.has(pathname)) return json({ error: '未知接口' }, 404)
   if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
 
+  const db = requireDb(env)
+  const store = puzzleStore(db)
   const body = await readJson(request)
-  if (pathname === '/api/game/new') return json(await startGame(env, body))
-  return json(await askHost(env, body))
+  if (pathname === '/api/game/new') return json(await startGame(env, store, body))
+  if (pathname === '/api/game/reveal') return json(await revealGame(store, body))
+  return json(await askHost(env, store, body))
 }
 
 export default {

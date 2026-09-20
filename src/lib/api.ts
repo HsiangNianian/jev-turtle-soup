@@ -2,13 +2,18 @@ export interface GameSession {
   sessionId: string
   title: string
   surface: string
-  truth: string
-  hint: string
   difficulty: string
   source: 'llm' | 'builtin' | 'library'
   hostGreeting: string
-  /** 题库里的题：汤底留在服务端，判读走 /api/library/puzzles/:id/ask */
+  /** 题库里的题：判读走 /api/library/puzzles/:id/ask */
   libraryId?: string
+}
+
+/** 汤底只存在于服务端；只有揭晓时才拿到。 */
+export interface RevealResult {
+  title: string
+  truth: string
+  hint: string
 }
 
 export interface ChoiceDebug {
@@ -79,15 +84,14 @@ export function createGame(difficulty: string, theme: string) {
 
 export function askHost(session: GameSession, message: string, history: ChatMessage[]) {
   return postJson<HostTurn>('/api/game/ask', {
-    puzzle: {
-      title: session.title,
-      surface: session.surface,
-      truth: session.truth,
-      hint: session.hint,
-    },
+    puzzleId: session.sessionId,
     message,
     history: history.map(({ role, text }) => ({ role, text })),
   })
+}
+
+export function revealGame(sessionId: string) {
+  return postJson<RevealResult>('/api/game/reveal', { puzzleId: sessionId })
 }
 
 export interface ChatMessage {

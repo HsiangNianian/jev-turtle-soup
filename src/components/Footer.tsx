@@ -3,7 +3,7 @@ import { Link } from '@/components/Link'
 const SISTER_SITES = [
   { label: '认知防锈', href: 'https://cortex.hydroroll.team' },
   { label: '烤死线', href: 'https://ddlroast.hydroroll.team' },
-  { label: '另一个游戏', href: 'https://deadpan.hydroroll.team' },
+  { label: '积案拂尘', href: 'https://deadpan.hydroroll.team' },
   { label: '另一个行测', href: 'https://lcti.hydroroll.team' },
 ]
 

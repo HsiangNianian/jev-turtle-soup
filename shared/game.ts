@@ -246,8 +246,14 @@ const HOST_QUESTIONS = {
         examples: ['He killed her because she cheated, right?', 'I think the mirror was fake.'],
       },
       meta: {
-        what: 'The player talks about the game itself: asks for a hint or the answer, asks about the rules, or makes small talk.',
-        examples: ['Give me a hint', 'What is the answer?', 'How do I play this?'],
+        what: 'The player talks about the game or about their own session rather than the hidden story: asks for a hint or the answer, asks about the rules, asks about their own luck or fortune today, or makes small talk.',
+        examples: [
+          'Give me a hint',
+          'What is the answer?',
+          'How do I play this?',
+          'How is my luck today?',
+          'What is my fortune?',
+        ],
       },
       unclear: {
         what: 'The message cannot be read as a question, a guess, or a meta request, or is unrelated to the story.',
@@ -393,6 +399,8 @@ function replyLuck(luck: LuckInfo | null) {
   return `主持人翻开手边的册子念了一句：「${luck.date}，人品 ${luck.score}，${luck.tier}——${mood}。宜${luck.good}，忌${luck.bad}。」他把册子合上，「信不信随你，汤底我是不会提前给你的。」`
 }
 
+const META_KINDS = new Set(['hint', 'full_answer', 'how_to_play', 'jrrp'])
+
 const VERDICT_REPLY: Record<string, string> = {
   yes: '是。',
   no: '不是。',
@@ -510,6 +518,16 @@ export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo
     }
     const reply = VERDICT_REPLY[verdict] ?? REPHRASE
     return { intent, verdict, solved: false, revealed: false, closeness: null, confidence, reply }
+  }
+
+  // 意图没判准、但元请求很明确时（例如「我今日人品怎么样」），照样按元请求回答
+  const metaChoice = answers.meta_request.choice as string
+  if (META_KINDS.has(metaChoice) && answers.meta_request.confidence >= 0.5) {
+    return {
+      ...handleMeta(metaChoice, puzzle, luck),
+      closeness: null,
+      confidence: answers.meta_request.confidence,
+    }
   }
 
   return {

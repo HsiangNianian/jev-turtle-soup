@@ -92,41 +92,6 @@ export function AboutPage() {
         没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。
       </p>
 
-      <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        技术 / STACK
-      </div>
-      <p className="mt-3 font-serif text-[14px] leading-7 text-foreground/80">
-        React 19 · Vite · Tailwind v4；Cloudflare Workers + D1 + KV；出题用 DeepSeek， 主持判读用
-        TypeSafe System One。源码在{' '}
-        <a
-          href="https://github.com/HsiangNianian/jev-turtle-soup"
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-        >
-          GitHub
-        </a>
-        ，更新记录见{' '}
-        <a
-          href="https://github.com/HsiangNianian/jev-turtle-soup/commits/main"
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-        >
-          提交历史
-        </a>
-        ，问题和建议请开{' '}
-        <a
-          href="https://github.com/HsiangNianian/jev-turtle-soup/issues"
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-        >
-          Issue
-        </a>
-        。
-      </p>
-
       <div className="mt-9">
         <Link
           to="/"

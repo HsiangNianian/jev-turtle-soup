@@ -215,6 +215,7 @@ async function generateWithLlm(
         thinking: { type: "enabled" },
         reasoning_effort: "high",
         // 思维链也要占 token（max 档常超过 1 万字），留足空间否则 content 会被挤空
+        temperature: 0.8,
         max_tokens: 32768,
       }),
       signal: controller.signal,

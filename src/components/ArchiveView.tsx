@@ -11,11 +11,10 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
   const caseFile = (
     <PuzzlePanel
       session={session}
-      revealed={game.truth !== null}
+      revealed={game.revealed}
       truth={game.truth}
       solved={game.solved}
       closeness={game.closeness}
-      revealing={false}
       turnCount={game.turnCount}
       ledger={ledger}
       onReveal={() => {}}

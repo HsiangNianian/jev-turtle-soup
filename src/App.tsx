@@ -10,7 +10,6 @@ import {
   askHost,
   createGame,
   fetchHealth,
-  revealTruth,
   type ChatMessage,
   type GameSession,
   type HealthInfo,
@@ -57,10 +56,8 @@ export default function App() {
   const [closeness, setCloseness] = useState<number | null>(null)
   const [generating, setGenerating] = useState(false)
   const [asking, setAsking] = useState(false)
-  const [revealing, setRevealing] = useState(false)
   const [turnCount, setTurnCount] = useState(0)
   const [startedAt, setStartedAt] = useState<number>(() => Date.now())
-  const [expired, setExpired] = useState(false)
   const [difficulty, setDifficulty] = useState('中等')
   const [theme, setTheme] = useState('')
   const [landingError, setLandingError] = useState<string | null>(null)
@@ -71,14 +68,8 @@ export default function App() {
       .catch(() => setHealth(null))
   }, [])
 
-  const gameOver = solved || revealed || expired
-  const liveStatus: GameStatus = solved
-    ? 'solved'
-    : revealed
-      ? 'revealed'
-      : expired
-        ? 'abandoned'
-        : 'active'
+  const gameOver = solved || revealed
+  const liveStatus: GameStatus = solved ? 'solved' : revealed ? 'revealed' : 'active'
 
   const buildEntry = useCallback(
     (status: GameStatus): ArchivedGame | null => {
@@ -90,6 +81,7 @@ export default function App() {
         difficulty: session.difficulty,
         source: session.source,
         hostGreeting: session.hostGreeting,
+        hint: session.hint,
         createdAt: startedAt,
         updatedAt: Date.now(),
         messages,
@@ -134,7 +126,6 @@ export default function App() {
     setCloseness(game.closeness)
     setTurnCount(game.turnCount)
     setStartedAt(game.createdAt)
-    setExpired(false)
     setLandingError(null)
   }, [])
 
@@ -162,11 +153,10 @@ export default function App() {
         },
       ])
       setRevealed(false)
-      setTruth(null)
+      setTruth(created.truth)
       setSolved(false)
       setCloseness(null)
       setTurnCount(0)
-      setExpired(false)
       setStartedAt(Date.now())
       setView('game')
     } catch (error) {
@@ -184,7 +174,7 @@ export default function App() {
       setAsking(true)
       setTurnCount((count) => count + 1)
       try {
-        const turn = await askHost(session.sessionId, text, history)
+        const turn = await askHost(session, text, history)
         setMessages((prev) => [
           ...prev,
           {
@@ -201,21 +191,20 @@ export default function App() {
         if (typeof turn.closeness === 'number') {
           setCloseness((prev) => Math.max(prev ?? 0, turn.closeness ?? 0))
         }
-        if (turn.solved) setSolved(true)
-        if (turn.revealed && turn.truth) {
-          setTruth(turn.truth)
+        if (turn.solved) {
+          setSolved(true)
+          setRevealed(true)
+        } else if (turn.revealed) {
           setRevealed(true)
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : '请求失败，请稍后再试'
-        if (message.includes('过期')) setExpired(true)
         setMessages((prev) => [
           ...prev,
           {
             id: crypto.randomUUID(),
             role: 'host',
             tone: 'error',
-            text: message,
+            text: error instanceof Error ? error.message : '请求失败，请稍后再试',
           },
         ])
       } finally {
@@ -225,42 +214,24 @@ export default function App() {
     [messages, session],
   )
 
-  const handleReveal = useCallback(async () => {
-    if (!session || revealing) return
-    setRevealing(true)
-    try {
-      const result = await revealTruth(session.sessionId)
-      setTruth(result.truth)
-      setRevealed(true)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'host',
-          text: '（主持人把碗底翻了过来，汤底就在案卷里。）',
-        },
-      ])
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '揭晓失败'
-      if (message.includes('过期')) setExpired(true)
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'host',
-          tone: 'error',
-          text: message,
-        },
-      ])
-    } finally {
-      setRevealing(false)
-    }
-  }, [revealing, session])
+  const handleReveal = useCallback(() => {
+    if (!session || revealed) return
+    setTruth(session.truth)
+    setRevealed(true)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: 'host',
+        text: '（主持人把碗底翻了过来，汤底就在案卷里。）',
+      },
+    ])
+  }, [revealed, session])
 
   const handleQuick = useCallback(
     (kind: 'hint' | 'reveal' | 'how_to_play') => {
       if (kind === 'reveal') {
-        void handleReveal()
+        handleReveal()
         return
       }
       void handleSend(kind === 'hint' ? '给我一点提示吧。' : '这个游戏怎么玩？')
@@ -310,7 +281,6 @@ export default function App() {
         setTruth(null)
         setSolved(false)
         setCloseness(null)
-        setExpired(false)
       }
       setViewingId(null)
       setView('landing')
@@ -328,7 +298,6 @@ export default function App() {
       truth={truth}
       solved={solved}
       closeness={closeness}
-      revealing={revealing}
       turnCount={turnCount}
       ledger={ledger}
       onReveal={handleReveal}
@@ -394,7 +363,7 @@ export default function App() {
           <TriangleAlert className="size-3.5 shrink-0" />
           <span className="min-w-0">
             {typesafeMissing ? (
-              <>未检测到 TYPESAFE_API_KEY，主持人 Jev 无法工作。请在 .env 中配置后重启。</>
+              <>未检测到 TYPESAFE_API_KEY，主持人 Jev 无法工作。请配置后重启。</>
             ) : (
               <>
                 未配置 LLM API Key（DEEPSEEK_API_KEY / OPENAI_API_KEY），当前使用内置题库。配置后可生成全新海龟汤。
@@ -419,13 +388,6 @@ export default function App() {
             >
               {casePanel}
             </CaseDrawer>
-
-            {expired ? (
-              <div className="flex shrink-0 items-center gap-2 border-b border-foreground/25 bg-stamp/[0.06] px-4 py-2 font-mono text-[10px] tracking-[0.16em] text-stamp sm:px-6">
-                <TriangleAlert className="size-3.5 shrink-0" />
-                服务端会话已过期，本案无法继续讯问。可重新立案。
-              </div>
-            ) : null}
 
             <ChatPanel
               messages={messages}

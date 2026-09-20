@@ -1,4 +1,4 @@
-import { Loader2, Lock, Unlock } from 'lucide-react'
+import { Lock, Unlock } from 'lucide-react'
 
 import type { GameSession } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -9,7 +9,6 @@ interface PuzzlePanelProps {
   truth: string | null
   solved: boolean
   closeness: number | null
-  revealing: boolean
   turnCount: number
   ledger: LedgerItem[]
   onReveal: () => void
@@ -45,7 +44,6 @@ export function PuzzlePanel({
   truth,
   solved,
   closeness,
-  revealing,
   turnCount,
   ledger,
   onReveal,
@@ -114,14 +112,9 @@ export function PuzzlePanel({
           <button
             type="button"
             onClick={onReveal}
-            disabled={revealing}
-            className="flex items-center gap-2 border border-foreground px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
+            className="flex items-center gap-2 border border-foreground px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] transition-colors hover:bg-foreground hover:text-background"
           >
-            {revealing ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Lock className="size-3.5" />
-            )}
+            <Lock className="size-3.5" />
             拆封汤底
           </button>
         )}

@@ -9,6 +9,7 @@ export interface ArchivedGame {
   difficulty: string
   source: 'llm' | 'builtin'
   hostGreeting: string
+  hint: string
   createdAt: number
   updatedAt: number
   messages: ChatMessage[]
@@ -73,6 +74,8 @@ export function toSession(game: ArchivedGame): GameSession {
     sessionId: game.id,
     title: game.title,
     surface: game.surface,
+    truth: game.truth ?? '',
+    hint: game.hint ?? '',
     difficulty: game.difficulty,
     source: game.source,
     hostGreeting: game.hostGreeting,

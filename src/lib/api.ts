@@ -2,6 +2,8 @@ export interface GameSession {
   sessionId: string
   title: string
   surface: string
+  truth: string
+  hint: string
   difficulty: string
   source: 'llm' | 'builtin'
   hostGreeting: string
@@ -38,15 +40,8 @@ export interface HostTurn {
   closeness: number | null
   confidence: number | null
   reply: string
-  truth?: string
   model: string
   debug: DebugInfo
-}
-
-export interface RevealResult {
-  title: string
-  truth: string
-  hint: string
 }
 
 export interface HealthInfo {
@@ -80,16 +75,17 @@ export function createGame(difficulty: string, theme: string) {
   return postJson<GameSession>('/api/game/new', { difficulty, theme })
 }
 
-export function askHost(sessionId: string, message: string, history: ChatMessage[]) {
+export function askHost(session: GameSession, message: string, history: ChatMessage[]) {
   return postJson<HostTurn>('/api/game/ask', {
-    sessionId,
+    puzzle: {
+      title: session.title,
+      surface: session.surface,
+      truth: session.truth,
+      hint: session.hint,
+    },
     message,
     history: history.map(({ role, text }) => ({ role, text })),
   })
-}
-
-export function revealTruth(sessionId: string) {
-  return postJson<RevealResult>('/api/game/reveal', { sessionId })
 }
 
 export interface ChatMessage {

@@ -7,6 +7,9 @@ import { SUPERNATURAL_TAG, listPuzzles, listTags, type LibraryPuzzle } from '@/l
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
 
+/** 「怪力乱神」常驻第一个，加上数量最高的九个，一共十格。 */
+const TAG_SLOTS = 10
+
 function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
   return (
     <Link
@@ -98,7 +101,8 @@ export function LibraryPage() {
             tag: SUPERNATURAL_TAG,
             count: tags.find((item) => item.tag === SUPERNATURAL_TAG)?.count ?? 0,
           },
-          ...tags.filter((item) => item.tag !== SUPERNATURAL_TAG),
+          // 怪力乱神固定占一个位置，其余按使用数取前九个
+          ...tags.filter((item) => item.tag !== SUPERNATURAL_TAG).slice(0, TAG_SLOTS - 1),
         ].map((item) => (
           <button
             key={item.tag}

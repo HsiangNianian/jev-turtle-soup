@@ -24,14 +24,19 @@ async function readJson(request: Request): Promise<Record<string, unknown>> {
   }
 }
 
+const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask'])
+
 async function route(request: Request, env: Env, pathname: string): Promise<Response> {
-  if (request.method === 'GET' && pathname === '/api/health') return json(health(env))
+  if (pathname === '/api/health') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    return json(health(env))
+  }
+  if (!POST_ROUTES.has(pathname)) return json({ error: '未知接口' }, 404)
   if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
 
   const body = await readJson(request)
   if (pathname === '/api/game/new') return json(await startGame(env, body))
-  if (pathname === '/api/game/ask') return json(await askHost(env, body))
-  return json({ error: '未知接口' }, 404)
+  return json(await askHost(env, body))
 }
 
 export default {

@@ -24,12 +24,22 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   }
 }
 
+const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask'])
+
 async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const path = url.pathname
 
-  if (req.method === 'GET' && path === '/api/health') {
+  if (path === '/api/health') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { error: '方法不被允许' })
+      return
+    }
     sendJson(res, 200, health(env))
+    return
+  }
+  if (!POST_ROUTES.has(path)) {
+    sendJson(res, 404, { error: '未知接口' })
     return
   }
   if (req.method !== 'POST') {
@@ -38,16 +48,11 @@ async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
   }
 
   const body = await readJson(req)
-
   if (path === '/api/game/new') {
     sendJson(res, 200, await startGame(env, body))
     return
   }
-  if (path === '/api/game/ask') {
-    sendJson(res, 200, await askHost(env, body))
-    return
-  }
-  sendJson(res, 404, { error: '未知接口' })
+  sendJson(res, 200, await askHost(env, body))
 }
 
 async function handler(env: GameEnv, req: IncomingMessage, res: ServerResponse) {

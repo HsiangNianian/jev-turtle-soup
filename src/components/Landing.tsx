@@ -1,57 +1,62 @@
-import { useState } from 'react'
-import { ArrowRight, Loader2, Lock } from 'lucide-react'
+import { useState } from "react";
+import { ArrowRight, Loader2, Lock } from "lucide-react";
 
-import { DailyLuck } from '@/components/DailyLuck'
-import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
-import { cn } from '@/lib/utils'
+import { DailyLuck } from "@/components/DailyLuck";
+import {
+  STATUS_LABEL,
+  formatWhen,
+  type ArchivedGame,
+  type GameStatus,
+} from "@/lib/archive";
+import { cn } from "@/lib/utils";
 
 const GENRE_CHOICES = [
-  { value: 'realistic', label: '本格', hint: '现实向推理' },
-  { value: 'supernatural', label: '怪力乱神', hint: '鬼神 · 因果 · 禁忌' },
-] as const
+  { value: "realistic", label: "本格", hint: "现实向推理" },
+  { value: "supernatural", label: "怪力乱神", hint: "鬼神 · 因果 · 禁忌" },
+] as const;
 
 const DIFFICULTIES = [
-  { value: '简单', hint: '线索直给' },
-  { value: '中等', hint: '需要联想' },
-  { value: '困难', hint: '反转刁钻' },
-] as const
+  { value: "简单", hint: "线索直给" },
+  { value: "中等", hint: "需要联想" },
+  { value: "困难", hint: "反转刁钻" },
+] as const;
 
 const STAMP_TONE: Record<GameStatus, string> = {
-  active: 'border-stamp text-stamp',
-  solved: 'border-[var(--v-yes)] text-[var(--v-yes)]',
-  revealed: 'border-stamp text-stamp',
-  abandoned: 'border-muted-foreground/60 text-muted-foreground',
-}
+  active: "border-stamp text-stamp",
+  solved: "border-[var(--v-yes)] text-[var(--v-yes)]",
+  revealed: "border-stamp text-stamp",
+  abandoned: "border-muted-foreground/60 text-muted-foreground",
+};
 
 function StatusStamp({ status }: { status: GameStatus }) {
   return (
     <span
       className={cn(
-        'shrink-0 border px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.16em]',
+        "shrink-0 border px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.16em]",
         STAMP_TONE[status],
       )}
     >
       {STATUS_LABEL[status]}
     </span>
-  )
+  );
 }
 
 interface LandingProps {
-  difficulty: string
-  genre: 'realistic' | 'supernatural'
-  theme: string
-  generating: boolean
-  error: string | null
-  activeGames: ArchivedGame[]
-  canGenerate: boolean
-  archives: ArchivedGame[]
-  onDifficultyChange: (value: string) => void
-  onGenreChange: (value: 'realistic' | 'supernatural') => void
-  onThemeChange: (value: string) => void
-  onGenerate: () => void
-  onContinue: (id: string) => void
-  onView: (id: string) => void
-  onAbandon: (id: string) => void
+  difficulty: string;
+  genre: "realistic" | "supernatural";
+  theme: string;
+  generating: boolean;
+  error: string | null;
+  activeGames: ArchivedGame[];
+  canGenerate: boolean;
+  archives: ArchivedGame[];
+  onDifficultyChange: (value: string) => void;
+  onGenreChange: (value: "realistic" | "supernatural") => void;
+  onThemeChange: (value: string) => void;
+  onGenerate: () => void;
+  onContinue: (id: string) => void;
+  onView: (id: string) => void;
+  onAbandon: (id: string) => void;
 }
 
 export function Landing({
@@ -71,7 +76,7 @@ export function Landing({
   onView,
   onAbandon,
 }: LandingProps) {
-  const [focused, setFocused] = useState(false)
+  const [focused, setFocused] = useState(false);
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center px-5 py-12 sm:px-6 sm:py-16">
@@ -86,7 +91,8 @@ export function Landing({
       </div>
       <div className="mt-6 h-px w-full bg-foreground/80" />
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-        每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。
+        每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 /
+        不是」的问题，逐步还原被隐去的真相。
       </p>
 
       {activeGames.length ? (
@@ -95,14 +101,18 @@ export function Landing({
             <div key={game.id} className="border border-foreground bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
                 <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-                  {game.source === 'library' ? '别人的汤 / PLAYING' : '在办案件 / OPEN CASE'}
+                  {game.source === "library"
+                    ? "别人的汤 / PLAYING"
+                    : "在办案件 / OPEN CASE"}
                 </span>
                 <span className="stamp px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
                   机密
                 </span>
               </div>
               <div className="px-4 py-5 sm:px-5">
-                <h2 className="font-serif text-2xl leading-snug font-semibold">{game.title}</h2>
+                <h2 className="font-serif text-2xl leading-snug font-semibold">
+                  {game.title}
+                </h2>
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
                   <span>等级 {game.difficulty}</span>
                   <span>已问 {game.turnCount} 轮</span>
@@ -143,17 +153,21 @@ export function Landing({
                   type="button"
                   onClick={() => onDifficultyChange(item.value)}
                   className={cn(
-                    'border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r',
+                    "border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r",
                     difficulty === item.value
-                      ? 'bg-foreground text-background'
-                      : 'hover:bg-foreground/5',
+                      ? "bg-foreground text-background"
+                      : "hover:bg-foreground/5",
                   )}
                 >
                   <div className="font-mono text-[10px] tracking-[0.2em] opacity-60">
                     等级 0{index + 1}
                   </div>
-                  <div className="mt-1.5 font-serif text-base">{item.value}</div>
-                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{item.hint}</div>
+                  <div className="mt-1.5 font-serif text-base">
+                    {item.value}
+                  </div>
+                  <div className="mt-0.5 font-mono text-[10px] opacity-55">
+                    {item.hint}
+                  </div>
                 </button>
               ))}
             </div>
@@ -170,14 +184,16 @@ export function Landing({
                   type="button"
                   onClick={() => onGenreChange(item.value)}
                   className={cn(
-                    'border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r',
+                    "border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r",
                     genre === item.value
-                      ? 'bg-foreground text-background'
-                      : 'hover:bg-foreground/5',
+                      ? "bg-foreground text-background"
+                      : "hover:bg-foreground/5",
                   )}
                 >
                   <div className="font-serif text-base">{item.label}</div>
-                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{item.hint}</div>
+                  <div className="mt-0.5 font-mono text-[10px] opacity-55">
+                    {item.hint}
+                  </div>
                 </button>
               ))}
             </div>
@@ -192,23 +208,26 @@ export function Landing({
             </label>
             <div
               className={cn(
-                'mt-3 flex items-center gap-3 border bg-card px-4',
-                focused ? 'border-foreground' : 'border-foreground/30',
+                "mt-3 flex items-center gap-3 border bg-card px-4",
+                focused ? "border-foreground" : "border-foreground/30",
               )}
             >
               <input
                 id="theme"
                 value={theme}
-                placeholder="医院、密室、雨夜、老房子……"
+                placeholder="医院、密室、雨夜、老房子、凶杀、伦理、感情……"
                 onChange={(event) => onThemeChange(event.target.value)}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !generating) onGenerate()
+                  if (event.key === "Enter" && !generating) onGenerate();
                 }}
                 className="h-12 flex-1 bg-transparent font-serif text-sm outline-none placeholder:text-muted-foreground/70"
               />
-              <span aria-hidden className="font-mono text-[11px] text-muted-foreground">
+              <span
+                aria-hidden
+                className="font-mono text-[11px] text-muted-foreground"
+              >
                 ↵
               </span>
             </div>
@@ -239,7 +258,8 @@ export function Landing({
         </>
       ) : (
         <div className="mt-9 border-l-2 border-stamp bg-card px-4 py-3 font-mono text-[11px] leading-6 text-stamp">
-          自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。
+          自己那碗还没喝完——结案（猜中 / 揭晓 /
+          中止）之后才能立案新的。想先玩别人的汤，可以去题库。
         </div>
       )}
 
@@ -250,7 +270,7 @@ export function Landing({
               档案室 / ARCHIVE
             </span>
             <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/70">
-              {String(archives.length).padStart(2, '0')} 卷
+              {String(archives.length).padStart(2, "0")} 卷
             </span>
           </div>
           <ul className="mt-3 border-t border-foreground/25">
@@ -263,7 +283,9 @@ export function Landing({
                 >
                   <StatusStamp status={game.status} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-serif text-[15px]">{game.title}</span>
+                    <span className="block truncate font-serif text-[15px]">
+                      {game.title}
+                    </span>
                     <span className="mt-0.5 block font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
                       {formatWhen(game.updatedAt)} · 已问 {game.turnCount} 轮
                     </span>
@@ -281,5 +303,5 @@ export function Landing({
         中途离开也没关系，进度会自动留在本机
       </div>
     </div>
-  )
+  );
 }

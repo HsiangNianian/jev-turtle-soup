@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Loader2, RotateCcw, TriangleAlert } from 'lucide-react'
 
+import { AboutPage } from '@/components/AboutPage'
 import { ArchiveView } from '@/components/ArchiveView'
 import { CaseDrawer } from '@/components/CaseDrawer'
 import { ChatPanel } from '@/components/ChatPanel'
+import { Footer } from '@/components/Footer'
 import { Landing } from '@/components/Landing'
 import { LibraryPage } from '@/components/LibraryPage'
 import { LoginPage } from '@/components/LoginPage'
@@ -431,6 +433,13 @@ export default function App() {
         </ScrollArea>
       )
     }
+    if (path === '/about') {
+      return (
+        <ScrollArea>
+          <AboutPage />
+        </ScrollArea>
+      )
+    }
     if (path === '/library') {
       return (
         <ScrollArea>
@@ -497,7 +506,7 @@ export default function App() {
     }
 
     return (
-      <main className="chat-scroll min-h-0 flex-1 overflow-y-auto">
+      <ScrollArea>
         <Landing
           difficulty={difficulty}
           genre={genre}
@@ -515,7 +524,7 @@ export default function App() {
           onView={(id) => navigate(`/archive/${id}`)}
           onAbandon={handleAbandon}
         />
-      </main>
+      </ScrollArea>
     )
   }
 
@@ -617,7 +626,12 @@ export default function App() {
 
 /** Document-style pages (library, profile, forms) scroll inside the fixed app shell. */
 function ScrollArea({ children }: { children: React.ReactNode }) {
-  return <main className="chat-scroll min-h-0 flex-1 overflow-y-auto">{children}</main>
+  return (
+    <main className="chat-scroll min-h-0 flex-1 overflow-y-auto">
+      {children}
+      <Footer />
+    </main>
+  )
 }
 
 function Missing({ label, message }: { label: string; message: string }) {

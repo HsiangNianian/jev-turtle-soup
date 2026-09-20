@@ -278,7 +278,7 @@ export function Landing({
 
       <div className="mt-14 flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">
         <Lock className="size-3" />
-        进度存在本机 · 汤底留在服务端
+        中途离开也没关系，进度会自动留在本机
       </div>
     </div>
   )

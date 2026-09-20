@@ -345,6 +345,23 @@ export default function App() {
     [buildEntry, session],
   )
 
+  const handleDeleteArchive = useCallback(
+    (id: string) => {
+      // 删除的是当前正开着的那一局时，先把会话清掉，否则它会被实时存档重新写回
+      if (session?.sessionId === id) {
+        setSession(null)
+        setMessages([])
+        setTurnCount(0)
+        setRevealed(false)
+        setTruth(null)
+        setSolved(false)
+        setCloseness(null)
+      }
+      setGames((prev) => persist(prev.filter((game) => game.id !== id)))
+    },
+    [session],
+  )
+
   const handleLogin = useCallback((next: AuthUser) => {
     setUser(next)
     navigate('/', { replace: true })
@@ -515,6 +532,7 @@ export default function App() {
           onContinue={handleContinue}
           onView={(id) => navigate(`/archive/${id}`)}
           onAbandon={handleAbandon}
+          onDelete={handleDeleteArchive}
         />
       </ScrollArea>
     )

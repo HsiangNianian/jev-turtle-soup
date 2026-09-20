@@ -1,9 +1,19 @@
 import { useState } from 'react'
-import { ArrowRight, Loader2, Lock } from 'lucide-react'
+import { ArrowRight, Loader2, Lock, Trash2 } from 'lucide-react'
 
 import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
 import { cn } from '@/lib/utils'
+
+const SKIP_DELETE_CONFIRM_KEY = 'turtle-soup.archive.skip-delete-confirm'
+
+function readSkipDeleteConfirm(): boolean {
+  try {
+    return localStorage.getItem(SKIP_DELETE_CONFIRM_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 const GENRE_CHOICES = [
   { value: 'realistic', label: '本格', hint: '现实向推理' },
@@ -52,6 +62,7 @@ interface LandingProps {
   onContinue: (id: string) => void
   onView: (id: string) => void
   onAbandon: (id: string) => void
+  onDelete: (id: string) => void
 }
 
 export function Landing({
@@ -70,7 +81,34 @@ export function Landing({
   onContinue,
   onView,
   onAbandon,
+  onDelete,
 }: LandingProps) {
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [dontAskAgain, setDontAskAgain] = useState(false)
+  const [skipConfirm, setSkipConfirm] = useState(readSkipDeleteConfirm)
+
+  function requestDelete(id: string) {
+    if (skipConfirm) {
+      onDelete(id)
+      return
+    }
+    setDontAskAgain(false)
+    setConfirmingId(id)
+  }
+
+  function confirmDelete(id: string) {
+    if (dontAskAgain) {
+      try {
+        localStorage.setItem(SKIP_DELETE_CONFIRM_KEY, '1')
+      } catch {
+        /* 隐私模式下忽略 */
+      }
+      setSkipConfirm(true)
+    }
+    setConfirmingId(null)
+    onDelete(id)
+  }
+
   const [focused, setFocused] = useState(false)
 
   return (
@@ -251,25 +289,68 @@ export function Landing({
             </span>
             <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/70">
               {String(archives.length).padStart(2, '0')} 卷
+              {archives.length > 5 ? ' · 可上下滑动' : ''}
             </span>
           </div>
-          <ul className="mt-3 border-t border-foreground/25">
+
+          <ul className="chat-scroll mt-3 max-h-[22.5rem] overflow-y-auto border-t border-foreground/25">
             {archives.map((game) => (
-              <li key={game.id}>
-                <button
-                  type="button"
-                  onClick={() => onView(game.id)}
-                  className="rule-dashed flex w-full items-center gap-3 py-3.5 text-left transition-colors hover:bg-foreground/[0.03]"
-                >
-                  <StatusStamp status={game.status} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-serif text-[15px]">{game.title}</span>
-                    <span className="mt-0.5 block font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-                      {formatWhen(game.updatedAt)} · 已问 {game.turnCount} 轮
+              <li key={game.id} className="rule-dashed flex h-[4.5rem] items-center gap-2">
+                {confirmingId === game.id ? (
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-2">
+                    <span className="font-serif text-[13px] text-muted-foreground">
+                      删除《{game.title}》？删除后无法恢复。
                     </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmDelete(game.id)}
+                      className="border border-stamp bg-stamp px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-background transition-opacity hover:opacity-85"
+                    >
+                      确认删除
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(null)}
+                      className="border border-foreground/30 px-3 py-1.5 font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      取消
+                    </button>
+                    <label className="flex cursor-pointer items-center gap-2 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={dontAskAgain}
+                        onChange={(event) => setDontAskAgain(event.target.checked)}
+                        className="size-3.5 accent-[var(--stamp)]"
+                      />
+                      以后不再提示
+                    </label>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onView(game.id)}
+                      className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left"
+                    >
+                      <StatusStamp status={game.status} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-serif text-[15px]">{game.title}</span>
+                        <span className="mt-0.5 block font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+                          {formatWhen(game.updatedAt)} · 已问 {game.turnCount} 轮
+                        </span>
+                      </span>
+                      <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`删除《${game.title}》`}
+                      onClick={() => requestDelete(game.id)}
+                      className="flex size-8 shrink-0 items-center justify-center border border-transparent text-muted-foreground/50 transition-colors hover:border-stamp hover:text-stamp"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>

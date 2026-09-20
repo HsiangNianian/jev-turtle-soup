@@ -23,6 +23,7 @@ const META_LABEL: Record<string, string> = {
   hint: '要提示',
   full_answer: '要答案',
   how_to_play: '问玩法',
+  jrrp: '问人品',
   none: '—',
 }
 

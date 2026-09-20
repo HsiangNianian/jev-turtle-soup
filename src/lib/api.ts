@@ -84,11 +84,25 @@ export function createGame(difficulty: string, theme: string, genre: Genre) {
   return postJson<GameSession>('/api/game/new', { difficulty, theme, genre })
 }
 
-export function askHost(session: GameSession, message: string, history: ChatMessage[]) {
+export interface LuckPayload {
+  date: string
+  score: number
+  tier: string
+  good: string
+  bad: string
+}
+
+export function askHost(
+  session: GameSession,
+  message: string,
+  history: ChatMessage[],
+  luck?: LuckPayload,
+) {
   return postJson<HostTurn>('/api/game/ask', {
     puzzleId: session.sessionId,
     message,
     history: history.map(({ role, text }) => ({ role, text })),
+    luck,
   })
 }
 

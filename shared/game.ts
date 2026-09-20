@@ -326,6 +326,7 @@ const HOST_QUESTIONS = {
       hint: 'They want a hint to help them reason.',
       full_answer: 'They want the truth or solution revealed.',
       how_to_play: 'They ask about the rules or how to play.',
+      jrrp: 'They ask about their own luck or fortune for today (人品 / 今日人品 / 运势 / 手气), not about the story.',
       none: 'The player is not talking about the game itself.',
     },
   ),
@@ -355,6 +356,43 @@ interface HostAnswers {
   meta_request: ChoiceAnswer
 }
 
+export interface LuckInfo {
+  date: string
+  score: number
+  tier: string
+  good: string
+  bad: string
+}
+
+/** 今日人品是前端按「站点 + 日期 + 设备码」算出来的，回答时原样带回来即可。 */
+function readLuck(value: unknown): LuckInfo | null {
+  if (!value || typeof value !== 'object') return null
+  const luck = value as Partial<LuckInfo>
+  if (typeof luck.score !== 'number' || typeof luck.tier !== 'string') return null
+  return {
+    date: typeof luck.date === 'string' ? luck.date.slice(0, 10) : '',
+    score: Math.max(0, Math.min(100, Math.round(luck.score))),
+    tier: luck.tier.slice(0, 8),
+    good: typeof luck.good === 'string' ? luck.good.slice(0, 24) : '',
+    bad: typeof luck.bad === 'string' ? luck.bad.slice(0, 24) : '',
+  }
+}
+
+function replyLuck(luck: LuckInfo | null) {
+  if (!luck) {
+    return '主持人翻了翻手边的册子，又合上了：「今日人品得在首页那格日历上看——你刷新一下再来问我。」'
+  }
+  const mood =
+    luck.score >= 85
+      ? '今天手气好得反常'
+      : luck.score >= 60
+        ? '今天还算顺'
+        : luck.score >= 35
+          ? '今天不好不坏'
+          : '今天最好别硬猜'
+  return `主持人翻开手边的册子念了一句：「${luck.date}，人品 ${luck.score}，${luck.tier}——${mood}。宜${luck.good}，忌${luck.bad}。」他把册子合上，「信不信随你，汤底我是不会提前给你的。」`
+}
+
 const VERDICT_REPLY: Record<string, string> = {
   yes: '是。',
   no: '不是。',
@@ -366,7 +404,7 @@ const REPHRASE = '这个问题主持人有点拿不准……能换一个更具�
 const HOW_TO_PLAY =
   '玩法：主持人只会回答「是」「不是」「无关」或者「是，也不是」。你可以不断提出能用是 / 否回答的问题，一步步逼近汤底；也可以随时说出你的完整推理，猜对了就通关。'
 
-function handleMeta(kind: string, puzzle: Puzzle) {
+function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null) {
   if (kind === 'hint') {
     return {
       intent: 'meta',
@@ -394,6 +432,15 @@ function handleMeta(kind: string, puzzle: Puzzle) {
       reply: HOW_TO_PLAY,
     }
   }
+  if (kind === 'jrrp') {
+    return {
+      intent: 'meta',
+      verdict: 'jrrp',
+      solved: false,
+      revealed: false,
+      reply: replyLuck(luck),
+    }
+  }
   return {
     intent: 'meta',
     verdict: 'unclear',
@@ -403,7 +450,7 @@ function handleMeta(kind: string, puzzle: Puzzle) {
   }
 }
 
-export function composeTurn(puzzle: Puzzle, answers: HostAnswers) {
+export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo | null = null) {
   const intentAnswer = answers.intent
   const intent = intentAnswer.choice as string
   const intentConfidence = intentAnswer.confidence
@@ -441,7 +488,7 @@ export function composeTurn(puzzle: Puzzle, answers: HostAnswers) {
 
   if (intent === 'meta') {
     return {
-      ...handleMeta(answers.meta_request.choice as string, puzzle),
+      ...handleMeta(answers.meta_request.choice as string, puzzle, luck),
       closeness: null,
       confidence: answers.meta_request.confidence,
     }
@@ -630,6 +677,6 @@ export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, u
     questions: HOST_QUESTIONS,
   })
 
-  const turn = composeTurn(puzzle, answers)
+  const turn = composeTurn(puzzle, answers, readLuck(body.luck))
   return { ...turn, model, debug: buildDebug(answers) }
 }

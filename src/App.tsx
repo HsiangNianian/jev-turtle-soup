@@ -40,7 +40,7 @@ import {
   type LibraryPuzzleDetail,
 } from '@/lib/library-client'
 import { navigate, matchPath, usePath } from '@/lib/router'
-import { getDeviceId } from '@/lib/luck'
+import { dailyLuck, getDeviceId, todayKey } from '@/lib/luck'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
 
@@ -89,6 +89,17 @@ export default function App() {
     fetchMe()
       .then(setUser)
       .catch(() => setUser(null))
+  }, [])
+
+  const todayLuck = useMemo(() => {
+    const luck = dailyLuck(todayKey(), window.location.host, getDeviceId())
+    return {
+      date: luck.date,
+      score: luck.score,
+      tier: luck.tier.label,
+      good: luck.good,
+      bad: luck.bad,
+    }
   }, [])
 
   const gameOver = solved || revealed
@@ -222,8 +233,9 @@ export default function App() {
               text,
               history.map(({ role, text: body }) => ({ role, text: body })),
               getDeviceId(),
+              todayLuck,
             )
-          : await askHost(session, text, history)
+          : await askHost(session, text, history, todayLuck)
         setMessages((prev) => [
           ...prev,
           {
@@ -262,7 +274,7 @@ export default function App() {
         setAsking(false)
       }
     },
-    [messages, session],
+    [messages, session, todayLuck],
   )
 
   const handleReveal = useCallback(async () => {

@@ -1,4 +1,4 @@
-import type { HostTurn } from '@/lib/api'
+import type { HostTurn, LuckPayload } from '@/lib/api'
 
 /** 怪力乱神：既是出题题材，也是一个可筛选的标签。 */
 export const SUPERNATURAL_TAG = '怪力乱神'
@@ -103,10 +103,11 @@ export function askLibraryPuzzle(
   message: string,
   history: { role: string; text: string }[],
   playerKey: string,
+  luck?: LuckPayload,
 ) {
   return request<HostTurn>(`/api/library/puzzles/${encodeURIComponent(id)}/ask`, {
     method: 'POST',
-    body: JSON.stringify({ message, history, playerKey }),
+    body: JSON.stringify({ message, history, playerKey, luck }),
   })
 }
 

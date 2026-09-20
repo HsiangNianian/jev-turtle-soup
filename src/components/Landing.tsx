@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, Loader2, Lock, Trash2 } from 'lucide-react'
 
+import { Link } from '@/components/Link'
 import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
 import { cn } from '@/lib/utils'
@@ -257,12 +258,20 @@ export function Landing({
               {error}
             </p>
           ) : null}
+        </>
+      ) : (
+        <div className="mt-9 border-l-2 border-stamp bg-card px-4 py-3 font-mono text-[11px] leading-6 text-stamp">
+          自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。
+        </div>
+      )}
 
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        {canGenerate ? (
           <button
             type="button"
             onClick={onGenerate}
             disabled={generating}
-            className="mt-8 flex w-fit items-center gap-3 bg-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] text-background transition-opacity hover:opacity-85 disabled:opacity-50"
+            className="flex w-fit items-center gap-3 bg-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] text-background transition-opacity hover:opacity-85 disabled:opacity-50"
           >
             {generating ? (
               <>
@@ -274,12 +283,15 @@ export function Landing({
               </>
             )}
           </button>
-        </>
-      ) : (
-        <div className="mt-9 border-l-2 border-stamp bg-card px-4 py-3 font-mono text-[11px] leading-6 text-stamp">
-          自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。
-        </div>
-      )}
+        ) : null}
+
+        <Link
+          to="/library"
+          className="flex w-fit items-center gap-3 border border-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] transition-colors hover:bg-foreground hover:text-background"
+        >
+          去题库挑一碗 <ArrowRight className="size-4" />
+        </Link>
+      </div>
 
       {archives.length ? (
         <div className="mt-12">

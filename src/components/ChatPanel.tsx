@@ -4,6 +4,7 @@ import { ArrowRight, Eye, Lightbulb, Wand2 } from 'lucide-react'
 import { TurnDebug } from '@/components/TurnDebug'
 import type { ChatMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 interface ChatPanelProps {
   messages: ChatMessage[]
@@ -55,20 +56,21 @@ function Row({
 }
 
 export function Transcript({ messages, asking }: { messages: ChatMessage[]; asking?: boolean }) {
+  const { t } = useI18n()
   return (
     <>
       {messages.map((message, messageIndex) => {
         const isPlayer = message.role === 'player'
         const verdictText =
           message.tone === 'verdict' && message.verdict
-            ? (VERDICT_TEXT[message.verdict] ?? null)
+            ? (t(VERDICT_TEXT[message.verdict]) ?? null)
             : null
 
         return (
           <Row
             key={message.id}
             index={messageIndex + 1}
-            speaker={isPlayer ? '你' : '砚'}
+            speaker={isPlayer ? t('你') : t('砚')}
             tint={isPlayer ? 'player' : 'host'}
             debug={message.debug ? <TurnDebug debug={message.debug} /> : null}
           >
@@ -107,7 +109,7 @@ export function Transcript({ messages, asking }: { messages: ChatMessage[]; aski
       })}
 
       {asking ? (
-        <Row index={messages.length + 1} speaker="砚" tint="host">
+        <Row index={messages.length + 1} speaker={t('砚')} tint="host">
           <span className="flex items-center gap-1.5 py-1">
             {[0, 1, 2].map((dot) => (
               <span
@@ -124,6 +126,7 @@ export function Transcript({ messages, asking }: { messages: ChatMessage[]; aski
 }
 
 export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatPanelProps) {
+  const { t } = useI18n()
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -143,10 +146,10 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground px-4 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
         <span className="font-mono text-[10px] font-bold tracking-[0.2em] sm:text-[11px] sm:tracking-[0.22em]">
-          讯问记录 / TRANSCRIPT
+          {t('讯问记录 / TRANSCRIPT')}
         </span>
         <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
-          <span className="animate-soft-pulse size-1.5 rounded-full bg-[var(--v-yes)]" />砚 · Ellis
+          <span className="animate-soft-pulse size-1.5 rounded-full bg-[var(--v-yes)]" />{t('砚 · Ellis')}
         </span>
       </div>
 
@@ -163,7 +166,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
             className="flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
           >
             <Lightbulb className="size-3" />
-            求提示
+            {t('求提示')}
           </button>
           <button
             type="button"
@@ -172,7 +175,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
             className="flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
           >
             <Wand2 className="size-3" />
-            玩法
+            {t('玩法')}
           </button>
           <button
             type="button"
@@ -181,7 +184,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
             className="ml-auto flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
           >
             <Eye className="size-3" />
-            揭晓
+            {t('揭晓')}
           </button>
         </div>
 
@@ -193,7 +196,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
             value={input}
             disabled={disabled}
             rows={1}
-            placeholder={disabled ? '本案已结案 · 回到档案室可再立案' : '提出你的问题……'}
+            placeholder={disabled ? t('本案已结案 · 回到档案室可再立案') : t('提出你的问题……')}
             className="chat-scroll h-6 flex-1 resize-none bg-transparent font-serif text-sm leading-6 outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
@@ -207,7 +210,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
             type="button"
             onClick={submit}
             disabled={asking || disabled || !input.trim()}
-            aria-label="发送"
+            aria-label={t('发送')}
             className="flex size-8 shrink-0 items-center justify-center bg-foreground text-background transition-opacity hover:opacity-85 disabled:opacity-25"
           >
             <ArrowRight className="size-4" />

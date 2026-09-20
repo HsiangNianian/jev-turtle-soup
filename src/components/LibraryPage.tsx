@@ -6,6 +6,7 @@ import { Empty, PageShell, inputClass } from '@/components/Bits'
 import { SUPERNATURAL_TAG, listPuzzles, listTags, type LibraryPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
+import { useI18n } from '@/lib/i18n'
 
 /** 「怪力乱神」常驻第一个，加上数量最高的九个，一共十格。 */
 const TAG_SLOTS = 10
@@ -35,6 +36,7 @@ function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
 }
 
 export function LibraryPage() {
+  const { t } = useI18n()
   const [items, setItems] = useState<LibraryPuzzle[] | null>(null)
   const [sort, setSort] = useState<'new' | 'hot'>('new')
   const [query, setQuery] = useState('')
@@ -60,7 +62,7 @@ export function LibraryPage() {
             }
           })
           .catch((caught: unknown) => {
-            if (alive) setError(caught instanceof Error ? caught.message : '加载失败')
+            if (alive) setError(caught instanceof Error ? caught.message : t('加载失败'))
           })
       },
       query ? 250 : 0,
@@ -69,12 +71,12 @@ export function LibraryPage() {
       alive = false
       clearTimeout(timer)
     }
-  }, [sort, query, tag])
+  }, [sort, query, tag, t])
 
   return (
     <PageShell
-      label="题库 / LIBRARY"
-      title="别人熬的汤"
+      label={t('题库 / LIBRARY')}
+      title={t('别人熬的汤')}
       meta={
         <div className="flex items-center gap-1">
           {(['new', 'hot'] as const).map((key) => (
@@ -89,7 +91,7 @@ export function LibraryPage() {
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {key === 'new' ? '最新' : '最热'}
+              {key === 'new' ? t('最新') : t('最热')}
             </button>
           ))}
         </div>
@@ -125,7 +127,7 @@ export function LibraryPage() {
             onClick={() => setTag(null)}
             className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
           >
-            清除筛选
+            {t('清除筛选')}
           </button>
         ) : null}
       </div>
@@ -134,7 +136,7 @@ export function LibraryPage() {
         <Search className="size-4 shrink-0 text-muted-foreground" />
         <input
           value={query}
-          placeholder="按标题搜索……"
+          placeholder={t('按标题搜索……')}
           onChange={(event) => setQuery(event.target.value)}
           className={inputClass}
         />
@@ -148,7 +150,7 @@ export function LibraryPage() {
       ) : null}
       {items && !items.length ? (
         <Empty>
-          {tag ? `还没有带「${tag}」标签的汤。` : '还没有人公开过海龟汤，你可以第一个。'}
+          {tag ? `还没有带「${tag}」标签的汤。` : t('还没有人公开过海龟汤，你可以第一个。')}
         </Empty>
       ) : null}
 

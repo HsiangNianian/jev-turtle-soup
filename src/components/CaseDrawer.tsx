@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { ChevronUp, X } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 interface CaseDrawerProps {
   title: string
@@ -11,6 +12,7 @@ interface CaseDrawerProps {
 }
 
 export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDrawerProps) {
+  const { t } = useI18n()
   useEffect(() => {
     if (!open || typeof window === 'undefined') return
     // 只有移动端才真的铺满整屏，桌面端不要锁滚动
@@ -35,7 +37,7 @@ export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDr
         aria-expanded={open}
         className="flex w-full shrink-0 items-center gap-3 border-b border-foreground px-4 py-3 text-left transition-colors active:bg-foreground/[0.04]"
       >
-        <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">案卷</span>
+        <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">{t('案卷')}</span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-serif text-[15px] leading-6">{title}</span>
           <span className="mt-0.5 block font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
@@ -43,7 +45,7 @@ export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDr
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-          展开
+          {t('展开')}
           <ChevronUp className="size-3.5" />
         </span>
       </button>
@@ -52,19 +54,19 @@ export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDr
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            aria-label="收起案卷"
+            aria-label={t('收起案卷')}
             onClick={() => onOpenChange(false)}
             className="animate-fade-in absolute inset-0 bg-foreground/45"
           />
           <div className="animate-sheet-up absolute inset-x-0 top-12 bottom-0 flex flex-col bg-background">
             <div className="flex shrink-0 items-center gap-3 border-b border-foreground px-4 py-3">
               <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">
-                案卷
+                {t('案卷')}
               </span>
               <span className="min-w-0 flex-1 truncate font-serif text-[15px]">{title}</span>
               <button
                 type="button"
-                aria-label="收起案卷"
+                aria-label={t('收起案卷')}
                 onClick={() => onOpenChange(false)}
                 className="flex size-8 shrink-0 items-center justify-center border border-foreground transition-colors active:bg-foreground active:text-background"
               >

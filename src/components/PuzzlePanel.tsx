@@ -2,6 +2,7 @@ import { Lock, Unlock } from 'lucide-react'
 
 import type { GameSession } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 interface PuzzlePanelProps {
   session: GameSession
@@ -52,6 +53,7 @@ export function PuzzlePanel({
   onStart,
   readOnly = false,
 }: PuzzlePanelProps) {
+  const { t } = useI18n()
   const caseNo = (session.sessionId.replace(/\D/g, '').slice(-3) || '000').padStart(3, '0')
   const progress = typeof closeness === 'number' ? Math.round(closeness * 100) : null
 
@@ -67,11 +69,11 @@ export function PuzzlePanel({
               className="stamp px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.2em] text-[var(--v-yes)]"
               style={{ borderColor: 'var(--v-yes)', color: 'var(--v-yes)' }}
             >
-              已结案
+              {t('已结案')}
             </span>
           ) : null}
           <span className="stamp animate-pop px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.2em]">
-            机密
+            {t('机密')}
           </span>
         </div>
       </div>
@@ -81,24 +83,24 @@ export function PuzzlePanel({
       <div className="mt-6 h-px w-full bg-foreground/25" />
 
       <div className="mt-6 font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-        汤面 / STATEMENT OF FACTS
+        {t('汤面 / STATEMENT OF FACTS')}
       </div>
       <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{session.surface}</p>
 
       <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-t border-dashed border-foreground/25 pt-4">
-        <Field label="等级" value={session.difficulty} />
+        <Field label={t('等级')} value={session.difficulty} />
         <Field
-          label="来源"
+          label={t('来源')}
           value={
             session.source === 'llm'
-              ? 'AI 现熬'
+              ? t('AI 现熬')
               : session.source === 'library'
-                ? '题库'
-                : '经典存档'
+                ? t('题库')
+                : t('经典存档')
           }
         />
-        <Field label="已问" value={`${turnCount} 轮`} />
-        {progress !== null ? <Field label="接近度" value={`${progress}%`} /> : null}
+        <Field label={t('已问')} value={`${turnCount} 轮`} />
+        {progress !== null ? <Field label={t('接近度')} value={`${progress}%`} /> : null}
       </div>
 
       {progress !== null && !revealed ? (
@@ -113,7 +115,7 @@ export function PuzzlePanel({
       {revealed && truth ? (
         <div className="animate-pop mt-8 border-l-4 border-stamp pl-5">
           <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
-            <Unlock className="size-3.5" /> 汤底 / VERDICT
+            <Unlock className="size-3.5" /> {t('汤底 / VERDICT')}
           </div>
           <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
         </div>
@@ -127,14 +129,14 @@ export function PuzzlePanel({
             className="flex items-center gap-2 border border-foreground px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] transition-colors hover:bg-foreground hover:text-background"
           >
             <Lock className="size-3.5" />
-            拆封汤底
+            {t('拆封汤底')}
           </button>
         ) : null}
 
         {!revealed && readOnly ? (
           <div className="flex items-center gap-2 border border-dashed border-foreground/30 px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] text-muted-foreground">
             <Lock className="size-3.5" />
-            本卷汤底未拆封
+            {t('本卷汤底未拆封')}
           </div>
         ) : null}
 
@@ -144,7 +146,7 @@ export function PuzzlePanel({
             onClick={onStart}
             className="flex items-center gap-2 bg-foreground px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.18em] text-background transition-opacity hover:opacity-85"
           >
-            开始游戏
+            {t('开始游戏')}
           </button>
         ) : null}
       </div>
@@ -153,7 +155,7 @@ export function PuzzlePanel({
         <div className="mt-9">
           <div className="flex items-baseline justify-between">
             <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              问答记录 / LEDGER
+              {t('问答记录 / LEDGER')}
             </div>
             <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/70">
               {String(ledger.length).padStart(2, '0')}
@@ -173,7 +175,7 @@ export function PuzzlePanel({
                       tone.cls,
                     )}
                   >
-                    {tone.glyph}
+                    {t(tone.glyph)}
                   </span>
                   <span className="truncate font-serif text-[13px] text-foreground/75">
                     {item.question}

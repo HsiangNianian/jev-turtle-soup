@@ -3,8 +3,10 @@ import { Loader2, Mail } from 'lucide-react'
 
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
 import { requestLoginCode, verifyLoginCode, type AuthUser } from '@/lib/auth-client'
+import { useI18n } from '@/lib/i18n'
 
 export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
+  const { t } = useI18n()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
@@ -20,7 +22,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
       setSent(true)
       setDevCode(result.code ?? null)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '发送失败')
+      setError(caught instanceof Error ? caught.message : t('发送失败'))
     } finally {
       setBusy(false)
     }
@@ -32,20 +34,20 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
     try {
       onDone(await verifyLoginCode(email.trim(), code.trim()))
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '登录失败')
+      setError(caught instanceof Error ? caught.message : t('登录失败'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <PageShell label="登录 / SIGN IN" title="邮箱验证码登录">
+    <PageShell label={t('登录 / SIGN IN')} title={t('邮箱验证码登录')}>
       <p className="mt-5 max-w-xl font-serif text-[15px] leading-8 text-foreground/75">
-        不需要密码。填邮箱收一封 6 位验证码，验证后就能上传自己的海龟汤、管理题库和作者主页。
+        {t('不需要密码。填邮箱收一封 6 位验证码，验证后就能上传自己的海龟汤、管理题库和作者主页。')}
       </p>
 
       <div className="mt-7 space-y-5">
-        <Field label="邮箱 / EMAIL">
+        <Field label={t('邮箱 / EMAIL')}>
           <div className="flex items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center border border-foreground/30 bg-card text-muted-foreground">
               <Mail className="size-4" />
@@ -65,7 +67,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
         </Field>
 
         {sent ? (
-          <Field label="验证码 / CODE" hint="10 分钟内有效">
+          <Field label={t('验证码 / CODE')} hint={t('10 分钟内有效')}>
             <input
               inputMode="numeric"
               value={code}
@@ -91,7 +93,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
                 登录
               </Button>
               <Button variant="ghost" onClick={() => void sendCode()} disabled={busy}>
-                重新发送
+                {t('重新发送')}
               </Button>
             </>
           ) : (

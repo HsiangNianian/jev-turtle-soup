@@ -4,9 +4,12 @@ import { Loader2, Lock } from 'lucide-react'
 import { Empty, PageShell } from '@/components/Bits'
 
 import { getPublicProfile, type PublicProfile } from '@/lib/library-client'
+import { renderInline } from '@/lib/markdown'
 import { Link } from '@/components/Link'
+import { useI18n } from '@/lib/i18n'
 
 export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolean }) {
+  const { t } = useI18n()
   const [profile, setProfile] = useState<PublicProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,16 +23,16 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
         }
       })
       .catch((caught: unknown) => {
-        if (alive) setError(caught instanceof Error ? caught.message : '加载失败')
+        if (alive) setError(caught instanceof Error ? caught.message : t('加载失败'))
       })
     return () => {
       alive = false
     }
-  }, [handle])
+  }, [handle, t])
 
   if (error) {
     return (
-      <PageShell label="作者 / AUTHOR" title="找不到这个作者">
+      <PageShell label={t('作者 / AUTHOR')} title={t('找不到这个作者')}>
         <div className="mt-6">
           <Empty>{error}</Empty>
         </div>
@@ -47,7 +50,7 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
 
   return (
     <PageShell
-      label="作者 / AUTHOR"
+      label={t('作者 / AUTHOR')}
       title={profile.displayName}
       meta={
         <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
@@ -56,16 +59,16 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
       }
     >
       {profile.bio ? (
-        <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-          {profile.bio}
-        </p>
+        <div className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
+          {renderInline(profile.bio)}
+        </div>
       ) : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
         <span>加入于 {new Date(profile.createdAt).toLocaleDateString('zh-CN')}</span>
         {isSelf ? (
           <Link to="/me/profile" className="transition-colors hover:text-foreground">
-            编辑资料
+            {t('编辑资料')}
           </Link>
         ) : null}
       </div>
@@ -73,18 +76,18 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
       {!profile.profilePublic ? (
         <div className="mt-8 flex items-center gap-3 border border-dashed border-foreground/25 px-5 py-8 font-mono text-[11px] tracking-[0.16em] text-muted-foreground">
           <Lock className="size-4 shrink-0" />
-          这位作者把主页设为私密了。
+          {t('这位作者把主页设为私密了。')}
         </div>
       ) : null}
 
       {profile.profilePublic && !profile.puzzles.length ? (
-        <Empty>还没有公开的海龟汤。</Empty>
+        <Empty>{t('还没有公开的海龟汤。')}</Empty>
       ) : null}
 
       {profile.puzzles.length ? (
         <>
           <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-            公开的汤 / PUZZLES
+            {t('公开的汤 / PUZZLES')}
           </div>
           <ul className="mt-3 border-t border-foreground/20">
             {profile.puzzles.map((puzzle) => (

@@ -5,8 +5,10 @@ import { AboutPage } from '@/components/AboutPage'
 import { ArchiveView } from '@/components/ArchiveView'
 import { CaseDrawer } from '@/components/CaseDrawer'
 import { ChatPanel } from '@/components/ChatPanel'
+import { LocaleMenu, ThemeToggle } from '@/components/Controls'
 import { Footer } from '@/components/Footer'
 import { Landing } from '@/components/Landing'
+import { LeavingPage } from '@/components/LeavingPage'
 import { LibraryPage } from '@/components/LibraryPage'
 import { LoginPage } from '@/components/LoginPage'
 import { MePage } from '@/components/MePage'
@@ -43,6 +45,7 @@ import { navigate, matchPath, usePath } from '@/lib/router'
 import { dailyLuck, getDeviceId, todayKey } from '@/lib/luck'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
+import { useI18n } from '@/lib/i18n'
 
 const VERDICTS = ['yes', 'no', 'partly', 'irrelevant']
 
@@ -60,6 +63,7 @@ function persist(games: ArchivedGame[]): ArchivedGame[] {
 }
 
 export default function App() {
+  const { t } = useI18n()
   const path = usePath()
 
   const [health, setHealth] = useState<HealthInfo | null>(null)
@@ -76,7 +80,7 @@ export default function App() {
   const [asking, setAsking] = useState(false)
   const [turnCount, setTurnCount] = useState(0)
   const [startedAt, setStartedAt] = useState<number>(() => Date.now())
-  const [difficulty, setDifficulty] = useState('中等')
+  const [difficulty, setDifficulty] = useState(t('中等'))
   const [genre, setGenre] = useState<'realistic' | 'supernatural'>('realistic')
   const [theme, setTheme] = useState('')
   const [landingError, setLandingError] = useState<string | null>(null)
@@ -163,7 +167,7 @@ export default function App() {
 
   const handleNew = useCallback(async () => {
     if (!canGenerate) {
-      setLandingError('还有一桩在办案件，先结案才能立案新的。')
+      setLandingError(t('还有一桩在办案件，先结案才能立案新的。'))
       return
     }
     setGenerating(true)
@@ -186,11 +190,11 @@ export default function App() {
       setDrawerOpen(true)
       navigate('/play')
     } catch (error) {
-      setLandingError(error instanceof Error ? error.message : '生成失败，请重试')
+      setLandingError(error instanceof Error ? error.message : t('生成失败，请重试'))
     } finally {
       setGenerating(false)
     }
-  }, [canGenerate, difficulty, theme, genre, games, liveEntry])
+  }, [canGenerate, difficulty, theme, genre, games, liveEntry, t])
 
   const startLibraryGame = useCallback((puzzle: LibraryPuzzleDetail) => {
     setSession({
@@ -199,14 +203,14 @@ export default function App() {
       surface: puzzle.surface,
       difficulty: puzzle.difficulty,
       source: 'library',
-      hostGreeting: '汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。',
+      hostGreeting: t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。'),
       libraryId: puzzle.id,
     })
     setMessages([
       {
         id: crypto.randomUUID(),
         role: 'host',
-        text: '汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。',
+        text: t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。'),
       },
     ])
     setRevealed(false)
@@ -217,7 +221,7 @@ export default function App() {
     setStartedAt(Date.now())
     setDrawerOpen(true)
     navigate('/play')
-  }, [])
+  }, [t,])
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -267,14 +271,14 @@ export default function App() {
             id: crypto.randomUUID(),
             role: 'host',
             tone: 'error',
-            text: error instanceof Error ? error.message : '请求失败，请稍后再试',
+            text: error instanceof Error ? error.message : t('请求失败，请稍后再试'),
           },
         ])
       } finally {
         setAsking(false)
       }
     },
-    [messages, session, todayLuck],
+    [messages, session, todayLuck, t],
   )
 
   const handleReveal = useCallback(async () => {
@@ -291,7 +295,7 @@ export default function App() {
         {
           id: crypto.randomUUID(),
           role: 'host',
-          text: '（主持人把碗底翻了过来，汤底就在案卷里。）',
+          text: t('（主持人把碗底翻了过来，汤底就在案卷里。）'),
         },
       ])
     } catch (error) {
@@ -301,11 +305,11 @@ export default function App() {
           id: crypto.randomUUID(),
           role: 'host',
           tone: 'error',
-          text: error instanceof Error ? error.message : '揭晓失败',
+          text: error instanceof Error ? error.message : t('揭晓失败'),
         },
       ])
     }
-  }, [revealed, session])
+  }, [revealed, session, t])
 
   const handleQuick = useCallback(
     (kind: 'hint' | 'reveal' | 'how_to_play') => {
@@ -313,9 +317,9 @@ export default function App() {
         void handleReveal()
         return
       }
-      void handleSend(kind === 'hint' ? '给我一点提示吧。' : '这个游戏怎么玩？')
+      void handleSend(kind === 'hint' ? t('给我一点提示吧。') : t('这个游戏怎么玩？'))
     },
-    [handleReveal, handleSend],
+    [handleReveal, handleSend, t],
   )
 
   const handleContinue = useCallback(
@@ -331,7 +335,7 @@ export default function App() {
 
   const handleAbandon = useCallback(
     (id: string) => {
-      if (!window.confirm('中止本案？记录会留在档案室，但不能再继续讯问。')) return
+      if (!window.confirm(t('中止本案？记录会留在档案室，但不能再继续讯问。'))) return
       const abandoned = session?.sessionId === id ? buildEntry('abandoned') : null
       setGames((prev) => {
         const merged = abandoned ? upsertGame(prev, abandoned) : prev
@@ -354,7 +358,7 @@ export default function App() {
       }
       navigate('/')
     },
-    [buildEntry, session],
+    [buildEntry, session, t],
   )
 
   const handleDeleteArchive = useCallback(
@@ -410,7 +414,7 @@ export default function App() {
       if (!game) {
         return (
           <ScrollArea>
-            <Missing label="案卷 / CASE" message="找不到这一卷。" />
+            <Missing label={t('案卷 / CASE')} message={t('找不到这一卷。')} />
           </ScrollArea>
         )
       }
@@ -421,7 +425,7 @@ export default function App() {
       if (!session) {
         return (
           <ScrollArea>
-            <Missing label="对局 / PLAY" message="还没有开案。" />
+            <Missing label={t('对局 / PLAY')} message={t('还没有开案。')} />
           </ScrollArea>
         )
       }
@@ -455,13 +459,14 @@ export default function App() {
       return (
         <ScrollArea>
           {user ? (
-            <Missing label="登录 / SIGN IN" message="你已经登录了。" />
+            <Missing label={t('登录 / SIGN IN')} message={t('你已经登录了。')} />
           ) : (
             <LoginPage onDone={handleLogin} />
           )}
         </ScrollArea>
       )
     }
+    if (path === '/leaving') return <LeavingPage />
     if (path === '/about') {
       return (
         <ScrollArea>
@@ -487,14 +492,14 @@ export default function App() {
     if (path === '/upload') {
       return (
         <ScrollArea>
-          {user ? <UploadPage /> : <Missing label="上传 / NEW PUZZLE" message="请先登录。" />}
+          {user ? <UploadPage /> : <Missing label={t('上传 / NEW PUZZLE')} message={t('请先登录。')} />}
         </ScrollArea>
       )
     }
     if (path === '/me/profile') {
       return (
         <ScrollArea>
-          {user ? <ProfileEditPage /> : <Missing label="编辑资料 / PROFILE" message="请先登录。" />}
+          {user ? <ProfileEditPage /> : <Missing label={t('编辑资料 / PROFILE')} message={t('请先登录。')} />}
         </ScrollArea>
       )
     }
@@ -502,9 +507,12 @@ export default function App() {
       return (
         <ScrollArea>
           {user ? (
-            <MePage handle={user.handle ?? user.name ?? user.email} />
+            <MePage
+              handle={user.handle ?? user.name ?? user.email}
+              onLogout={() => void handleLogout()}
+            />
           ) : (
-            <Missing label="我的题库 / MY PUZZLES" message="请先登录。" />
+            <Missing label={t('我的题库 / MY PUZZLES')} message={t('请先登录。')} />
           )}
         </ScrollArea>
       )
@@ -521,7 +529,7 @@ export default function App() {
     if (path !== '/') {
       return (
         <ScrollArea>
-          <Missing label="404" message="这里什么都没有。" />
+          <Missing label="404" message={t('这里什么都没有。')} />
         </ScrollArea>
       )
     }
@@ -552,26 +560,26 @@ export default function App() {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
-      <header className="z-20 shrink-0 bg-foreground text-background">
+      <header className="z-20 shrink-0 bg-bar text-bar-foreground">
         <div className="mx-auto flex h-12 w-full items-center gap-3 px-4 sm:px-6">
           {path !== '/' ? (
             <button
               type="button"
               onClick={() => navigate('/')}
-              aria-label="返回首页"
+              aria-label={t('返回首页')}
               className="-ml-1.5 flex size-7 shrink-0 items-center justify-center transition-opacity hover:opacity-60"
             >
               <ArrowLeft className="size-4" />
             </button>
           ) : null}
           <Link to="/" className="shrink-0 font-mono text-[12px] font-bold tracking-[0.24em]">
-            海龟汤调查局
+            {t('海龟汤调查局')}
           </Link>
           <span className="hidden font-mono text-[10px] tracking-[0.24em] opacity-55 sm:inline">
             / TURTLE SOUP BUREAU
           </span>
 
-          <div className="ml-auto flex shrink-0 items-center gap-4 font-mono text-[10px] tracking-[0.2em]">
+          <div className="ml-auto flex shrink-0 items-center gap-3 font-mono text-[10px] tracking-[0.2em] sm:gap-4">
             <Link
               to="/library"
               className={cn(
@@ -579,7 +587,7 @@ export default function App() {
                 path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
               )}
             >
-              题库
+              {t('题库')}
             </Link>
             {path === '/play' && gameOver ? (
               <button
@@ -593,31 +601,24 @@ export default function App() {
                 ) : (
                   <RotateCcw className="size-3.5" />
                 )}
-                重新立案
+                {t('重新立案')}
               </button>
             ) : null}
+            <ThemeToggle />
+            <LocaleMenu />
             {user ? (
               <button
                 type="button"
                 onClick={() => navigate('/me')}
-                className="max-w-[10rem] truncate tracking-[0.16em] opacity-80 transition-opacity hover:opacity-60"
+                className="max-w-[7rem] truncate tracking-[0.16em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem]"
               >
                 {user.name || user.email}
               </button>
             ) : (
               <Link to="/login" className="opacity-80 transition-opacity hover:opacity-60">
-                登录
+                {t('登录')}
               </Link>
             )}
-            {user ? (
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                className="opacity-50 transition-opacity hover:opacity-80"
-              >
-                退出
-              </button>
-            ) : null}
           </div>
         </div>
       </header>
@@ -661,6 +662,7 @@ function ScrollArea({ children }: { children: React.ReactNode }) {
 }
 
 function Missing({ label, message }: { label: string; message: string }) {
+  const { t } = useI18n()
   return (
     <div className="mx-auto w-full max-w-3xl px-5 py-12">
       <span className="font-mono text-[10px] tracking-[0.28em] text-muted-foreground">{label}</span>
@@ -672,7 +674,7 @@ function Missing({ label, message }: { label: string; message: string }) {
         onClick={() => navigate('/')}
         className="mt-6 border border-foreground px-5 py-2.5 font-mono text-[11px] tracking-[0.18em] transition-colors hover:bg-foreground hover:text-background"
       >
-        回首页
+        {t('回首页')}
       </button>
     </div>
   )

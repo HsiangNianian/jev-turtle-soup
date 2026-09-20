@@ -22,6 +22,8 @@ export interface GameEnv {
   OPENAI_API_KEY?: string
   OPENAI_BASE_URL?: string
   OPENAI_MODEL?: string
+  /** 设为 '1' 时出题失败直接抛错，便于排查。 */
+  LLM_DEBUG?: string
 }
 
 export const MAX_CONVERSATION = 10
@@ -118,10 +120,18 @@ export const GENRES: Genre[] = ['realistic', 'supernatural']
 /** 怪力乱神题材：允许超自然设定，但仍要求线索可推理、规则自洽。 */
 const TRUTH_RULE: Record<Genre, string> = {
   realistic:
-    '完整交代真正发生了什么，逻辑自洽，在现实或合理设定中成立；不要魔法、超自然、鬼怪或"其实只是一场梦"。汤底必须能解释汤面里的每一个反常细节。',
+    '把汤面那件反常的事解释清楚，逻辑自洽，在现实或合理设定中成立；不要魔法、超自然、鬼怪或"其实只是一场梦"。',
   supernatural:
-    '完整交代真正发生了什么，逻辑自洽。允许出现鬼神、怨灵、诅咒、因果报应、民间禁忌、诡物等超自然设定；但超自然的规则必须前后一致，并且关键线索要埋在汤面里，玩家靠是非提问能推出来。不要用"其实是一场梦""一切都是幻觉"收尾，也不要靠血腥和 jump scare 吓人。',
+    '把汤面那件反常的事解释清楚，逻辑自洽。允许出现鬼神、怨灵、诅咒、因果报应、民间禁忌、诡物等超自然设定；但超自然的规则必须前后一致，而且能在汤面里找到线索。不要用"其实是一场梦""一切都是幻觉"收尾，也不要靠血腥和 jump scare 吓人。',
 }
+
+/** 汤面与汤底必须一一对应，且汤底要短。 */
+const LINK_RULES = `汤底写作要求（很重要）：
+- 只回答汤面里那一个反常之处，不要写成小作文，不要交代与汤面无关的人物生平、支线剧情或抒情结尾。
+- 长度控制在 3 到 5 句、150 字以内，信息密度要高，每句都要有用。
+- 汤面里出现的每个细节（人、物、动作、时间、数量）都必须在汤底里得到解释；解释不了的就不要写进汤面。
+- 汤底里不要再引入汤面完全没有暗示过的新角色或新事件。
+- 读完汤底，玩家应该能立刻回头对照汤面说"原来每一处都对上了"。`
 
 const GENRE_STYLE: Record<Genre, string> = {
   realistic: '本格现实向：所有反常都必须有现实的、可解释的成因。',
@@ -137,6 +147,7 @@ function systemPrompt(genre: Genre) {
 1. surface（汤面）：**只写一句话**，不超过 40 个字。这一句必须最能引起遐想——只呈现一个反常的现象、动作或对白，让人看完立刻想问"为什么会这样"。不要解释原因，不要点破真相，不要铺陈背景，不要写成两句话或罗列多个细节。
 2. truth（汤底）：${TRUTH_RULE[genre]}
 3. 反转：汤底要有一个出人意料、但回溯汤面又完全合理的转折；关键线索必须已经埋在汤面里，玩家可以靠是非提问推理出来（fair play）。
+${LINK_RULES}
 4. hint（提示）：一句话，不直接揭晓答案，但能推动推理方向。
 5. difficulty：只能是"简单""中等""困难"之一。
 6. tags：2 到 3 个中文短标签。
@@ -177,7 +188,8 @@ async function generateWithLlm(
   genre: Genre,
 ): Promise<GeneratedPuzzle> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 60_000)
+  // 拉满思考模式后生成会明显变慢，给足时间
+  const timer = setTimeout(() => controller.abort(), 180_000)
   try {
     const response = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
@@ -191,8 +203,11 @@ async function generateWithLlm(
           { role: 'system', content: systemPrompt(genre) },
           { role: 'user', content: buildUserPrompt(difficulty, theme) },
         ],
-        response_format: { type: 'json_object' },
-        temperature: 1.1,
+        // DeepSeek 思考模式：不吃 temperature，思考强度拉到 max
+        thinking: { type: 'enabled' },
+        reasoning_effort: 'max',
+        // 思维链也要占 token（max 档常超过 1 万字），留足空间否则 content 会被挤空
+        max_tokens: 32768,
       }),
       signal: controller.signal,
     })
@@ -201,10 +216,19 @@ async function generateWithLlm(
       throw new Error(`${cfg.label} 返回 ${response.status}: ${detail.slice(0, 300)}`)
     }
     const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
+      choices?: Array<{
+        finish_reason?: string
+        message?: { content?: string; reasoning_content?: string }
+      }>
     }
-    const content = payload.choices?.[0]?.message?.content
-    if (!content) throw new Error(`${cfg.label} 没有返回内容`)
+    const message = payload.choices?.[0]?.message
+    const content = message?.content?.trim()
+    if (!content) {
+      const reason = payload.choices?.[0]?.finish_reason ?? 'unknown'
+      throw new Error(
+        `${cfg.label} 没有返回内容（finish_reason=${reason}，思维链长度=${message?.reasoning_content?.length ?? 0}）`,
+      )
+    }
     const parsed = PuzzleSchema.safeParse(extractJson(content))
     if (!parsed.success) {
       throw new Error(`模型输出不符合结构: ${parsed.error.message.slice(0, 200)}`)
@@ -608,6 +632,8 @@ export async function startGame(env: GameEnv, store: PuzzleStore, body: Record<s
       puzzle = await generateWithLlm(llm, difficulty, theme, genre)
       source = 'llm'
     } catch (error) {
+      // 排查出题失败时把真实错误抛出去（LLM_DEBUG=1）
+      if (env.LLM_DEBUG === '1') throw error
       puzzle = pickBuiltin(difficulty, theme)
       source = 'builtin'
       console.warn(

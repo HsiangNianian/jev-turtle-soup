@@ -1,5 +1,6 @@
-import { Link } from '@/components/Link'
+import { ExternalLink, Link } from '@/components/Link'
 import { PageShell } from '@/components/Bits'
+import { useI18n } from '@/lib/i18n'
 
 const HOW_TO_PLAY = [
   {
@@ -36,10 +37,11 @@ const DATA = [
 ]
 
 export function AboutPage() {
+  const { t } = useI18n()
   return (
     <PageShell
-      label="关于 / ABOUT"
-      title="关于这碗汤"
+      label={t('关于 / ABOUT')}
+      title={t('关于这碗汤')}
       meta={
         <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
           v{__APP_VERSION__} · {__BUILD_ID__}
@@ -47,49 +49,48 @@ export function AboutPage() {
       }
     >
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-        海龟汤是一种猜真相的游戏：先给你一句反常的话，你只能靠问「是 /
-        不是」的问题，一点点把背后的故事问出来。 这里没有真人当主持，出题和判读都由 AI 完成。
+        {t(
+          '海龟汤是一种猜真相的游戏：先给你一句反常的话，你只能靠问「是 / 不是」的问题，一点点把背后的故事问出来。这里没有真人当主持，出题和判读都由 AI 完成。',
+        )}
       </p>
       <p className="mt-3 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
         它由 Meaningless Meaning Studio 的{' '}
-        <a
+        <ExternalLink
           href="https://academic.jyunko.cn"
-          target="_blank"
-          rel="noreferrer"
           className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
         >
-          简律纯
-        </a>{' '}
+          {t('简律纯')}
+        </ExternalLink>{' '}
         制作。
       </p>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        怎么玩 / HOW TO PLAY
+        {t('怎么玩 / HOW TO PLAY')}
       </div>
       <ul className="mt-3 border-t border-foreground/20">
         {HOW_TO_PLAY.map((item) => (
-          <li key={item.step} className="rule-dashed flex gap-4 py-3.5">
-            <span className="w-10 shrink-0 font-mono text-[11px] text-stamp">{item.step}</span>
-            <span className="font-serif text-[14px] leading-7 text-foreground/80">{item.body}</span>
+          <li key={t(item.step)} className="rule-dashed flex gap-4 py-3.5">
+            <span className="w-10 shrink-0 font-mono text-[11px] text-stamp">{t(item.step)}</span>
+            <span className="font-serif text-[14px] leading-7 text-foreground/80">{t(item.body)}</span>
           </li>
         ))}
       </ul>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        我们存了什么 / YOUR DATA
+        {t('我们存了什么 / YOUR DATA')}
       </div>
       <ul className="mt-3 border-t border-foreground/20">
         {DATA.map((item) => (
-          <li key={item.name} className="rule-dashed flex gap-4 py-3.5">
+          <li key={t(item.name)} className="rule-dashed flex gap-4 py-3.5">
             <span className="w-24 shrink-0 font-serif text-[13px] text-muted-foreground">
-              {item.name}
+              {t(item.name)}
             </span>
-            <span className="font-serif text-[14px] leading-7 text-foreground/80">{item.body}</span>
+            <span className="font-serif text-[14px] leading-7 text-foreground/80">{t(item.body)}</span>
           </li>
         ))}
       </ul>
       <p className="mt-4 border-l-2 border-l-foreground/40 bg-card px-4 py-3 font-serif text-[13px] leading-7 text-foreground/75">
-        没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。
+        {t('没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。')}
       </p>
 
       <div className="mt-9">

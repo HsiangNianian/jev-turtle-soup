@@ -29,6 +29,8 @@
 
   --rule: #17150f;
   --stamp: #b5342a;
+  --bar: #17150f;
+  --bar-foreground: #f2efe6;
 
   --v-yes: #2f6b4f;
   --v-no: #b5342a;
@@ -41,6 +43,40 @@
   --font-serif:
     'Noto Serif SC', 'Songti SC', 'Source Han Serif SC', 'Noto Serif CJK SC', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, 'PingFang SC', monospace;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #14130f;
+  --foreground: #ece7db;
+  --card: #1b1915;
+  --card-foreground: #ece7db;
+  --popover: #201e19;
+  --popover-foreground: #ece7db;
+  --primary: #ece7db;
+  --primary-foreground: #14130f;
+  --secondary: #262319;
+  --secondary-foreground: #ece7db;
+  --muted: #262319;
+  --muted-foreground: #9a9384;
+  --accent: #2b2820;
+  --accent-foreground: #ece7db;
+  --destructive: #e0736a;
+  --destructive-foreground: #14130f;
+  --border: rgba(236, 231, 219, 0.22);
+  --input: rgba(236, 231, 219, 0.28);
+  --ring: rgba(224, 115, 106, 0.5);
+
+  --rule: #ece7db;
+  --stamp: #e0736a;
+  --bar: #0e0d0a;
+  --bar-foreground: #ece7db;
+
+  --v-yes: #7fb98f;
+  --v-no: #e0736a;
+  --v-partly: #d8ae62;
+  --v-irrelevant: #9a9384;
 }
 
 @theme inline {
@@ -69,6 +105,8 @@
   --color-ring: var(--ring);
   --color-rule: var(--rule);
   --color-stamp: var(--stamp);
+  --color-bar: var(--bar);
+  --color-bar-foreground: var(--bar-foreground);
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
@@ -102,8 +140,17 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
   }
 
+  .dark body::after {
+    opacity: 0.07;
+    mix-blend-mode: overlay;
+  }
+
   ::selection {
     background: rgba(181, 52, 42, 0.22);
+  }
+
+  .dark ::selection {
+    background: rgba(224, 115, 106, 0.3);
   }
 }
 
@@ -239,7 +286,7 @@
 
 .chat-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(23, 21, 15, 0.28) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .chat-scroll::-webkit-scrollbar {
@@ -247,7 +294,7 @@
 }
 
 .chat-scroll::-webkit-scrollbar-thumb {
-  background: rgba(23, 21, 15, 0.22);
+  background: var(--border);
 }
 
 .chat-scroll::-webkit-scrollbar-track {

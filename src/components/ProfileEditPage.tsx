@@ -4,9 +4,12 @@ import { Loader2 } from 'lucide-react'
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
 import { navigate } from '@/lib/router'
 import { getMyProfile, updateMyProfile, type Profile } from '@/lib/library-client'
+import { renderInline } from '@/lib/markdown'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 export function ProfileEditPage() {
+  const { t } = useI18n()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [handle, setHandle] = useState('')
@@ -25,8 +28,8 @@ export function ProfileEditPage() {
         setBio(next.bio)
         setProfilePublic(next.profilePublic)
       })
-      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : '加载失败'))
-  }, [])
+      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('加载失败')))
+  }, [t])
 
   async function save() {
     setBusy(true)
@@ -38,7 +41,7 @@ export function ProfileEditPage() {
       setHandle(next.handle)
       setSaved(true)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '保存失败')
+      setError(caught instanceof Error ? caught.message : t('保存失败'))
     } finally {
       setBusy(false)
     }
@@ -53,9 +56,9 @@ export function ProfileEditPage() {
   }
 
   return (
-    <PageShell label="编辑资料 / PROFILE" title="作者资料">
+    <PageShell label={t('编辑资料 / PROFILE')} title={t('作者资料')}>
       <div className="mt-7 space-y-6">
-        <Field label="昵称 / NICKNAME" hint="最多 24 字">
+        <Field label={t('昵称 / NICKNAME')} hint={t('最多 24 字')}>
           <input
             value={displayName}
             maxLength={24}
@@ -64,7 +67,7 @@ export function ProfileEditPage() {
           />
         </Field>
 
-        <Field label="主页地址 / HANDLE" hint="3-20 位小写字母、数字或连字符">
+        <Field label={t('主页地址 / HANDLE')} hint={t('3-20 位小写字母、数字或连字符')}>
           <div className="flex items-center gap-2">
             <span className="shrink-0 font-mono text-[12px] text-muted-foreground">/u/</span>
             <input
@@ -76,15 +79,23 @@ export function ProfileEditPage() {
           </div>
         </Field>
 
-        <Field label="个人简介 / BIO" hint="最多 200 字">
+        <Field label={t('个人简介 / BIO')} hint={t('最多 200 字')}>
           <textarea
             value={bio}
             rows={4}
             maxLength={200}
             onChange={(event) => setBio(event.target.value)}
-            placeholder="想说什么都行，比如你的出题偏好。"
+            placeholder={t('想说什么都行，比如你的出题偏好。')}
             className={`${inputClass} resize-none leading-7`}
           />
+          <span className="mt-2 block font-mono text-[10px] leading-5 tracking-[0.12em] text-muted-foreground">
+            {t('支持 **加粗**、*斜体*、~~删除线~~、[文字](链接)，链接和网址会自动变成可点的站外链接。')}
+          </span>
+          {bio.trim() ? (
+            <span className="mt-2 block border-l-2 border-foreground/25 bg-card px-3 py-2 font-serif text-[14px] leading-7 text-foreground/80">
+              {renderInline(bio)}
+            </span>
+          ) : null}
         </Field>
 
         <button
@@ -101,7 +112,7 @@ export function ProfileEditPage() {
             {profilePublic ? <span className="size-1.5 bg-background" /> : null}
           </span>
           <span className="min-w-0">
-            <span className="block font-serif text-[14px]">公开我的主页</span>
+            <span className="block font-serif text-[14px]">{t('公开我的主页')}</span>
             <span className="mt-0.5 block font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
               关闭后别人打不开 /u/{handle || '…'}，你的公开题也不会列出来
             </span>
@@ -109,7 +120,7 @@ export function ProfileEditPage() {
         </button>
 
         {error ? <Notice tone="stamp">{error}</Notice> : null}
-        {saved ? <Notice tone="good">已保存。</Notice> : null}
+        {saved ? <Notice tone="good">{t('已保存。')}</Notice> : null}
 
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => void save()} disabled={busy}>
@@ -117,7 +128,7 @@ export function ProfileEditPage() {
             保存
           </Button>
           <Button variant="ghost" onClick={() => navigate('/me')}>
-            返回我的题库
+            {t('返回我的题库')}
           </Button>
         </div>
       </div>

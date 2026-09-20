@@ -5,16 +5,18 @@ import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
 import { navigate } from '@/lib/router'
 import { SUPERNATURAL_TAG, createPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 const DIFFICULTIES = ['简单', '中等', '困难'] as const
 const PRESET_TAGS = [SUPERNATURAL_TAG] as const
 
 export function UploadPage() {
+  const { t } = useI18n()
   const [title, setTitle] = useState('')
   const [surface, setSurface] = useState('')
   const [truth, setTruth] = useState('')
   const [hint, setHint] = useState('')
-  const [difficulty, setDifficulty] = useState<string>('中等')
+  const [difficulty, setDifficulty] = useState<string>(t('中等'))
   const [tags, setTags] = useState('')
   const [visibility, setVisibility] = useState<'public' | 'private'>('public')
   const [busy, setBusy] = useState(false)
@@ -51,35 +53,35 @@ export function UploadPage() {
       })
       navigate(visibility === 'public' ? `/library/${created.id}` : '/me')
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '上传失败')
+      setError(caught instanceof Error ? caught.message : t('上传失败'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <PageShell label="上传 / NEW PUZZLE" title="写一碗海龟汤">
+    <PageShell label={t('上传 / NEW PUZZLE')} title={t('写一碗海龟汤')}>
       <p className="mt-5 max-w-xl font-serif text-[15px] leading-8 text-foreground/75">
-        汤面只写现象、制造悬念；汤底交代真相，并且必须能解释汤面里的每个反常细节。
+        {t('汤面只写现象、制造悬念；汤底交代真相，并且必须能解释汤面里的每个反常细节。')}
       </p>
 
       <div className="mt-7 space-y-6">
-        <Field label="标题 / TITLE" hint="最多 40 字">
+        <Field label={t('标题 / TITLE')} hint={t('最多 40 字')}>
           <input
             value={title}
             maxLength={40}
-            placeholder="例如：红伞"
+            placeholder={t('例如：红伞')}
             onChange={(event) => setTitle(event.target.value)}
             className={inputClass}
           />
         </Field>
 
-        <Field label="汤面 / SURFACE" hint="最多 200 字">
+        <Field label={t('汤面 / SURFACE')} hint={t('最多 200 字')}>
           <textarea
             value={surface}
             rows={3}
             maxLength={200}
-            placeholder="只写现象，不要解释原因。"
+            placeholder={t('只写现象，不要解释原因。')}
             onChange={(event) => setSurface(event.target.value)}
             className={`${inputClass} resize-none leading-7`}
           />
@@ -88,28 +90,28 @@ export function UploadPage() {
           </span>
         </Field>
 
-        <Field label="汤底 / TRUTH" hint="最多 2000 字">
+        <Field label={t('汤底 / TRUTH')} hint={t('最多 2000 字')}>
           <textarea
             value={truth}
             rows={5}
             maxLength={2000}
-            placeholder="完整交代真正发生了什么。"
+            placeholder={t('完整交代真正发生了什么。')}
             onChange={(event) => setTruth(event.target.value)}
             className={`${inputClass} resize-none leading-7`}
           />
         </Field>
 
-        <Field label="提示 / HINT" hint="可选，最多 200 字">
+        <Field label={t('提示 / HINT')} hint={t('可选，最多 200 字')}>
           <input
             value={hint}
             maxLength={200}
-            placeholder="玩家求提示时主持人会说这句。"
+            placeholder={t('玩家求提示时主持人会说这句。')}
             onChange={(event) => setHint(event.target.value)}
             className={inputClass}
           />
         </Field>
 
-        <Field label="难度 / DIFFICULTY">
+        <Field label={t('难度 / DIFFICULTY')}>
           <span className="flex gap-px">
             {DIFFICULTIES.map((value) => (
               <button
@@ -129,7 +131,7 @@ export function UploadPage() {
           </span>
         </Field>
 
-        <Field label="标签 / TAGS" hint="空格或逗号分隔，最多 5 个">
+        <Field label={t('标签 / TAGS')} hint={t('空格或逗号分隔，最多 5 个')}>
           <span className="mb-2 flex flex-wrap gap-2">
             {PRESET_TAGS.map((tag) => (
               <button
@@ -147,23 +149,23 @@ export function UploadPage() {
               </button>
             ))}
             <span className="self-center font-mono text-[10px] tracking-[0.12em] text-muted-foreground/60">
-              选中后可以生成／筛选同题材的汤
+              {t('选中后可以生成／筛选同题材的汤')}
             </span>
           </span>
           <input
             value={tags}
-            placeholder="密室 雨夜"
+            placeholder={t('密室 雨夜')}
             onChange={(event) => setTags(event.target.value)}
             className={inputClass}
           />
         </Field>
 
-        <Field label="可见性 / VISIBILITY">
+        <Field label={t('可见性 / VISIBILITY')}>
           <span className="flex gap-px">
             {(
               [
-                ['public', '公开到题库'],
-                ['private', '只给自己'],
+                ['public', t('公开到题库')],
+                ['private', t('只给自己')],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -191,7 +193,7 @@ export function UploadPage() {
             上传
           </Button>
           <Button variant="ghost" onClick={() => navigate('/me')}>
-            返回我的题库
+            {t('返回我的题库')}
           </Button>
         </div>
       </div>

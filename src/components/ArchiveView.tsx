@@ -5,8 +5,10 @@ import { CaseDrawer } from '@/components/CaseDrawer'
 import { Transcript } from '@/components/ChatPanel'
 import { PuzzlePanel } from '@/components/PuzzlePanel'
 import { STATUS_LABEL, buildLedger, formatWhen, toSession, type ArchivedGame } from '@/lib/archive'
+import { useI18n } from '@/lib/i18n'
 
 export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContinue: () => void }) {
+  const { t } = useI18n()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const session = toSession(game)
   const ledger = buildLedger(game.messages)
@@ -42,7 +44,7 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
 
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
           <span className="font-mono text-[10px] font-bold tracking-[0.2em] sm:text-[11px] sm:tracking-[0.22em]">
-            讯问记录 / TRANSCRIPT
+            {t('讯问记录 / TRANSCRIPT')}
           </span>
           <span className="truncate font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
             {STATUS_LABEL[game.status]} · {formatWhen(game.updatedAt)}
@@ -60,7 +62,7 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
               onClick={onContinue}
               className="flex w-full items-center justify-center gap-3 bg-foreground px-6 py-3.5 font-mono text-[12px] font-bold tracking-[0.22em] text-background transition-opacity hover:opacity-85 sm:w-auto"
             >
-              继续调查 <ArrowRight className="size-4" />
+              {t('继续调查')} <ArrowRight className="size-4" />
             </button>
           </div>
         ) : null}

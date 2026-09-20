@@ -6,8 +6,10 @@ import { navigate } from '@/lib/router'
 import { Link } from '@/components/Link'
 import { deletePuzzle, listMyPuzzles, updatePuzzle, type OwnPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
-export function MePage({ handle }: { handle: string }) {
+export function MePage({ handle, onLogout }: { handle: string; onLogout: () => void }) {
+  const { t } = useI18n()
   const [items, setItems] = useState<OwnPuzzle[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -15,8 +17,8 @@ export function MePage({ handle }: { handle: string }) {
   useEffect(() => {
     listMyPuzzles()
       .then(setItems)
-      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : '加载失败'))
-  }, [])
+      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('加载失败')))
+  }, [t])
 
   async function toggle(puzzle: OwnPuzzle) {
     setBusyId(puzzle.id)
@@ -27,7 +29,7 @@ export function MePage({ handle }: { handle: string }) {
         (prev ?? []).map((item) => (item.id === puzzle.id ? { ...item, visibility } : item)),
       )
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '修改失败')
+      setError(caught instanceof Error ? caught.message : t('修改失败'))
     } finally {
       setBusyId(null)
     }
@@ -40,7 +42,7 @@ export function MePage({ handle }: { handle: string }) {
       await deletePuzzle(puzzle.id)
       setItems((prev) => (prev ?? []).filter((item) => item.id !== puzzle.id))
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '删除失败')
+      setError(caught instanceof Error ? caught.message : t('删除失败'))
     } finally {
       setBusyId(null)
     }
@@ -48,8 +50,8 @@ export function MePage({ handle }: { handle: string }) {
 
   return (
     <PageShell
-      label="我的题库 / MY PUZZLES"
-      title="我的海龟汤"
+      label={t('我的题库 / MY PUZZLES')}
+      title={t('我的海龟汤')}
       meta={
         <Link
           to={`/u/${handle}`}
@@ -61,10 +63,13 @@ export function MePage({ handle }: { handle: string }) {
     >
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button onClick={() => navigate('/upload')}>
-          <Plus className="size-3.5" /> 上传新汤
+          <Plus className="size-3.5" /> {t('上传新汤')}
         </Button>
         <Button variant="outline" onClick={() => navigate('/me/profile')}>
-          编辑资料
+          {t('编辑资料')}
+        </Button>
+        <Button variant="ghost" onClick={onLogout}>
+          {t('退出')}
         </Button>
       </div>
 
@@ -79,7 +84,7 @@ export function MePage({ handle }: { handle: string }) {
           <Loader2 className="size-4 animate-spin" />
         </div>
       ) : null}
-      {items && !items.length ? <Empty>还没有上传过。点「上传新汤」写一个吧。</Empty> : null}
+      {items && !items.length ? <Empty>{t('还没有上传过。点「上传新汤」写一个吧。')}</Empty> : null}
 
       {items?.length ? (
         <ul className="mt-7 border-t border-foreground/20">
@@ -93,7 +98,7 @@ export function MePage({ handle }: { handle: string }) {
                     : 'border-foreground/30 text-muted-foreground',
                 )}
               >
-                {puzzle.visibility === 'public' ? '公开' : '私密'}
+                {puzzle.visibility === 'public' ? t('公开') : t('私密')}
               </span>
 
               <span className="min-w-0 flex-1">
@@ -114,11 +119,11 @@ export function MePage({ handle }: { handle: string }) {
                   disabled={busyId === puzzle.id}
                   onClick={() => void toggle(puzzle)}
                 >
-                  {puzzle.visibility === 'public' ? '转为私密' : '设为公开'}
+                  {puzzle.visibility === 'public' ? t('转为私密') : t('设为公开')}
                 </Button>
                 <button
                   type="button"
-                  aria-label="删除"
+                  aria-label={t('删除')}
                   disabled={busyId === puzzle.id}
                   onClick={() => void remove(puzzle)}
                   className="flex size-8 items-center justify-center border border-foreground/30 text-muted-foreground transition-colors hover:border-stamp hover:text-stamp disabled:opacity-40"

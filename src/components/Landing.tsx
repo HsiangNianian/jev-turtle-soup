@@ -5,6 +5,7 @@ import { Link } from '@/components/Link'
 import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 const SKIP_DELETE_CONFIRM_KEY = 'turtle-soup.archive.skip-delete-confirm'
 
@@ -84,6 +85,7 @@ export function Landing({
   onAbandon,
   onDelete,
 }: LandingProps) {
+  const { t } = useI18n()
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [dontAskAgain, setDontAskAgain] = useState(false)
   const [skipConfirm, setSkipConfirm] = useState(readSkipDeleteConfirm)
@@ -115,17 +117,17 @@ export function Landing({
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center px-5 py-12 sm:px-6 sm:py-16">
       <div className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground sm:text-[11px]">
-        案件受理 · CASE INTAKE
+        {t('案件受理 · CASE INTAKE')}
       </div>
       <div className="mt-5 flex items-start justify-between gap-5">
         <h1 className="font-serif text-[clamp(2.75rem,9vw,4.5rem)] leading-none font-semibold">
-          海龟汤
+          {t('海龟汤')}
         </h1>
         <DailyLuck />
       </div>
       <div className="mt-6 h-px w-full bg-foreground/80" />
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-        每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。
+        {t('每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。')}
       </p>
 
       {activeGames.length ? (
@@ -134,10 +136,10 @@ export function Landing({
             <div key={game.id} className="border border-foreground bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
                 <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-                  {game.source === 'library' ? '别人的汤 / PLAYING' : '在办案件 / OPEN CASE'}
+                  {game.source === 'library' ? t('别人的汤 / PLAYING') : t('在办案件 / OPEN CASE')}
                 </span>
                 <span className="stamp px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
-                  机密
+                  {t('机密')}
                 </span>
               </div>
               <div className="px-4 py-5 sm:px-5">
@@ -153,14 +155,14 @@ export function Landing({
                     onClick={() => onContinue(game.id)}
                     className="flex items-center gap-2.5 bg-foreground px-6 py-3 font-mono text-[12px] font-bold tracking-[0.22em] text-background transition-opacity hover:opacity-85"
                   >
-                    继续调查 <ArrowRight className="size-4" />
+                    {t('继续调查')} <ArrowRight className="size-4" />
                   </button>
                   <button
                     type="button"
                     onClick={() => onAbandon(game.id)}
                     className="border border-foreground/30 px-5 py-3 font-mono text-[11px] tracking-[0.18em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
                   >
-                    中止本案
+                    {t('中止本案')}
                   </button>
                 </div>
               </div>
@@ -173,7 +175,7 @@ export function Landing({
         <>
           <div className="mt-9">
             <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              等级 / LEVEL
+              {t('等级 / LEVEL')}
             </div>
             <div className="mt-3 grid grid-cols-3 border border-foreground">
               {DIFFICULTIES.map((item, index) => (
@@ -192,7 +194,7 @@ export function Landing({
                     等级 0{index + 1}
                   </div>
                   <div className="mt-1.5 font-serif text-base">{item.value}</div>
-                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{item.hint}</div>
+                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{t(item.hint)}</div>
                 </button>
               ))}
             </div>
@@ -200,7 +202,7 @@ export function Landing({
 
           <div className="mt-7">
             <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              题材 / GENRE
+              {t('题材 / GENRE')}
             </div>
             <div className="mt-3 grid grid-cols-2 border border-foreground">
               {GENRE_CHOICES.map((item) => (
@@ -215,8 +217,8 @@ export function Landing({
                       : 'hover:bg-foreground/5',
                   )}
                 >
-                  <div className="font-serif text-base">{item.label}</div>
-                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{item.hint}</div>
+                  <div className="font-serif text-base">{t(item.label)}</div>
+                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{t(item.hint)}</div>
                 </button>
               ))}
             </div>
@@ -227,7 +229,7 @@ export function Landing({
               htmlFor="theme"
               className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground"
             >
-              口味 / THEME <span className="opacity-60">（可选）</span>
+              {t('口味 / THEME')} <span className="opacity-60">{t('（可选）')}</span>
             </label>
             <div
               className={cn(
@@ -238,7 +240,7 @@ export function Landing({
               <input
                 id="theme"
                 value={theme}
-                placeholder="医院、密室、雨夜、老房子、凶杀、伦理、感情……"
+                placeholder={t('医院、密室、雨夜、老房子、凶杀、伦理、感情……')}
                 onChange={(event) => onThemeChange(event.target.value)}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
@@ -261,7 +263,7 @@ export function Landing({
         </>
       ) : (
         <div className="mt-9 border-l-2 border-stamp bg-card px-4 py-3 font-mono text-[11px] leading-6 text-stamp">
-          自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。
+          {t('自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。')}
         </div>
       )}
 
@@ -275,11 +277,11 @@ export function Landing({
           >
             {generating ? (
               <>
-                <Loader2 className="size-4 animate-spin" /> 正在熬制……
+                <Loader2 className="size-4 animate-spin" /> {t('正在熬制……')}
               </>
             ) : (
               <>
-                立案并熬一碗 <ArrowRight className="size-4" />
+                {t('立案并熬一碗')} <ArrowRight className="size-4" />
               </>
             )}
           </button>
@@ -289,7 +291,7 @@ export function Landing({
           to="/library"
           className="flex w-fit items-center gap-3 border border-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] transition-colors hover:bg-foreground hover:text-background"
         >
-          去题库挑一碗 <ArrowRight className="size-4" />
+          {t('去题库挑一碗')} <ArrowRight className="size-4" />
         </Link>
       </div>
 
@@ -297,11 +299,11 @@ export function Landing({
         <div className="mt-12">
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              档案室 / ARCHIVE
+              {t('档案室 / ARCHIVE')}
             </span>
             <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/70">
               {String(archives.length).padStart(2, '0')} 卷
-              {archives.length > 5 ? ' · 可上下滑动' : ''}
+              {archives.length > 5 ? t(' · 可上下滑动') : ''}
             </span>
           </div>
 
@@ -319,14 +321,14 @@ export function Landing({
                       onClick={() => confirmDelete(game.id)}
                       className="border border-stamp bg-stamp px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-background transition-opacity hover:opacity-85"
                     >
-                      确认删除
+                      {t('确认删除')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmingId(null)}
                       className="border border-foreground/30 px-3 py-1.5 font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      取消
+                      {t('取消')}
                     </button>
                     <label className="flex cursor-pointer items-center gap-2 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
                       <input
@@ -335,7 +337,7 @@ export function Landing({
                         onChange={(event) => setDontAskAgain(event.target.checked)}
                         className="size-3.5 accent-[var(--stamp)]"
                       />
-                      以后不再提示
+                      {t('以后不再提示')}
                     </label>
                   </div>
                 ) : (
@@ -372,7 +374,7 @@ export function Landing({
 
       <div className="mt-14 flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">
         <Lock className="size-3" />
-        中途离开也没关系，进度会自动留在本机
+        {t('中途离开也没关系，进度会自动留在本机')}
       </div>
     </div>
   )

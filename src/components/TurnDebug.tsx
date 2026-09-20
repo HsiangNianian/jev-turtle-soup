@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react'
 
 import type { DebugInfo } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 const INTENT_LABEL: Record<string, string> = {
   yes_no_question: '是非提问',
@@ -36,13 +37,14 @@ function Bars({
   labels: Record<string, string>
   highlight?: string
 }) {
+  const { t } = useI18n()
   const entries = Object.entries(probabilities).sort((a, b) => b[1] - a[1])
   return (
     <div className="space-y-1">
       {entries.map(([label, value]) => (
         <div key={label} className="flex items-center gap-2 font-mono">
           <div className="w-16 shrink-0 truncate text-[10px] text-muted-foreground/70">
-            {labels[label] ?? label}
+            {t(labels[label] ?? label)}
           </div>
           <div className="h-1 flex-1 bg-foreground/[0.07]">
             <div
@@ -71,13 +73,14 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function TurnDebug({ debug }: { debug: DebugInfo }) {
-  const intent = INTENT_LABEL[debug.intent.choice] ?? debug.intent.choice
+  const { t } = useI18n()
+  const intent = t(INTENT_LABEL[debug.intent.choice] ?? debug.intent.choice)
   const tag =
     debug.intent.choice === 'meta'
-      ? (META_LABEL[debug.metaRequest.choice] ?? debug.metaRequest.choice)
+      ? t(META_LABEL[debug.metaRequest.choice] ?? debug.metaRequest.choice)
       : debug.intent.choice === 'guess'
         ? `${Math.round((debug.closeness.score / 3) * 100)}%`
-        : (VERDICT_LABEL[debug.verdict.choice] ?? debug.verdict.choice)
+        : t(VERDICT_LABEL[debug.verdict.choice] ?? debug.verdict.choice)
 
   return (
     <details className="group mt-2.5">
@@ -100,14 +103,14 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
             highlight={debug.verdict.choice}
           />
         </Section>
-        <Section title="推理接近度 GUESS_CLOSENESS">
+        <Section title={t('推理接近度 GUESS_CLOSENESS')}>
           <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground/70">
             <span className="tabular-nums text-foreground/75">
               {debug.closeness.score.toFixed(2)} / 3
             </span>
             <span className="tabular-nums">solved {debug.solved.toFixed(2)}</span>
             <span className="tabular-nums">
-              {META_LABEL[debug.metaRequest.choice] ?? debug.metaRequest.choice}
+              {t(META_LABEL[debug.metaRequest.choice] ?? debug.metaRequest.choice)}
             </span>
           </div>
         </Section>

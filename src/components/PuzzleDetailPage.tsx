@@ -5,6 +5,7 @@ import { Button, Empty, PageShell } from '@/components/Bits'
 
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
 import { Link } from '@/components/Link'
+import { useI18n } from '@/lib/i18n'
 
 export function PuzzleDetailPage({
   id,
@@ -13,6 +14,7 @@ export function PuzzleDetailPage({
   id: string
   onStart: (puzzle: LibraryPuzzleDetail) => void
 }) {
+  const { t } = useI18n()
   const [puzzle, setPuzzle] = useState<LibraryPuzzleDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,16 +28,16 @@ export function PuzzleDetailPage({
         }
       })
       .catch((caught: unknown) => {
-        if (alive) setError(caught instanceof Error ? caught.message : '加载失败')
+        if (alive) setError(caught instanceof Error ? caught.message : t('加载失败'))
       })
     return () => {
       alive = false
     }
-  }, [id])
+  }, [id, t])
 
   if (error) {
     return (
-      <PageShell label="案卷 / CASE" title="打不开这一卷">
+      <PageShell label={t('案卷 / CASE')} title={t('打不开这一卷')}>
         <div className="mt-6">
           <Empty>{error}</Empty>
         </div>
@@ -53,7 +55,7 @@ export function PuzzleDetailPage({
 
   return (
     <PageShell
-      label="案卷 / CASE"
+      label={t('案卷 / CASE')}
       title={puzzle.title}
       meta={
         <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
@@ -82,13 +84,13 @@ export function PuzzleDetailPage({
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Button onClick={() => onStart(puzzle)}>
-          开始推理 <ArrowRight className="size-3.5" />
+          {t('开始推理')} <ArrowRight className="size-3.5" />
         </Button>
         <Link
           to="/library"
           className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
         >
-          回到题库
+          {t('回到题库')}
         </Link>
       </div>
     </PageShell>

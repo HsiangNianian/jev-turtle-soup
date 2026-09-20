@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Eye, Lightbulb, Wand2 } from 'lucide-react'
 
-import { TurnDebug } from '@/components/JevDebug'
+import { TurnDebug } from '@/components/TurnDebug'
 import type { ChatMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -68,9 +68,9 @@ export function Transcript({ messages, asking }: { messages: ChatMessage[]; aski
           <Row
             key={message.id}
             index={messageIndex + 1}
-            speaker={isPlayer ? '你' : 'JEV'}
+            speaker={isPlayer ? '你' : '砚'}
             tint={isPlayer ? 'player' : 'host'}
-            debug={message.debug ? <TurnDebug debug={message.debug} model={message.model} /> : null}
+            debug={message.debug ? <TurnDebug debug={message.debug} /> : null}
           >
             <div className="animate-rise-in">
               {verdictText ? (
@@ -107,7 +107,7 @@ export function Transcript({ messages, asking }: { messages: ChatMessage[]; aski
       })}
 
       {asking ? (
-        <Row index={messages.length + 1} speaker="JEV" tint="host">
+        <Row index={messages.length + 1} speaker="砚" tint="host">
           <span className="flex items-center gap-1.5 py-1">
             {[0, 1, 2].map((dot) => (
               <span
@@ -147,7 +147,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
         </span>
         <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
           <span className="animate-soft-pulse size-1.5 rounded-full bg-[var(--v-yes)]" />
-          主持人 JEV
+          砚 · Ellis
         </span>
       </div>
 

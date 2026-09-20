@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, Loader2, Lock } from 'lucide-react'
 
+import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
 import { cn } from '@/lib/utils'
 
@@ -66,12 +67,15 @@ export function Landing({
       <div className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground sm:text-[11px]">
         案件受理 · CASE INTAKE
       </div>
-      <h1 className="mt-5 font-serif text-[clamp(2.5rem,9vw,4.5rem)] leading-none font-semibold">
-        海龟汤
-      </h1>
+      <div className="mt-5 flex items-start justify-between gap-5">
+        <h1 className="font-serif text-[clamp(2.75rem,9vw,4.5rem)] leading-none font-semibold">
+          海龟汤
+        </h1>
+        <DailyLuck />
+      </div>
       <div className="mt-6 h-px w-full bg-foreground/80" />
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-        每一碗汤都是一桩悬案。向主持人 Jev 提出「是 / 不是」的问题，逐步还原被隐去的真相。
+        每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。
       </p>
 
       {activeGame ? (
@@ -227,7 +231,7 @@ export function Landing({
 
       <div className="mt-14 flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">
         <Lock className="size-3" />
-        JEV × SYSTEM ONE · 存档保存在本机
+        存档保存在本机 · 数据不会离开这台设备
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 
 import { CaseDrawer } from '@/components/CaseDrawer'
@@ -6,6 +7,7 @@ import { PuzzlePanel } from '@/components/PuzzlePanel'
 import { STATUS_LABEL, buildLedger, formatWhen, toSession, type ArchivedGame } from '@/lib/archive'
 
 export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContinue: () => void }) {
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const session = toSession(game)
   const ledger = buildLedger(game.messages)
   const caseFile = (
@@ -32,6 +34,8 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
         <CaseDrawer
           title={game.title}
           meta={`${STATUS_LABEL[game.status]} · 已问 ${game.turnCount} 轮`}
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
         >
           {caseFile}
         </CaseDrawer>

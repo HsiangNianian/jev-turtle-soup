@@ -1,35 +1,37 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { ChevronUp, X } from 'lucide-react'
 
 interface CaseDrawerProps {
   title: string
   meta: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
   children: ReactNode
 }
 
-export function CaseDrawer({ title, meta, children }: CaseDrawerProps) {
-  const [open, setOpen] = useState(false)
-
+export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDrawerProps) {
   useEffect(() => {
-    if (!open) return
+    if (!open || typeof window === 'undefined') return
+    // 只有移动端才真的铺满整屏，桌面端不要锁滚动
+    if (!window.matchMedia('(max-width: 1023px)').matches) return
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') onOpenChange(false)
     }
     window.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = previous
       window.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, onOpenChange])
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => onOpenChange(true)}
         aria-expanded={open}
         className="flex w-full shrink-0 items-center gap-3 border-b border-foreground px-4 py-3 text-left transition-colors active:bg-foreground/[0.04]"
       >
@@ -51,7 +53,7 @@ export function CaseDrawer({ title, meta, children }: CaseDrawerProps) {
           <button
             type="button"
             aria-label="收起案卷"
-            onClick={() => setOpen(false)}
+            onClick={() => onOpenChange(false)}
             className="animate-fade-in absolute inset-0 bg-foreground/45"
           />
           <div className="animate-sheet-up absolute inset-x-0 top-12 bottom-0 flex flex-col bg-background">
@@ -61,7 +63,7 @@ export function CaseDrawer({ title, meta, children }: CaseDrawerProps) {
               <button
                 type="button"
                 aria-label="收起案卷"
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
                 className="flex size-8 shrink-0 items-center justify-center border border-foreground transition-colors active:bg-foreground active:text-background"
               >
                 <X className="size-4" />

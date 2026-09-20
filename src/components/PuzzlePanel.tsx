@@ -12,6 +12,8 @@ interface PuzzlePanelProps {
   turnCount: number
   ledger: LedgerItem[]
   onReveal: () => void
+  /** 移动端案卷简报里的「开始游戏」，用于收起抽屉。 */
+  onStart?: () => void
   readOnly?: boolean
 }
 
@@ -47,6 +49,7 @@ export function PuzzlePanel({
   turnCount,
   ledger,
   onReveal,
+  onStart,
   readOnly = false,
 }: PuzzlePanelProps) {
   const caseNo = (session.sessionId.replace(/\D/g, '').slice(-3) || '000').padStart(3, '0')
@@ -95,20 +98,17 @@ export function PuzzlePanel({
         </div>
       ) : null}
 
-      <div className="mt-8">
-        {revealed && truth ? (
-          <div className="animate-pop border-l-4 border-stamp pl-5">
-            <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
-              <Unlock className="size-3.5" /> 汤底 / VERDICT
-            </div>
-            <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
+      {revealed && truth ? (
+        <div className="animate-pop mt-8 border-l-4 border-stamp pl-5">
+          <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
+            <Unlock className="size-3.5" /> 汤底 / VERDICT
           </div>
-        ) : readOnly ? (
-          <div className="flex items-center gap-2 border border-dashed border-foreground/30 px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] text-muted-foreground">
-            <Lock className="size-3.5" />
-            本卷汤底未拆封
-          </div>
-        ) : (
+          <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
+        </div>
+      ) : null}
+
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        {!revealed && !readOnly ? (
           <button
             type="button"
             onClick={onReveal}
@@ -117,7 +117,24 @@ export function PuzzlePanel({
             <Lock className="size-3.5" />
             拆封汤底
           </button>
-        )}
+        ) : null}
+
+        {!revealed && readOnly ? (
+          <div className="flex items-center gap-2 border border-dashed border-foreground/30 px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] text-muted-foreground">
+            <Lock className="size-3.5" />
+            本卷汤底未拆封
+          </div>
+        ) : null}
+
+        {onStart ? (
+          <button
+            type="button"
+            onClick={onStart}
+            className="flex items-center gap-2 bg-foreground px-5 py-2.5 font-mono text-[11px] font-bold tracking-[0.18em] text-background transition-opacity hover:opacity-85"
+          >
+            开始游戏
+          </button>
+        ) : null}
       </div>
 
       {ledger.length ? (

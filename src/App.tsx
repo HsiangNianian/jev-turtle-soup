@@ -61,6 +61,7 @@ export default function App() {
   const [difficulty, setDifficulty] = useState('中等')
   const [theme, setTheme] = useState('')
   const [landingError, setLandingError] = useState<string | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     fetchHealth()
@@ -158,6 +159,7 @@ export default function App() {
       setCloseness(null)
       setTurnCount(0)
       setStartedAt(Date.now())
+      setDrawerOpen(true)
       setView('game')
     } catch (error) {
       setLandingError(error instanceof Error ? error.message : '生成失败，请重试')
@@ -194,8 +196,10 @@ export default function App() {
         if (turn.solved) {
           setSolved(true)
           setRevealed(true)
+          setDrawerOpen(true)
         } else if (turn.revealed) {
           setRevealed(true)
+          setDrawerOpen(true)
         }
       } catch (error) {
         setMessages((prev) => [
@@ -218,6 +222,7 @@ export default function App() {
     if (!session || revealed) return
     setTruth(session.truth)
     setRevealed(true)
+    setDrawerOpen(true)
     setMessages((prev) => [
       ...prev,
       {
@@ -244,6 +249,7 @@ export default function App() {
       const game = games.find((item) => item.id === id)
       if (!game) return
       if (session?.sessionId !== id) hydrate(game)
+      setDrawerOpen(true)
       setView('game')
     },
     [games, hydrate, session],
@@ -256,6 +262,7 @@ export default function App() {
 
   const handleBack = useCallback(() => {
     setViewingId(null)
+    setDrawerOpen(false)
     setView('landing')
   }, [])
 
@@ -291,18 +298,20 @@ export default function App() {
   const llmMissing = health !== null && health.llm === null
   const typesafeMissing = health !== null && !health.typesafeConfigured
 
-  const casePanel = session ? (
-    <PuzzlePanel
-      session={session}
-      revealed={revealed}
-      truth={truth}
-      solved={solved}
-      closeness={closeness}
-      turnCount={turnCount}
-      ledger={ledger}
-      onReveal={handleReveal}
-    />
-  ) : null
+  const renderCase = (onStart?: () => void) =>
+    session ? (
+      <PuzzlePanel
+        session={session}
+        revealed={revealed}
+        truth={truth}
+        solved={solved}
+        closeness={closeness}
+        turnCount={turnCount}
+        ledger={ledger}
+        onReveal={handleReveal}
+        onStart={onStart}
+      />
+    ) : null
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -326,7 +335,7 @@ export default function App() {
           <div className="ml-auto flex shrink-0 items-center gap-4 font-mono text-[10px] tracking-[0.2em]">
             <span className="hidden items-center gap-2 opacity-70 md:inline-flex">
               <span className="size-1.5 rounded-full bg-[var(--v-yes)]" />
-              JEV × SYSTEM ONE
+              砚 · 在线
             </span>
             {view === 'game' && gameOver ? (
               <button
@@ -363,7 +372,7 @@ export default function App() {
           <TriangleAlert className="size-3.5 shrink-0" />
           <span className="min-w-0">
             {typesafeMissing ? (
-              <>未检测到 TYPESAFE_API_KEY，主持人 Jev 无法工作。请配置后重启。</>
+              <>未检测到主持人密钥（TYPESAFE_API_KEY），砚无法工作。请配置后重启。</>
             ) : (
               <>
                 未配置 LLM API Key（DEEPSEEK_API_KEY / OPENAI_API_KEY），当前使用内置题库。配置后可生成全新海龟汤。
@@ -378,15 +387,17 @@ export default function App() {
       ) : view === 'game' && session ? (
         <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <section className="chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:w-[42%] lg:border-r lg:border-foreground/25">
-            {casePanel}
+            {renderCase()}
           </section>
 
           <section className="flex min-h-0 flex-1 flex-col">
             <CaseDrawer
               title={session.title}
               meta={`等级 ${session.difficulty} · 已问 ${turnCount} 轮`}
+              open={drawerOpen}
+              onOpenChange={setDrawerOpen}
             >
-              {casePanel}
+              {renderCase(() => setDrawerOpen(false))}
             </CaseDrawer>
 
             <ChatPanel

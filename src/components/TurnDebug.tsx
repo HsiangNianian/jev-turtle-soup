@@ -67,7 +67,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-export function TurnDebug({ debug, model }: { debug: DebugInfo; model?: string }) {
+export function TurnDebug({ debug }: { debug: DebugInfo }) {
   const intent = INTENT_LABEL[debug.intent.choice] ?? debug.intent.choice
   const tag =
     debug.intent.choice === 'meta'
@@ -80,7 +80,7 @@ export function TurnDebug({ debug, model }: { debug: DebugInfo; model?: string }
     <details className="group mt-2.5">
       <summary className="flex w-fit cursor-pointer list-none items-center gap-1 py-0.5 font-mono text-[10px] tracking-[0.14em] text-muted-foreground/55 transition-colors hover:text-muted-foreground">
         <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
-        JEV 判读 · {intent} · {tag}
+        判读明细 · {intent} · {tag}
       </summary>
       <div className="mt-2.5 space-y-3.5 border-l border-dashed border-foreground/15 pl-3.5">
         <Section title={`意图 INTENT · 置信度 ${debug.intent.confidence.toFixed(2)}`}>
@@ -108,9 +108,6 @@ export function TurnDebug({ debug, model }: { debug: DebugInfo; model?: string }
             </span>
           </div>
         </Section>
-        <div className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground/35">
-          TYPESAFE · {model ?? 'jev'}
-        </div>
       </div>
     </details>
   )

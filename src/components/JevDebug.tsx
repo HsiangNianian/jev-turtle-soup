@@ -39,17 +39,17 @@ function Bars({
   return (
     <div className="space-y-1.5">
       {entries.map(([label, value]) => (
-        <div key={label} className="flex items-center gap-2">
-          <div className="w-20 shrink-0 truncate text-muted-foreground">
+        <div key={label} className="flex items-center gap-2 font-mono">
+          <div className="w-20 shrink-0 truncate text-[11px] text-muted-foreground">
             {labels[label] ?? label}
           </div>
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-1.5 flex-1 bg-foreground/10">
             <div
-              className={cn('h-full rounded-full', label === highlight ? 'bg-primary' : 'bg-primary/35')}
+              className={cn('h-full', label === highlight ? 'bg-stamp' : 'bg-foreground/30')}
               style={{ width: `${Math.max(2, Math.round(value * 100))}%` }}
             />
           </div>
-          <div className="w-9 shrink-0 text-right tabular-nums text-muted-foreground">
+          <div className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
             {Math.round(value * 100)}%
           </div>
         </div>
@@ -60,8 +60,8 @@ function Bars({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <div className="font-medium text-foreground/80">{title}</div>
+    <div className="space-y-2">
+      <div className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">{title}</div>
       {children}
     </div>
   )
@@ -77,29 +77,39 @@ export function TurnDebug({ debug, model }: { debug: DebugInfo; model?: string }
         : (VERDICT_LABEL[debug.verdict.choice] ?? debug.verdict.choice)
 
   return (
-    <details className="group mt-1 text-xs">
-      <summary className="flex cursor-pointer list-none items-center gap-1 text-muted-foreground/80 transition-colors hover:text-foreground">
+    <details className="group mt-2">
+      <summary className="flex cursor-pointer list-none items-center gap-1 font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground">
         <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
-        Jev 判读 · {intent} · {tag}
+        JEV 判读 · {intent} · {tag}
       </summary>
-      <div className="mt-3 space-y-4 rounded-lg border bg-background/70 p-3">
-        <Section title={`意图 intent · 置信度 ${debug.intent.confidence.toFixed(2)}`}>
-          <Bars probabilities={debug.intent.probabilities} labels={INTENT_LABEL} highlight={debug.intent.choice} />
+      <div className="mt-3 space-y-4 border border-foreground/20 bg-card p-3">
+        <Section title={`意图 INTENT · 置信度 ${debug.intent.confidence.toFixed(2)}`}>
+          <Bars
+            probabilities={debug.intent.probabilities}
+            labels={INTENT_LABEL}
+            highlight={debug.intent.choice}
+          />
         </Section>
-        <Section title={`回答 verdict · 置信度 ${debug.verdict.confidence.toFixed(2)}`}>
-          <Bars probabilities={debug.verdict.probabilities} labels={VERDICT_LABEL} highlight={debug.verdict.choice} />
+        <Section title={`回答 VERDICT · 置信度 ${debug.verdict.confidence.toFixed(2)}`}>
+          <Bars
+            probabilities={debug.verdict.probabilities}
+            labels={VERDICT_LABEL}
+            highlight={debug.verdict.choice}
+          />
         </Section>
-        <Section title="推理接近度 guess_closeness">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <span className="tabular-nums text-foreground">{debug.closeness.score.toFixed(2)} / 3</span>
+        <Section title="推理接近度 GUESS_CLOSENESS">
+          <div className="flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
+            <span className="tabular-nums text-foreground">
+              {debug.closeness.score.toFixed(2)} / 3
+            </span>
             <span className="tabular-nums">solved {debug.solved.toFixed(2)}</span>
             <span className="tabular-nums">
               {META_LABEL[debug.metaRequest.choice] ?? debug.metaRequest.choice}
             </span>
           </div>
         </Section>
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-          TypeSafe · {model ?? 'jev'}
+        <div className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/70">
+          TYPESAFE · {model ?? 'jev'}
         </div>
       </div>
     </details>

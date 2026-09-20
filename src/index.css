@@ -4,46 +4,47 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  color-scheme: dark;
-  --radius: 1rem;
+  color-scheme: light;
+  --radius: 0.125rem;
 
-  --background: oklch(0.155 0.012 62);
-  --foreground: oklch(0.93 0.014 82);
-  --card: oklch(0.195 0.014 62);
-  --card-foreground: oklch(0.93 0.014 82);
-  --popover: oklch(0.2 0.014 62);
-  --popover-foreground: oklch(0.93 0.014 82);
-  --primary: oklch(0.81 0.125 78);
-  --primary-foreground: oklch(0.19 0.035 60);
-  --secondary: oklch(0.26 0.02 64);
-  --secondary-foreground: oklch(0.92 0.015 82);
-  --muted: oklch(0.245 0.016 64);
-  --muted-foreground: oklch(0.7 0.022 76);
-  --accent: oklch(0.32 0.04 70);
-  --accent-foreground: oklch(0.95 0.02 82);
-  --destructive: oklch(0.68 0.18 25);
-  --destructive-foreground: oklch(0.98 0.01 80);
-  --border: oklch(0.86 0.05 82 / 13%);
-  --input: oklch(0.86 0.05 82 / 16%);
-  --ring: oklch(0.81 0.125 78 / 60%);
+  --background: #f2efe6;
+  --foreground: #17150f;
+  --card: #f8f6ee;
+  --card-foreground: #17150f;
+  --popover: #faf8f1;
+  --popover-foreground: #17150f;
+  --primary: #17150f;
+  --primary-foreground: #f2efe6;
+  --secondary: #e7e2d4;
+  --secondary-foreground: #17150f;
+  --muted: #e7e2d4;
+  --muted-foreground: #8c8677;
+  --accent: #e7e2d4;
+  --accent-foreground: #17150f;
+  --destructive: #b5342a;
+  --destructive-foreground: #f2efe6;
+  --border: rgba(23, 21, 15, 0.22);
+  --input: rgba(23, 21, 15, 0.3);
+  --ring: rgba(181, 52, 42, 0.45);
 
-  --v-yes: oklch(0.8 0.15 158);
-  --v-no: oklch(0.72 0.17 28);
-  --v-partly: oklch(0.84 0.14 82);
-  --v-irrelevant: oklch(0.72 0.02 78);
+  --rule: #17150f;
+  --stamp: #b5342a;
 
-  --font-sans:
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
-  --font-serif:
-    'Source Han Serif SC', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', ui-serif, Georgia,
-    serif;
+  --v-yes: #2f6b4f;
+  --v-no: #b5342a;
+  --v-partly: #a8791f;
+  --v-irrelevant: #8c8677;
+
+  --font-sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'Source Han Serif SC', 'Noto Serif CJK SC', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, 'PingFang SC', monospace;
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 6px);
-  --radius-md: calc(var(--radius) - 3px);
+  --radius-sm: 0px;
+  --radius-md: calc(var(--radius) + 1px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-xl: calc(var(--radius) + 2px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -63,6 +64,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-rule: var(--rule);
+  --color-stamp: var(--stamp);
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
@@ -79,11 +85,6 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
-    background-image:
-      radial-gradient(90rem 55rem at 12% -18%, oklch(0.55 0.11 70 / 22%), transparent 60%),
-      radial-gradient(70rem 45rem at 108% 6%, oklch(0.5 0.08 40 / 16%), transparent 55%),
-      radial-gradient(60rem 50rem at 50% 120%, oklch(0.4 0.06 300 / 10%), transparent 60%);
-    background-attachment: fixed;
   }
 
   body::after {
@@ -92,60 +93,33 @@
     inset: 0;
     z-index: 70;
     pointer-events: none;
-    opacity: 0.045;
-    mix-blend-mode: overlay;
-    background-size: 150px 150px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    mix-blend-mode: multiply;
+    background-size: 180px 180px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
   }
 
   ::selection {
-    background: oklch(0.81 0.125 78 / 30%);
+    background: rgba(181, 52, 42, 0.22);
   }
 }
 
 @layer utilities {
-  .font-serif {
-    font-family: var(--font-serif);
-  }
-
-  .tracking-wordmark {
-    letter-spacing: 0.42em;
-  }
-
-  .text-shadow-warm {
-    text-shadow: 0 1px 24px oklch(0.81 0.125 78 / 28%);
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
   }
 
   .surface-prose {
     white-space: pre-wrap;
-    line-height: 2;
+    line-height: 1.95;
   }
 
-  .card-ornament {
-    position: relative;
-  }
-
-  .card-ornament::before,
-  .card-ornament::after {
-    content: '';
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-color: oklch(0.81 0.125 78 / 45%);
-    border-style: solid;
-    pointer-events: none;
-  }
-
-  .card-ornament::before {
-    top: 10px;
-    left: 10px;
-    border-width: 1px 0 0 1px;
-  }
-
-  .card-ornament::after {
-    bottom: 10px;
-    right: 10px;
-    border-width: 0 1px 1px 0;
+  .rule-dashed {
+    border-bottom: 1px dashed rgba(23, 21, 15, 0.22);
   }
 
   .verdict-yes {
@@ -166,41 +140,40 @@
 
   .verdict-token {
     color: var(--tone);
-    border-color: color-mix(in oklch, var(--tone) 45%, transparent);
-    background: color-mix(in oklch, var(--tone) 14%, transparent);
-    box-shadow: 0 0 30px color-mix(in oklch, var(--tone) 18%, transparent);
+    border-color: var(--tone);
+  }
+
+  .stamp {
+    transform: rotate(-6deg);
+    color: var(--stamp);
+    border: 2px solid var(--stamp);
   }
 
   .animate-rise-in {
-    animation: rise-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: rise-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }
 
   .animate-fade-in {
-    animation: fade-in 0.7s ease both;
+    animation: fade-in 0.5s ease both;
   }
 
   .animate-pop {
-    animation: pop 0.45s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
-  }
-
-  .animate-steam {
-    animation: steam 4.2s ease-in-out infinite;
-  }
-
-  .animate-shimmer {
-    background-size: 200% 100%;
-    animation: shimmer 2.6s linear infinite;
+    animation: pop 0.36s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
   }
 
   .animate-soft-pulse {
     animation: soft-pulse 2.4s ease-in-out infinite;
+  }
+
+  .animate-blink {
+    animation: blink 1.1s steps(2, start) infinite;
   }
 }
 
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -220,7 +193,7 @@
 @keyframes pop {
   0% {
     opacity: 0;
-    transform: scale(0.85);
+    transform: scale(0.94);
   }
   100% {
     opacity: 1;
@@ -228,42 +201,29 @@
   }
 }
 
-@keyframes steam {
-  0% {
-    opacity: 0;
-    transform: translateY(6px) scaleX(0.85);
-  }
-  25% {
-    opacity: 0.55;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-40px) scaleX(1.35);
-  }
-}
-
-@keyframes shimmer {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
-}
-
 @keyframes soft-pulse {
   0%,
   100% {
-    opacity: 0.55;
+    opacity: 0.45;
   }
   50% {
     opacity: 1;
   }
 }
 
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
 .chat-scroll {
   scrollbar-width: thin;
-  scrollbar-color: oklch(0.81 0.125 78 / 25%) transparent;
+  scrollbar-color: rgba(23, 21, 15, 0.28) transparent;
 }
 
 .chat-scroll::-webkit-scrollbar {
@@ -271,8 +231,7 @@
 }
 
 .chat-scroll::-webkit-scrollbar-thumb {
-  background: oklch(0.81 0.125 78 / 22%);
-  border-radius: 999px;
+  background: rgba(23, 21, 15, 0.22);
 }
 
 .chat-scroll::-webkit-scrollbar-track {

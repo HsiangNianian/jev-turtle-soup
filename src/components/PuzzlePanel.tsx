@@ -1,8 +1,5 @@
-import type { ReactNode } from 'react'
-import { Eye, Loader2, Sparkles } from 'lucide-react'
+import { Loader2, Lock, Unlock } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import type { GameSession } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +13,7 @@ interface PuzzlePanelProps {
   turnCount: number
   ledger: LedgerItem[]
   onReveal: () => void
+  readOnly?: boolean
 }
 
 export interface LedgerItem {
@@ -32,14 +30,11 @@ const LEDGER: Record<string, { glyph: string; cls: string }> = {
   solved: { glyph: '中', cls: 'verdict-yes' },
 }
 
-function Label({ children, amber = false }: { children: ReactNode; amber?: boolean }) {
+function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <span
-        className="size-1.5 rounded-full"
-        style={{ background: amber ? 'var(--v-partly)' : 'var(--primary)' }}
-      />
-      <span className="font-serif text-xs tracking-[0.4em] text-muted-foreground">{children}</span>
+    <div className="flex items-baseline gap-2">
+      <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[11px] tracking-[0.1em]">{value}</span>
     </div>
   )
 }
@@ -54,118 +49,113 @@ export function PuzzlePanel({
   turnCount,
   ledger,
   onReveal,
+  readOnly = false,
 }: PuzzlePanelProps) {
+  const caseNo = (session.sessionId.replace(/\D/g, '').slice(-3) || '000').padStart(3, '0')
   const progress = typeof closeness === 'number' ? Math.round(closeness * 100) : null
 
   return (
-    <div className="flex flex-col gap-4">
-      <article className="card-ornament relative overflow-hidden rounded-3xl border border-border/70 bg-card/70 p-5 shadow-[0_30px_80px_-50px_oklch(0_0_0/0.9)] backdrop-blur sm:p-7">
-        <div className="pointer-events-none absolute -right-16 -top-20 size-48 rounded-full bg-primary/10 blur-3xl" />
-
-        <div className="relative flex flex-wrap items-center gap-2">
-          <Badge
-            variant="outline"
-            className="border-primary/30 bg-primary/10 font-serif tracking-widest text-primary"
-          >
-            {session.difficulty}
-          </Badge>
-          <Badge variant="outline" className="text-muted-foreground">
-            {session.source === 'llm' ? 'AI 现熬' : '经典存档'}
-          </Badge>
+    <div className="flex min-h-full flex-col px-6 py-7 lg:px-8">
+      <div className="flex items-start justify-between gap-4">
+        <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
+          案卷 NO.{caseNo}
+        </div>
+        <div className="flex items-center gap-2">
           {solved ? (
-            <Badge className="border-transparent bg-[var(--v-yes)]/20 text-[var(--v-yes)]">
-              <Sparkles className="size-3" /> 已猜中
-            </Badge>
+            <span className="stamp px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.2em] text-[var(--v-yes)]" style={{ borderColor: 'var(--v-yes)', color: 'var(--v-yes)' }}>
+              已结案
+            </span>
           ) : null}
-          <span className="ml-auto font-serif text-xs tracking-widest text-muted-foreground">
-            {turnCount} 问
+          <span className="stamp animate-pop px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.2em]">
+            机密
           </span>
         </div>
+      </div>
 
-        <h2 className="relative mt-4 font-serif text-2xl font-semibold tracking-wide text-shadow-warm sm:text-3xl">
-          {session.title}
-        </h2>
+      <h2 className="mt-4 font-serif text-3xl leading-tight font-semibold">{session.title}</h2>
 
-        <div className="relative mt-5">
-          <Label>汤面</Label>
-          <div className="mt-3 rounded-2xl border border-border/60 bg-background/40 p-4 sm:p-5">
-            <p className="surface-prose font-serif text-[16px] text-foreground/90 sm:text-[17px]">
-              {session.surface}
-            </p>
-          </div>
+      <div className="mt-6 h-px w-full bg-foreground/25" />
+
+      <div className="mt-6 font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
+        汤面 / STATEMENT OF FACTS
+      </div>
+      <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{session.surface}</p>
+
+      <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-t border-dashed border-foreground/25 pt-4">
+        <Field label="等级" value={session.difficulty} />
+        <Field label="来源" value={session.source === 'llm' ? 'AI 现熬' : '经典存档'} />
+        <Field label="已问" value={`${turnCount} 轮`} />
+        {progress !== null ? <Field label="接近度" value={`${progress}%`} /> : null}
+      </div>
+
+      {progress !== null && !revealed ? (
+        <div className="mt-3 h-1 w-full bg-foreground/10">
+          <div
+            className="h-1 bg-stamp transition-all duration-700 ease-out"
+            style={{ width: `${Math.max(3, progress)}%` }}
+          />
         </div>
+      ) : null}
 
-        {progress !== null && !revealed ? (
-          <div className="relative mt-5 space-y-2.5">
-            <div className="flex items-baseline justify-between">
-              <span className="font-serif text-xs tracking-[0.3em] text-muted-foreground">
-                接近汤底
-              </span>
-              <span className="font-serif text-lg tabular-nums text-foreground">{progress}%</span>
+      <div className="mt-8">
+        {revealed && truth ? (
+          <div className="animate-pop border-l-4 border-stamp pl-5">
+            <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
+              <Unlock className="size-3.5" /> 汤底 / VERDICT
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all duration-700 ease-out',
-                  progress >= 90
-                    ? 'bg-[var(--v-yes)] shadow-[0_0_18px_var(--v-yes)]'
-                    : 'bg-gradient-to-r from-primary/60 to-primary',
-                )}
-                style={{ width: `${Math.max(4, progress)}%` }}
-              />
-            </div>
+            <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
           </div>
-        ) : null}
-      </article>
-
-      {revealed && truth ? (
-        <article className="card-ornament animate-pop relative overflow-hidden rounded-3xl border border-primary/30 bg-[linear-gradient(160deg,oklch(0.81_0.125_78/0.14),oklch(0.81_0.125_78/0.03))] p-5 backdrop-blur sm:p-7">
-          <div className="pointer-events-none absolute -left-10 -top-16 size-40 rounded-full bg-primary/20 blur-3xl" />
-          <div className="relative">
-            <Label amber>汤底</Label>
-            <p className="surface-prose mt-4 font-serif text-[16px] text-foreground/95 sm:text-[17px]">
-              {truth}
-            </p>
+        ) : readOnly ? (
+          <div className="flex items-center gap-2 border border-dashed border-foreground/30 px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] text-muted-foreground">
+            <Lock className="size-3.5" />
+            本卷汤底未拆封
           </div>
-        </article>
-      ) : (
-        <Button
-          variant="outline"
-          className="group h-11 w-full rounded-2xl border-border/70 bg-card/40 font-serif tracking-widest text-muted-foreground hover:border-primary/40 hover:text-primary"
-          onClick={onReveal}
-          disabled={revealing}
-        >
-          {revealing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Eye className="size-4 transition-transform group-hover:scale-110" />
-          )}
-          翻碗 · 直接揭晓汤底
-        </Button>
-      )}
+        ) : (
+          <button
+            type="button"
+            onClick={onReveal}
+            disabled={revealing}
+            className="flex items-center gap-2 border border-foreground px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
+          >
+            {revealing ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Lock className="size-3.5" />
+            )}
+            拆封汤底
+          </button>
+        )}
+      </div>
 
       {ledger.length ? (
-        <div className="hidden rounded-3xl border border-border/60 bg-card/40 p-5 backdrop-blur lg:block">
-          <div className="flex items-center justify-between">
-            <Label>问答记录</Label>
-            <span className="font-serif text-xs tracking-widest text-muted-foreground/70">
+        <div className="mt-9">
+          <div className="flex items-baseline justify-between">
+            <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
+              问答记录 / LEDGER
+            </div>
+            <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/70">
               {String(ledger.length).padStart(2, '0')}
             </span>
           </div>
-          <ul className="mt-4 space-y-2.5">
+          <ul className="mt-3">
             {ledger.map((item) => {
               const tone = LEDGER[item.verdict] ?? LEDGER.irrelevant
               return (
-                <li key={item.id} className="flex items-center gap-3">
+                <li
+                  key={item.id}
+                  className="rule-dashed flex items-center gap-3 py-2 last:border-b-0"
+                >
                   <span
                     className={cn(
-                      'verdict-token flex size-6 shrink-0 items-center justify-center rounded-md border font-serif text-[11px]',
+                      'verdict-token flex size-6 shrink-0 items-center justify-center border font-mono text-[11px] font-bold',
                       tone.cls,
                     )}
                   >
                     {tone.glyph}
                   </span>
-                  <span className="truncate text-xs text-muted-foreground">{item.question}</span>
+                  <span className="truncate font-serif text-[13px] text-foreground/75">
+                    {item.question}
+                  </span>
                 </li>
               )
             })}

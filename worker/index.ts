@@ -33,6 +33,7 @@ import {
   getPublicPuzzle,
   listOwnPuzzles,
   listPublicPuzzles,
+  listTags,
   revealLibraryPuzzle,
   updateProfile,
   updatePuzzle,
@@ -219,6 +220,7 @@ async function routeLibrary(
         limit: Number(url.searchParams.get('limit') ?? 20),
         offset: Number(url.searchParams.get('offset') ?? 0),
         query: url.searchParams.get('q') ?? '',
+        tag: url.searchParams.get('tag') ?? '',
       })
       return json({ items })
     }
@@ -301,6 +303,11 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     const handled = await routeAuth(request, env, pathname)
     return handled ?? json({ error: '未知接口' }, 404)
   }
+  if (pathname === '/api/library/tags') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    return json({ items: await listTags(requireDb(env)) })
+  }
+
   const library = await routeLibrary(request, env, pathname, url)
   if (library) return library
   const me = await routeMe(request, env, pathname)

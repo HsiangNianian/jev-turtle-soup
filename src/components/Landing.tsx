@@ -5,6 +5,11 @@ import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
 import { cn } from '@/lib/utils'
 
+const GENRE_CHOICES = [
+  { value: 'realistic', label: '本格', hint: '现实向推理' },
+  { value: 'supernatural', label: '怪力乱神', hint: '鬼神 · 因果 · 禁忌' },
+] as const
+
 const DIFFICULTIES = [
   { value: '简单', hint: '线索直给' },
   { value: '中等', hint: '需要联想' },
@@ -33,6 +38,7 @@ function StatusStamp({ status }: { status: GameStatus }) {
 
 interface LandingProps {
   difficulty: string
+  genre: 'realistic' | 'supernatural'
   theme: string
   generating: boolean
   error: string | null
@@ -40,6 +46,7 @@ interface LandingProps {
   canGenerate: boolean
   archives: ArchivedGame[]
   onDifficultyChange: (value: string) => void
+  onGenreChange: (value: 'realistic' | 'supernatural') => void
   onThemeChange: (value: string) => void
   onGenerate: () => void
   onContinue: (id: string) => void
@@ -49,6 +56,7 @@ interface LandingProps {
 
 export function Landing({
   difficulty,
+  genre,
   theme,
   generating,
   error,
@@ -56,6 +64,7 @@ export function Landing({
   canGenerate,
   archives,
   onDifficultyChange,
+  onGenreChange,
   onThemeChange,
   onGenerate,
   onContinue,
@@ -144,6 +153,30 @@ export function Landing({
                     等级 0{index + 1}
                   </div>
                   <div className="mt-1.5 font-serif text-base">{item.value}</div>
+                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{item.hint}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-7">
+            <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
+              题材 / GENRE
+            </div>
+            <div className="mt-3 grid grid-cols-2 border border-foreground">
+              {GENRE_CHOICES.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => onGenreChange(item.value)}
+                  className={cn(
+                    'border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r',
+                    genre === item.value
+                      ? 'bg-foreground text-background'
+                      : 'hover:bg-foreground/5',
+                  )}
+                >
+                  <div className="font-serif text-base">{item.label}</div>
                   <div className="mt-0.5 font-mono text-[10px] opacity-55">{item.hint}</div>
                 </button>
               ))}
@@ -245,7 +278,7 @@ export function Landing({
 
       <div className="mt-14 flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">
         <Lock className="size-3" />
-        存档保存在本机 · 数据不会离开这台设备
+        进度存在本机 · 汤底留在服务端
       </div>
     </div>
   )

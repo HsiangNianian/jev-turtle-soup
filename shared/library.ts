@@ -102,27 +102,46 @@ const OWNER_SELECT = `SELECT p.*, u.handle AS owner_handle, u.display_name AS ow
 
 export async function listPublicPuzzles(
   db: D1Like,
-  options: { sort: string; limit: number; offset: number; query: string },
+  options: { sort: string; limit: number; offset: number; query: string; tag?: string },
 ): Promise<PublicPuzzle[]> {
   const limit = Math.min(Math.max(options.limit || 20, 1), 50)
   const offset = Math.max(options.offset || 0, 0)
   const query = options.query.trim()
+  const tag = (options.tag ?? '').trim().slice(0, 12)
   const order = options.sort === 'hot' ? 'p.plays DESC, p.created_at DESC' : 'p.created_at DESC'
 
-  const statement = query
-    ? db
-        .prepare(
-          `${OWNER_SELECT} WHERE p.visibility = 'public' AND p.title LIKE ? ORDER BY ${order} LIMIT ? OFFSET ?`,
-        )
-        .bind(`%${query}%`, limit, offset)
-    : db
-        .prepare(
-          `${OWNER_SELECT} WHERE p.visibility = 'public' ORDER BY ${order} LIMIT ? OFFSET ?`,
-        )
-        .bind(limit, offset)
+  const filters = [`p.visibility = 'public'`]
+  const bindings: unknown[] = []
+  if (query) {
+    filters.push('p.title LIKE ?')
+    bindings.push(`%${query}%`)
+  }
+  if (tag) {
+    // tags are a JSON array string; match the quoted value so prefixes don't leak
+    filters.push('p.tags LIKE ?')
+    bindings.push(`%"${tag}"%`)
+  }
+  bindings.push(limit, offset)
 
-  const { results } = await statement.all<OwnedRow>()
+  const { results } = await db
+    .prepare(`${OWNER_SELECT} WHERE ${filters.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`)
+    .bind(...bindings)
+    .all<OwnedRow>()
   return (results ?? []).map(toPublic)
+}
+
+/** Tag counts across public puzzles, most used first. */
+export async function listTags(db: D1Like): Promise<{ tag: string; count: number }[]> {
+  const { results } = await db
+    .prepare(`SELECT tags FROM puzzles WHERE visibility = 'public' LIMIT 500`)
+    .all<{ tags: string }>()
+  const counts = new Map<string, number>()
+  for (const row of results ?? []) {
+    for (const tag of safeTags(row.tags)) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
 }
 
 export async function getPublicPuzzle(db: D1Like, id: string): Promise<PublicPuzzle & { ownerBio: string }> {

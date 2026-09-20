@@ -111,22 +111,47 @@ export function resolveLlm(env: GameEnv) {
 
 type LlmConfig = NonNullable<ReturnType<typeof resolveLlm>>
 
-const SYSTEM_PROMPT = `你是一位顶级海龟汤（情境推理游戏）出题人。海龟汤由两部分组成：汤面是呈现给玩家的一段诡异、简短、只描述现象的情境；汤底是隐藏的完整真相。
+export type Genre = 'realistic' | 'supernatural'
+
+export const GENRES: Genre[] = ['realistic', 'supernatural']
+
+/** 怪力乱神题材：允许超自然设定，但仍要求线索可推理、规则自洽。 */
+const TRUTH_RULE: Record<Genre, string> = {
+  realistic:
+    '完整交代真正发生了什么，逻辑自洽，在现实或合理设定中成立；不要魔法、超自然、鬼怪或"其实只是一场梦"。汤底必须能解释汤面里的每一个反常细节。',
+  supernatural:
+    '完整交代真正发生了什么，逻辑自洽。允许出现鬼神、怨灵、诅咒、因果报应、民间禁忌、诡物等超自然设定；但超自然的规则必须前后一致，并且关键线索要埋在汤面里，玩家靠是非提问能推出来。不要用"其实是一场梦""一切都是幻觉"收尾，也不要靠血腥和 jump scare 吓人。',
+}
+
+const GENRE_STYLE: Record<Genre, string> = {
+  realistic: '本格现实向：所有反常都必须有现实的、可解释的成因。',
+  supernatural: '怪力乱神：可以有鬼神与因果，但要克制、有规矩，读起来像一则民间怪谈而非血浆片。',
+}
+
+function systemPrompt(genre: Genre) {
+  return `你是一位顶级海龟汤（情境推理游戏）出题人。海龟汤由两部分组成：汤面是呈现给玩家的一段诡异、简短、只描述现象的情境；汤底是隐藏的完整真相。
 
 请创作一则原创、公平、逻辑自洽的海龟汤，并且只输出一个 JSON 对象。
 
 要求：
 1. surface（汤面）：**只写一句话**，不超过 40 个字。这一句必须最能引起遐想——只呈现一个反常的现象、动作或对白，让人看完立刻想问"为什么会这样"。不要解释原因，不要点破真相，不要铺陈背景，不要写成两句话或罗列多个细节。
-2. truth（汤底）：完整交代真正发生了什么，逻辑自洽，在现实或合理设定中成立；不要魔法、超自然、鬼怪或"其实只是一场梦"。汤底必须能解释汤面里的每一个反常细节。
+2. truth（汤底）：${TRUTH_RULE[genre]}
 3. 反转：汤底要有一个出人意料、但回溯汤面又完全合理的转折；关键线索必须已经埋在汤面里，玩家可以靠是非提问推理出来（fair play）。
 4. hint（提示）：一句话，不直接揭晓答案，但能推动推理方向。
 5. difficulty：只能是"简单""中等""困难"之一。
 6. tags：2 到 3 个中文短标签。
 
+题材风格：${GENRE_STYLE[genre]}
+
 风格约束：只用简体中文；不要血腥、色情、恐怖jump scare 或违法内容；不要出现"汤面""汤底""答案"等出题术语在正文里。
 
 输出格式（严格 JSON，不要 markdown 代码块）：
 {"title": "标题", "surface": "汤面", "truth": "汤底", "hint": "提示", "difficulty": "中等", "tags": ["标签1", "标签2"]}`
+}
+
+export function readGenre(value: unknown): Genre {
+  return value === 'supernatural' ? 'supernatural' : 'realistic'
+}
 
 function buildUserPrompt(difficulty: string, theme: string) {
   const parts = [`请创作一则难度为「${difficulty}」的海龟汤。`]
@@ -149,6 +174,7 @@ async function generateWithLlm(
   cfg: LlmConfig,
   difficulty: string,
   theme: string,
+  genre: Genre,
 ): Promise<GeneratedPuzzle> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 60_000)
@@ -162,7 +188,7 @@ async function generateWithLlm(
       body: JSON.stringify({
         model: cfg.model,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt(genre) },
           { role: 'user', content: buildUserPrompt(difficulty, theme) },
         ],
         response_format: { type: 'json_object' },
@@ -507,13 +533,14 @@ export async function startGame(env: GameEnv, store: PuzzleStore, body: Record<s
   const difficulty =
     typeof body.difficulty === 'string' && body.difficulty.trim() ? body.difficulty.trim() : '中等'
   const theme = typeof body.theme === 'string' ? body.theme : ''
+  const genre = readGenre(body.genre)
   const llm = resolveLlm(env)
 
   let puzzle: GeneratedPuzzle
   let source: 'llm' | 'builtin'
   if (llm) {
     try {
-      puzzle = await generateWithLlm(llm, difficulty, theme)
+      puzzle = await generateWithLlm(llm, difficulty, theme, genre)
       source = 'llm'
     } catch (error) {
       puzzle = pickBuiltin(difficulty, theme)

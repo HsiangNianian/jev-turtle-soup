@@ -3,7 +3,7 @@ import { Loader2, Search } from 'lucide-react'
 
 import { Empty, PageShell, inputClass } from '@/components/Bits'
 
-import { listPuzzles, type LibraryPuzzle } from '@/lib/library-client'
+import { SUPERNATURAL_TAG, listPuzzles, listTags, type LibraryPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
 
@@ -35,12 +35,20 @@ export function LibraryPage() {
   const [items, setItems] = useState<LibraryPuzzle[] | null>(null)
   const [sort, setSort] = useState<'new' | 'hot'>('new')
   const [query, setQuery] = useState('')
+  const [tag, setTag] = useState<string | null>(null)
+  const [tags, setTags] = useState<{ tag: string; count: number }[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    listTags()
+      .then(setTags)
+      .catch(() => setTags([]))
+  }, [])
 
   useEffect(() => {
     let alive = true
     const timer = setTimeout(() => {
-      listPuzzles({ sort, q: query.trim() })
+      listPuzzles({ sort, q: query.trim(), tag: tag ?? undefined })
         .then((next) => {
           if (alive) {
             setItems(next)
@@ -55,7 +63,7 @@ export function LibraryPage() {
       alive = false
       clearTimeout(timer)
     }
-  }, [sort, query])
+  }, [sort, query, tag])
 
   return (
     <PageShell
@@ -79,7 +87,38 @@ export function LibraryPage() {
         </div>
       }
     >
-      <div className="mt-6 flex items-center gap-2.5">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        {[
+          { tag: SUPERNATURAL_TAG, count: tags.find((item) => item.tag === SUPERNATURAL_TAG)?.count ?? 0 },
+          ...tags.filter((item) => item.tag !== SUPERNATURAL_TAG),
+        ].map((item) => (
+          <button
+            key={item.tag}
+            type="button"
+            onClick={() => setTag((current) => (current === item.tag ? null : item.tag))}
+            className={cn(
+              'border px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] transition-colors',
+              tag === item.tag
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-foreground/30 text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {item.tag}
+            {item.count ? <span className="ml-1.5 opacity-60">{item.count}</span> : null}
+          </button>
+        ))}
+        {tag ? (
+          <button
+            type="button"
+            onClick={() => setTag(null)}
+            className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            清除筛选
+          </button>
+        ) : null}
+      </div>
+
+      <div className="mt-4 flex items-center gap-2.5">
         <Search className="size-4 shrink-0 text-muted-foreground" />
         <input
           value={query}
@@ -95,7 +134,9 @@ export function LibraryPage() {
           <Loader2 className="size-4 animate-spin" />
         </div>
       ) : null}
-      {items && !items.length ? <Empty>还没有人公开过海龟汤，你可以第一个。</Empty> : null}
+      {items && !items.length ? (
+        <Empty>{tag ? `还没有带「${tag}」标签的汤。` : '还没有人公开过海龟汤，你可以第一个。'}</Empty>
+      ) : null}
 
       {items?.length ? (
         <ul className="mt-6 grid gap-3 sm:grid-cols-2">

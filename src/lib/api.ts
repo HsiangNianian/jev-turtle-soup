@@ -78,8 +78,10 @@ export function fetchHealth() {
   })
 }
 
-export function createGame(difficulty: string, theme: string) {
-  return postJson<GameSession>('/api/game/new', { difficulty, theme })
+export type Genre = 'realistic' | 'supernatural'
+
+export function createGame(difficulty: string, theme: string, genre: Genre) {
+  return postJson<GameSession>('/api/game/new', { difficulty, theme, genre })
 }
 
 export function askHost(session: GameSession, message: string, history: ChatMessage[]) {

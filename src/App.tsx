@@ -75,6 +75,7 @@ export default function App() {
   const [turnCount, setTurnCount] = useState(0)
   const [startedAt, setStartedAt] = useState<number>(() => Date.now())
   const [difficulty, setDifficulty] = useState('中等')
+  const [genre, setGenre] = useState<'realistic' | 'supernatural'>('realistic')
   const [theme, setTheme] = useState('')
   const [landingError, setLandingError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -160,7 +161,7 @@ export default function App() {
       saveGames(merged)
     }
     try {
-      const created = await createGame(difficulty, theme)
+      const created = await createGame(difficulty, theme, genre)
       setSession(created)
       setMessages([{ id: crypto.randomUUID(), role: 'host', text: created.hostGreeting }])
       setRevealed(false)
@@ -176,7 +177,7 @@ export default function App() {
     } finally {
       setGenerating(false)
     }
-  }, [canGenerate, difficulty, theme, games, liveEntry])
+  }, [canGenerate, difficulty, theme, genre, games, liveEntry])
 
   const startLibraryGame = useCallback((puzzle: LibraryPuzzleDetail) => {
     setSession({
@@ -499,6 +500,7 @@ export default function App() {
       <main className="chat-scroll min-h-0 flex-1 overflow-y-auto">
         <Landing
           difficulty={difficulty}
+          genre={genre}
           theme={theme}
           generating={generating}
           error={landingError}
@@ -506,6 +508,7 @@ export default function App() {
           canGenerate={canGenerate}
           archives={archives}
           onDifficultyChange={setDifficulty}
+          onGenreChange={setGenre}
           onThemeChange={setTheme}
           onGenerate={handleNew}
           onContinue={handleContinue}

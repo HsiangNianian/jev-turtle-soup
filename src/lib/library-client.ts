@@ -1,5 +1,8 @@
 import type { HostTurn } from '@/lib/api'
 
+/** 怪力乱神：既是出题题材，也是一个可筛选的标签。 */
+export const SUPERNATURAL_TAG = '怪力乱神'
+
 export interface OwnerInfo {
   handle: string
   displayName: string
@@ -74,10 +77,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T
 }
 
-export function listPuzzles(options: { sort?: 'new' | 'hot'; q?: string } = {}) {
+export function listTags() {
+  return request<{ items: { tag: string; count: number }[] }>('/api/library/tags').then(
+    (data) => data.items,
+  )
+}
+
+export function listPuzzles(
+  options: { sort?: 'new' | 'hot'; q?: string; tag?: string } = {},
+) {
   const params = new URLSearchParams()
   if (options.sort) params.set('sort', options.sort)
   if (options.q) params.set('q', options.q)
+  if (options.tag) params.set('tag', options.tag)
   const suffix = params.toString()
   return request<{ items: LibraryPuzzle[] }>(`/api/library/puzzles${suffix ? `?${suffix}` : ''}`).then(
     (data) => data.items,

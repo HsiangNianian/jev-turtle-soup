@@ -3,10 +3,11 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
 import { navigate } from '@/lib/router'
-import { createPuzzle } from '@/lib/library-client'
+import { SUPERNATURAL_TAG, createPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 
 const DIFFICULTIES = ['简单', '中等', '困难'] as const
+const PRESET_TAGS = [SUPERNATURAL_TAG] as const
 
 export function UploadPage() {
   const [title, setTitle] = useState('')
@@ -20,6 +21,17 @@ export function UploadPage() {
   const [error, setError] = useState<string | null>(null)
 
   const ready = title.trim() && surface.trim() && truth.trim()
+  const selectedTags = tags
+    .split(/[\s,，]+/)
+    .map((tag) => tag.replace(/^#/, '').trim())
+    .filter(Boolean)
+
+  function toggleTag(tag: string) {
+    const next = selectedTags.includes(tag)
+      ? selectedTags.filter((item) => item !== tag)
+      : [...selectedTags, tag]
+    setTags(next.join(' '))
+  }
 
   async function submit() {
     setBusy(true)
@@ -118,6 +130,26 @@ export function UploadPage() {
         </Field>
 
         <Field label="标签 / TAGS" hint="空格或逗号分隔，最多 5 个">
+          <span className="mb-2 flex flex-wrap gap-2">
+            {PRESET_TAGS.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={cn(
+                  'border px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] transition-colors',
+                  selectedTags.includes(tag)
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-foreground/30 text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tag}
+              </button>
+            ))}
+            <span className="self-center font-mono text-[10px] tracking-[0.12em] text-muted-foreground/60">
+              选中后可以生成／筛选同题材的汤
+            </span>
+          </span>
           <input
             value={tags}
             placeholder="密室 雨夜"

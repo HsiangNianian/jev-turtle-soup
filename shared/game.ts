@@ -1,6 +1,10 @@
 import { TypeSafeClient, choice, noul, score } from '@typesafe-ai/sdk'
 import { z } from 'zod'
 
+import { ApiError } from './errors.ts'
+
+export { ApiError }
+
 /**
  * Environment the game logic needs. Both the Vite dev middleware and the
  * Cloudflare Worker pass their own env object, which is structurally
@@ -22,14 +26,6 @@ export interface GameEnv {
 
 export const MAX_CONVERSATION = 10
 export const MAX_MESSAGE_CHARS = 600
-
-export class ApiError extends Error {
-  status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
-  }
-}
 
 export interface Puzzle {
   title: string
@@ -120,7 +116,7 @@ const SYSTEM_PROMPT = `你是一位顶级海龟汤（情境推理游戏）出题
 请创作一则原创、公平、逻辑自洽的海龟汤，并且只输出一个 JSON 对象。
 
 要求：
-1. surface（汤面）：2 到 4 句话，只描述现象、对话或动作，必须制造强烈的"为什么会这样"的悬念，不能解释原因，不能直接点破真相。
+1. surface（汤面）：**只写一句话**，不超过 40 个字。这一句必须最能引起遐想——只呈现一个反常的现象、动作或对白，让人看完立刻想问"为什么会这样"。不要解释原因，不要点破真相，不要铺陈背景，不要写成两句话或罗列多个细节。
 2. truth（汤底）：完整交代真正发生了什么，逻辑自洽，在现实或合理设定中成立；不要魔法、超自然、鬼怪或"其实只是一场梦"。汤底必须能解释汤面里的每一个反常细节。
 3. 反转：汤底要有一个出人意料、但回溯汤面又完全合理的转折；关键线索必须已经埋在汤面里，玩家可以靠是非提问推理出来（fair play）。
 4. hint（提示）：一句话，不直接揭晓答案，但能推动推理方向。

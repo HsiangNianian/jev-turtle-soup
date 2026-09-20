@@ -30,6 +30,14 @@ async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const path = url.pathname
 
+  if (path.startsWith('/api/auth/')) {
+    // Auth needs KV + D1 + the email binding, which only exist in the Worker runtime.
+    sendJson(res, 501, {
+      error: '登录接口需要 Workers 运行时（KV / D1 / 邮件绑定）。本地全栈调试请用 npm run dev:worker',
+    })
+    return
+  }
+
   if (path === '/api/health') {
     if (req.method !== 'GET') {
       sendJson(res, 405, { error: '方法不被允许' })

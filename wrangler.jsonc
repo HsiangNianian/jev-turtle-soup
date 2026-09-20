@@ -10,6 +10,18 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
   },
+  "kv_namespaces": [{ "binding": "AUTH_KV", "id": "9b14573349f24bcaa7a7688957406e3c" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jev-turtle-soup",
+      "database_id": "16fe5cb2-8c9a-43a5-baa1-7dd911db327f"
+    }
+  ],
+  "send_email": [{ "name": "EMAIL" }],
+  "vars": {
+    "MAIL_FROM": "noreply@hgt.mmstudio.games"
+  },
   "observability": {
     "enabled": true
   }

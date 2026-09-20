@@ -66,8 +66,7 @@ export function Footer() {
           </a>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t border-dashed border-foreground/20 pt-4">
-          <span className="font-serif text-[12px] text-muted-foreground/75">汤底不会写在这里。</span>
+        <div className="mt-5 border-t border-dashed border-foreground/20 pt-4">
           <span className="font-mono text-[9px] tracking-[0.16em] text-muted-foreground/55">
             © {new Date().getFullYear()} Meaningless Meaning Studio · v{__APP_VERSION__} ·{' '}
             {__BUILD_ID__}

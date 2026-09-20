@@ -15,7 +15,9 @@ export function PageShell({
   return (
     <div className="mx-auto w-full max-w-3xl px-5 py-8 sm:py-12">
       <div className="flex items-baseline justify-between gap-4">
-        <span className="font-mono text-[10px] tracking-[0.28em] text-muted-foreground">{label}</span>
+        <span className="font-mono text-[10px] tracking-[0.28em] text-muted-foreground">
+          {label}
+        </span>
         {meta}
       </div>
       <h1 className="mt-3 font-serif text-3xl leading-tight font-semibold sm:text-4xl">{title}</h1>
@@ -72,7 +74,10 @@ export function Button({
   size = 'md',
   className,
   ...props
-}: React.ComponentProps<'button'> & { variant?: 'primary' | 'outline' | 'ghost'; size?: 'sm' | 'md' }) {
+}: React.ComponentProps<'button'> & {
+  variant?: 'primary' | 'outline' | 'ghost'
+  size?: 'sm' | 'md'
+}) {
   const variants = {
     primary: 'bg-foreground text-background hover:opacity-85',
     outline: 'border border-foreground hover:bg-foreground hover:text-background',

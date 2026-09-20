@@ -4,12 +4,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { Button, Empty, Notice, PageShell } from '@/components/Bits'
 import { navigate } from '@/lib/router'
 import { Link } from '@/components/Link'
-import {
-  deletePuzzle,
-  listMyPuzzles,
-  updatePuzzle,
-  type OwnPuzzle,
-} from '@/lib/library-client'
+import { deletePuzzle, listMyPuzzles, updatePuzzle, type OwnPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 
 export function MePage({ handle }: { handle: string }) {

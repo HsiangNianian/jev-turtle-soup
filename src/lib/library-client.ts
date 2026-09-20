@@ -83,17 +83,15 @@ export function listTags() {
   )
 }
 
-export function listPuzzles(
-  options: { sort?: 'new' | 'hot'; q?: string; tag?: string } = {},
-) {
+export function listPuzzles(options: { sort?: 'new' | 'hot'; q?: string; tag?: string } = {}) {
   const params = new URLSearchParams()
   if (options.sort) params.set('sort', options.sort)
   if (options.q) params.set('q', options.q)
   if (options.tag) params.set('tag', options.tag)
   const suffix = params.toString()
-  return request<{ items: LibraryPuzzle[] }>(`/api/library/puzzles${suffix ? `?${suffix}` : ''}`).then(
-    (data) => data.items,
-  )
+  return request<{ items: LibraryPuzzle[] }>(
+    `/api/library/puzzles${suffix ? `?${suffix}` : ''}`,
+  ).then((data) => data.items)
 }
 
 export function getPuzzle(id: string) {
@@ -147,7 +145,9 @@ export function getMyProfile() {
   return request<{ profile: Profile }>('/api/me/profile').then((data) => data.profile)
 }
 
-export function updateMyProfile(patch: Partial<Pick<Profile, 'handle' | 'displayName' | 'bio' | 'profilePublic'>>) {
+export function updateMyProfile(
+  patch: Partial<Pick<Profile, 'handle' | 'displayName' | 'bio' | 'profilePublic'>>,
+) {
   return request<{ profile: Profile }>('/api/me/profile', {
     method: 'PATCH',
     body: JSON.stringify(patch),

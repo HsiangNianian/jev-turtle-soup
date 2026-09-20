@@ -61,7 +61,9 @@ function Bars({
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <div className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/55">{title}</div>
+      <div className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/55">
+        {title}
+      </div>
       {children}
     </div>
   )

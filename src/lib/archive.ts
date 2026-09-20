@@ -80,7 +80,9 @@ export function toSession(game: ArchivedGame): GameSession {
   }
 }
 
-export function buildLedger(messages: ChatMessage[]): { id: string; question: string; verdict: string }[] {
+export function buildLedger(
+  messages: ChatMessage[],
+): { id: string; question: string; verdict: string }[] {
   const verdicts = ['yes', 'no', 'partly', 'irrelevant']
   const items: { id: string; question: string; verdict: string }[] = []
   for (let index = 0; index < messages.length; index += 1) {

@@ -27,10 +27,6 @@ export function Footer() {
           </span>
         </div>
 
-        <p className="mt-3.5 max-w-xl font-serif text-[14px] leading-7 text-foreground/75">
-          砚（Ellis）在这里主持。每一碗汤都从一句反常的话开始，余下的故事，要靠你一句句问回来。
-        </p>
-
         <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10px] tracking-[0.16em]">
           {INNER_LINKS.map((item) => (
             <Link

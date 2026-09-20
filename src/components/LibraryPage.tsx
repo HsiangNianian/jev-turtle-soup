@@ -47,18 +47,21 @@ export function LibraryPage() {
 
   useEffect(() => {
     let alive = true
-    const timer = setTimeout(() => {
-      listPuzzles({ sort, q: query.trim(), tag: tag ?? undefined })
-        .then((next) => {
-          if (alive) {
-            setItems(next)
-            setError(null)
-          }
-        })
-        .catch((caught: unknown) => {
-          if (alive) setError(caught instanceof Error ? caught.message : '加载失败')
-        })
-    }, query ? 250 : 0)
+    const timer = setTimeout(
+      () => {
+        listPuzzles({ sort, q: query.trim(), tag: tag ?? undefined })
+          .then((next) => {
+            if (alive) {
+              setItems(next)
+              setError(null)
+            }
+          })
+          .catch((caught: unknown) => {
+            if (alive) setError(caught instanceof Error ? caught.message : '加载失败')
+          })
+      },
+      query ? 250 : 0,
+    )
     return () => {
       alive = false
       clearTimeout(timer)
@@ -78,7 +81,9 @@ export function LibraryPage() {
               onClick={() => setSort(key)}
               className={cn(
                 'px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] transition-colors',
-                sort === key ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                sort === key
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {key === 'new' ? '最新' : '最热'}
@@ -89,7 +94,10 @@ export function LibraryPage() {
     >
       <div className="mt-5 flex flex-wrap items-center gap-2">
         {[
-          { tag: SUPERNATURAL_TAG, count: tags.find((item) => item.tag === SUPERNATURAL_TAG)?.count ?? 0 },
+          {
+            tag: SUPERNATURAL_TAG,
+            count: tags.find((item) => item.tag === SUPERNATURAL_TAG)?.count ?? 0,
+          },
           ...tags.filter((item) => item.tag !== SUPERNATURAL_TAG),
         ].map((item) => (
           <button
@@ -135,7 +143,9 @@ export function LibraryPage() {
         </div>
       ) : null}
       {items && !items.length ? (
-        <Empty>{tag ? `还没有带「${tag}」标签的汤。` : '还没有人公开过海龟汤，你可以第一个。'}</Empty>
+        <Empty>
+          {tag ? `还没有带「${tag}」标签的汤。` : '还没有人公开过海龟汤，你可以第一个。'}
+        </Empty>
       ) : null}
 
       {items?.length ? (

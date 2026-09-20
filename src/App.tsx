@@ -86,7 +86,9 @@ export default function App() {
     fetchHealth()
       .then(setHealth)
       .catch(() => setHealth(null))
-    fetchMe().then(setUser).catch(() => setUser(null))
+    fetchMe()
+      .then(setUser)
+      .catch(() => setUser(null))
   }, [])
 
   const gameOver = solved || revealed
@@ -125,9 +127,7 @@ export default function App() {
 
   const activeGames = useMemo(
     () =>
-      allGames
-        .filter((game) => game.status === 'active')
-        .sort((a, b) => b.updatedAt - a.updatedAt),
+      allGames.filter((game) => game.status === 'active').sort((a, b) => b.updatedAt - a.updatedAt),
     [allGames],
   )
   const archives = useMemo(() => allGames.filter((game) => game.status !== 'active'), [allGames])
@@ -458,22 +458,14 @@ export default function App() {
     if (path === '/upload') {
       return (
         <ScrollArea>
-          {user ? (
-            <UploadPage />
-          ) : (
-            <Missing label="上传 / NEW PUZZLE" message="请先登录。" />
-          )}
+          {user ? <UploadPage /> : <Missing label="上传 / NEW PUZZLE" message="请先登录。" />}
         </ScrollArea>
       )
     }
     if (path === '/me/profile') {
       return (
         <ScrollArea>
-          {user ? (
-            <ProfileEditPage />
-          ) : (
-            <Missing label="编辑资料 / PROFILE" message="请先登录。" />
-          )}
+          {user ? <ProfileEditPage /> : <Missing label="编辑资料 / PROFILE" message="请先登录。" />}
         </ScrollArea>
       )
     }
@@ -552,7 +544,10 @@ export default function App() {
           <div className="ml-auto flex shrink-0 items-center gap-4 font-mono text-[10px] tracking-[0.2em]">
             <Link
               to="/library"
-              className={cn('transition-opacity hover:opacity-60', path.startsWith('/library') ? 'opacity-100' : 'opacity-70')}
+              className={cn(
+                'transition-opacity hover:opacity-60',
+                path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
+              )}
             >
               题库
             </Link>
@@ -612,7 +607,8 @@ export default function App() {
               <>未检测到主持人密钥（TYPESAFE_API_KEY），砚无法工作。请配置后重启。</>
             ) : (
               <>
-                未配置 LLM API Key（DEEPSEEK_API_KEY / OPENAI_API_KEY），当前使用内置题库。配置后可生成全新海龟汤。
+                未配置 LLM API Key（DEEPSEEK_API_KEY /
+                OPENAI_API_KEY），当前使用内置题库。配置后可生成全新海龟汤。
               </>
             )}
           </span>

@@ -93,9 +93,7 @@ export function PuzzleDetailPage({
       </div>
 
       <div className="mt-8">
-        <Notice>
-          汤底在服务器上，主持人判读时会读取它；你这边只会拿到「是 / 不是 / 无关」。
-        </Notice>
+        <Notice>汤底在服务器上，主持人判读时会读取它；你这边只会拿到「是 / 不是 / 无关」。</Notice>
       </div>
     </PageShell>
   )

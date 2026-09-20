@@ -146,8 +146,7 @@ export function ChatPanel({ messages, asking, disabled, onSend, onQuick }: ChatP
           讯问记录 / TRANSCRIPT
         </span>
         <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
-          <span className="animate-soft-pulse size-1.5 rounded-full bg-[var(--v-yes)]" />
-          砚 · Ellis
+          <span className="animate-soft-pulse size-1.5 rounded-full bg-[var(--v-yes)]" />砚 · Ellis
         </span>
       </div>
 

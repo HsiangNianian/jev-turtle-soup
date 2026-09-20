@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "deploy": "npm run build && wrangler deploy",
     "lint": "oxlint",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"" ,
     "preview": "vite preview",
     "db:local": "wrangler d1 execute jev-turtle-soup --local --file=./db/schema.sql"
   },
@@ -34,6 +35,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
+    "prettier": "^3.9.8",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }

@@ -58,7 +58,9 @@ export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDr
           />
           <div className="animate-sheet-up absolute inset-x-0 top-12 bottom-0 flex flex-col bg-background">
             <div className="flex shrink-0 items-center gap-3 border-b border-foreground px-4 py-3">
-              <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">案卷</span>
+              <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">
+                案卷
+              </span>
               <span className="min-w-0 flex-1 truncate font-serif text-[15px]">{title}</span>
               <button
                 type="button"

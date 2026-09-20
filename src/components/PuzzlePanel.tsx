@@ -63,7 +63,10 @@ export function PuzzlePanel({
         </div>
         <div className="flex items-center gap-2">
           {solved ? (
-            <span className="stamp px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.2em] text-[var(--v-yes)]" style={{ borderColor: 'var(--v-yes)', color: 'var(--v-yes)' }}>
+            <span
+              className="stamp px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.2em] text-[var(--v-yes)]"
+              style={{ borderColor: 'var(--v-yes)', color: 'var(--v-yes)' }}
+            >
               已结案
             </span>
           ) : null}
@@ -87,7 +90,11 @@ export function PuzzlePanel({
         <Field
           label="来源"
           value={
-            session.source === 'llm' ? 'AI 现熬' : session.source === 'library' ? '题库' : '经典存档'
+            session.source === 'llm'
+              ? 'AI 现熬'
+              : session.source === 'library'
+                ? '题库'
+                : '经典存档'
           }
         />
         <Field label="已问" value={`${turnCount} 轮`} />

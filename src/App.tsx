@@ -54,6 +54,17 @@ const VERDICTS = ['yes', 'no', 'partly', 'irrelevant']
 
 const initialGames = loadGames()
 
+/**
+ * 直接刷新 /play（或从书签打开）时把上一局恢复出来。
+ * 对局状态只在内存里，不恢复的话刷新后会停在「还没有开案」。
+ */
+const bootGame =
+  window.location.pathname === '/play'
+    ? (initialGames.find((game) => game.status === 'active') ??
+      [...initialGames].sort((a, b) => b.updatedAt - a.updatedAt)[0] ??
+      null)
+    : null
+
 function toneFor(turn: { solved: boolean; verdict: string }): ChatMessage['tone'] {
   if (turn.solved) return 'celebrate'
   if (VERDICTS.includes(turn.verdict)) return 'verdict'
@@ -73,17 +84,19 @@ export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [games, setGames] = useState<ArchivedGame[]>(initialGames)
 
-  const [session, setSession] = useState<GameSession | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [revealed, setRevealed] = useState(false)
-  const [truth, setTruth] = useState<string | null>(null)
-  const [solved, setSolved] = useState(false)
-  const [closeness, setCloseness] = useState<number | null>(null)
+  const [session, setSession] = useState<GameSession | null>(() =>
+    bootGame ? toSession(bootGame) : null,
+  )
+  const [messages, setMessages] = useState<ChatMessage[]>(() => bootGame?.messages ?? [])
+  const [revealed, setRevealed] = useState(() => bootGame?.revealed ?? false)
+  const [truth, setTruth] = useState<string | null>(() => bootGame?.truth ?? null)
+  const [solved, setSolved] = useState(() => bootGame?.solved ?? false)
+  const [closeness, setCloseness] = useState<number | null>(() => bootGame?.closeness ?? null)
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress] = useState<string>('')
   const [asking, setAsking] = useState(false)
-  const [turnCount, setTurnCount] = useState(0)
-  const [startedAt, setStartedAt] = useState<number>(() => Date.now())
+  const [turnCount, setTurnCount] = useState(() => bootGame?.turnCount ?? 0)
+  const [startedAt, setStartedAt] = useState<number>(() => bootGame?.createdAt ?? Date.now())
   const [difficulty, setDifficulty] = useState(t('中等'))
   const [genre, setGenre] = useState<'realistic' | 'supernatural'>('realistic')
   const [theme, setTheme] = useState('')

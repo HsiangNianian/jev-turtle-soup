@@ -95,6 +95,9 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
   const [visible, setVisible] = useState(true)
   const [calm, setCalm] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  /** 正在拖拽的手指/鼠标；axis 为空表示还没判断方向。 */
+  const pointer = useRef<{ id: number; x: number; y: number; axis: 'x' | 'y' | null } | null>(null)
+  const latest = useRef(value)
 
   /**
    * 上下覆写用的两帧。存的是**数值**不是文案：文案在渲染时按当前语言算，
@@ -178,7 +181,80 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
   const fromText = frame.from === null ? null : readout(frame.from)
   const toText = readout(frame.to)
 
+  /** 手指/鼠标落在控件的哪个位置 → 0–100。整块区域都算。 */
+  function valueAt(clientX: number): number {
+    const box = boxRef.current
+    if (!box) return latest.current
+    const rect = box.getBoundingClientRect()
+    if (!rect.width) return latest.current
+    const ratio = (clientX - rect.left) / rect.width
+    return Math.round(Math.min(1, Math.max(0, ratio)) * 100)
+  }
+
+  /**
+   * 自己处理指针，而不是靠原生 range：
+   * 原生 range 只有轨道附近那一条细带能被拖动，手机上按到这块区域的
+   * 上半或下半，手势就归浏览器去滚页面了——这正是「指针很难拖」的原因。
+   * 方向先判：横着划才动游标，竖着划放给页面滚动。
+   */
+  function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, axis: null }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    // 键盘仍然走原生 range，所以照样要给它焦点
+    inputRef.current?.focus({ preventScroll: true })
+    event.preventDefault()
+  }
+
+  function onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const state = pointer.current
+    if (!state || state.id !== event.pointerId) return
+    const dx = event.clientX - state.x
+    const dy = event.clientY - state.y
+    if (state.axis === null) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+      state.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y'
+      if (state.axis === 'y') {
+        // 竖向手势：还给浏览器滚页面
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+        pointer.current = null
+        setDragging(false)
+        return
+      }
+      setDragging(true)
+    }
+    if (state.axis !== 'x') return
+    handleInput(valueAt(event.clientX))
+  }
+
+  /**
+   * 收尾。cancelled 为真表示浏览器把手势判成了滚动（touch-action: pan-y），
+   * 这时候**不能**当成点击跳转——否则竖向滑动会顺手把游标甩到手指所在的横坐标。
+   */
+  function endPointer(event: React.PointerEvent<HTMLDivElement>, cancelled: boolean) {
+    const state = pointer.current
+    if (!state || state.id !== event.pointerId) return
+    pointer.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    // 没判断出方向 = 单纯点了一下：点哪儿跳哪儿
+    if (!cancelled && state.axis === null) handleInput(valueAt(event.clientX))
+    setDragging(false)
+    onCommit(latest.current)
+  }
+
+  function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    endPointer(event, false)
+  }
+
+  function onPointerCancel(event: React.PointerEvent<HTMLDivElement>) {
+    endPointer(event, true)
+  }
+
   function handleInput(next: number) {
+    latest.current = next
     setValue(next)
     const now = performance.now()
     // 拖得太快就只换字、不重启动画：否则每帧都从半路重来，整块会看着像空的
@@ -194,17 +270,39 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
   }
 
   return (
-    <div ref={boxRef} className="relative mt-6 h-36 select-none sm:h-44">
-      {/* 量宽探针：同字体同字重，按参考字号量一遍文案宽度 */}
+    <div
+      ref={boxRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      className="relative mt-6 h-36 touch-pan-y cursor-ew-resize overflow-hidden select-none sm:h-44"
+    >
+      {/*
+        量宽探针：同字体同字重，按参考字号量一遍文案宽度。
+        必须套在一个 0×0 + overflow-hidden 的壳里——探针是按 100px 量的，
+        直接摆在外面会撑出好几倍宽度，把主滚动容器变成可以横向拖动的，
+        手机上表现就是「一划整页跟着跑」。
+      */}
       <span
-        ref={probeRef}
         aria-hidden
-        className="pointer-events-none invisible absolute top-0 left-0 font-serif font-black whitespace-nowrap tracking-[-0.02em] tabular-nums"
-        style={{ fontSize: `${PROBE_PX}px` }}
+        className="pointer-events-none absolute top-0 left-0 h-0 w-0 overflow-hidden"
       >
-        {toText}
+        <span
+          ref={probeRef}
+          className="invisible block font-serif font-black whitespace-nowrap tracking-[-0.02em] tabular-nums"
+          style={{ fontSize: `${PROBE_PX}px` }}
+        >
+          {toText}
+        </span>
       </span>
 
+      {/*
+        input 只负责键盘与无障碍语义，**不接指针**：
+        原生 range 在 touchstart 时会直接把值跳到手指的横坐标（tap-to-seek），
+        而且 preventDefault 拦不住它（那是 touch 的默认行为，不由 pointer 事件决定）。
+        手指一旦落在控件上去滚页面，游标就会被顺手甩过去。指针全由外层容器处理。
+      */}
       <input
         ref={inputRef}
         type="range"
@@ -215,12 +313,10 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
         aria-label={t('题材坐标')}
         aria-valuetext={readoutText}
         onChange={(event) => handleInput(Number(event.target.value))}
-        onPointerDown={() => setDragging(true)}
-        onPointerUp={() => setDragging(false)}
         onKeyDown={() => setDragging(true)}
         onKeyUp={() => setDragging(false)}
         onBlur={() => setDragging(false)}
-        className="peer absolute inset-0 z-10 h-full w-full cursor-ew-resize opacity-0"
+        className="peer pointer-events-none absolute inset-0 h-full w-full opacity-0"
       />
 
       {/* 大字：既是读数，也是背景 */}

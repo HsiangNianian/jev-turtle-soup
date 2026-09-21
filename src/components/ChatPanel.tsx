@@ -6,6 +6,41 @@ import type { ChatMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { translateFor, useI18n } from '@/lib/i18n'
 
+/**
+ * 输入框上方的小按钮：小屏只显示图标，`sm` 以上才带文字。
+ * 只留图标时必须给 aria-label，否则读屏用户只听到一个图标。
+ */
+function QuickAction({
+  icon,
+  label,
+  onClick,
+  disabled = false,
+  active = false,
+}: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  active?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      aria-pressed={active}
+      className={cn(
+        'flex items-center gap-1.5 p-1 transition-colors hover:text-foreground disabled:opacity-40',
+        active && 'text-foreground',
+      )}
+    >
+      <span className="[&>svg]:size-4 sm:[&>svg]:size-3">{icon}</span>
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  )
+}
+
 interface ChatPanelProps {
   messages: ChatMessage[]
   asking: boolean
@@ -191,35 +226,27 @@ export function ChatPanel({
 
       <div className="shrink-0 border-t border-foreground px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 lg:px-8">
         <div className="flex items-center gap-5 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-          <button
-            type="button"
+          <QuickAction
+            icon={<Lightbulb />}
+            label={t('求提示')}
+            disabled={asking || disabled}
             onClick={() => onQuick('hint')}
+          />
+          <QuickAction
+            icon={<Wand2 />}
+            label={t('玩法')}
             disabled={asking || disabled}
-            className="flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
-          >
-            <Lightbulb className="size-3" />
-            {t('求提示')}
-          </button>
-          <button
-            type="button"
             onClick={() => onQuick('how_to_play')}
-            disabled={asking || disabled}
-            className="flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
-          >
-            <Wand2 className="size-3" />
-            {t('玩法')}
-          </button>
-          <button
-            type="button"
+          />
+          <QuickAction
+            icon={<Flag />}
+            label={t('反馈')}
+            active={reporting}
             onClick={() => {
               setReporting((value) => !value)
               setReportState('idle')
             }}
-            className="flex items-center gap-1.5 transition-colors hover:text-foreground"
-          >
-            <Flag className="size-3" />
-            {t('反馈')}
-          </button>
+          />
           {locked ? (
             <span className="ml-auto flex items-center gap-1.5 text-muted-foreground/70">
               <Lock className="size-3" />

@@ -59,6 +59,8 @@ src/              ← React 前端；汤面与汤底随请求一起发送，无�
 | `POST /api/daily/generate` | 手动生成当天官方汤（SSE，需 `x-admin-token`） |
 | `GET /api/audit/flags` | 判读巡检结果：复核后改判的条目（需 `x-admin-token`） |
 | `POST /api/audit/run` | 手动跑一次维护：清理过期日志 + 巡检（需 `x-admin-token`） |
+| `/api/social/{profile\|puzzle}/:id` | 点赞与留言板：`GET` 取数据，`POST/DELETE .../like` 点赞，`POST .../comments` 留言 |
+| `/api/social/comments/:id` | 删除留言（留言作者或对象主人）；`/report` 举报 |
 
 管理接口的口令取自 `DAILY_ADMIN_TOKEN`，没配时退回 `AUTH_SECRET`：
 
@@ -81,6 +83,12 @@ curl -X POST -H "x-admin-token: $DAILY_ADMIN_TOKEN" \
 **盲判**一次（不告诉它原判读，避免迁就），只把「漏掉真线索」和「前后矛盾」这一类改判写进
 `judge_flags`；`无关 → 不是` 这种两说都成立的差异不计，免得淹没信号。一次巡检只花一次
 LLM 调用。
+
+**点赞与留言板**（`shared/social.ts`）：作者主页与题库的汤共用一套，只有 `profile`（按 handle）
+和 `puzzle`（按题号）两种对象。点赞**不需要登录**——登录了用 uid、没登录用本机设备号，
+唯一索引保证一个人只算一票；留言**需要登录**，有署名才谈得上留言板。删除权限给留言作者本人
+和这个对象的主人（主页作者 / 题主）；举报走的还是 `reports` 表，`kind = 'comment'`。
+私密主页和未公开的题一律当作不存在，不参与点赞留言。
 
 **汤底永远留在服务端**：生成的会话写进 D1（`visibility = 'session'`，默认保留 90 天），
 题库的题也写进 D1。浏览器只会收到汤面，提问时只发会话号，因此 F12 看不到答案；

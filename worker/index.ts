@@ -11,6 +11,15 @@ import {
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
 import { composeDaily, utcDateKey } from '../shared/daily.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
+import {
+  addComment,
+  deleteComment,
+  getSocial,
+  likerKey,
+  reportComment,
+  resolveTarget,
+  setLike,
+} from '../shared/social.ts'
 import { askError, readLocale } from '../shared/game.ts'
 import { applyMeta, pickMetaLocale, type MetaOverride } from '../shared/meta.ts'
 import {
@@ -484,6 +493,75 @@ async function routeProfile(
   return json({ profile: await getPublicProfile(requireDb(env), handle) })
 }
 
+/**
+ * 点赞与留言板：作者主页（profile/:handle）和题库的汤（puzzle/:id）共用一套。
+ * 点赞匿名（登录用 uid，否则用设备号），留言要登录。
+ */
+async function routeSocial(
+  request: Request,
+  env: Env,
+  pathname: string,
+  url: URL,
+): Promise<Response | null> {
+  if (!pathname.startsWith('/api/social/')) return null
+  const db = requireDb(env)
+
+  const commentMatch = /^\/api\/social\/comments\/([^/]+)(?:\/(report))?$/.exec(pathname)
+  if (commentMatch) {
+    const commentId = decodeURIComponent(commentMatch[1])
+    const current = await viewer(request, env)
+
+    if (commentMatch[2] === 'report') {
+      if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+      const body = await readJson(request)
+      const note = typeof body.note === 'string' ? body.note : ''
+      const deviceKey = typeof body.playerKey === 'string' ? body.playerKey.slice(0, 64) : 'anon'
+      return json(
+        await reportComment(
+          db,
+          commentId,
+          { uid: current.uid, playerKey: deviceKey },
+          note.trim() || '举报了一条留言',
+          typeof body.locale === 'string' ? body.locale : '',
+        ),
+      )
+    }
+
+    if (request.method !== 'DELETE') return json({ error: '方法不被允许' }, 405)
+    if (!current.uid) throw new ApiError(401, '请先登录')
+    await deleteComment(db, commentId, current.uid)
+    return json({ ok: true })
+  }
+
+  const match = /^\/api\/social\/(profile|puzzle)\/([^/]+)(?:\/(like|comments))?$/.exec(pathname)
+  if (!match) return null
+  const kind = match[1]
+  const rawId = decodeURIComponent(match[2])
+  const action = match[3]
+  const target = await resolveTarget(db, kind, rawId)
+  const current = await viewer(request, env)
+
+  if (!action) {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const key = likerKey(current.uid, url.searchParams.get('playerKey'))
+    return json(await getSocial(db, target, key, current.uid))
+  }
+
+  if (action === 'like') {
+    if (request.method !== 'POST' && request.method !== 'DELETE') {
+      return json({ error: '方法不被允许' }, 405)
+    }
+    const key = likerKey(current.uid, url.searchParams.get('playerKey'))
+    return json(await setLike(db, target, key, request.method === 'POST'))
+  }
+
+  if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+  if (!current.uid) throw new ApiError(401, '请先登录')
+  const body = await readJson(request)
+  await ensureHandle(db, current.uid)
+  return json({ comment: await addComment(db, target, current.uid, body.body) })
+}
+
 const SSE_HEADERS = {
   'content-type': 'text/event-stream; charset=utf-8',
   'cache-control': 'no-cache, no-transform',
@@ -593,6 +671,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
 
   const library = await routeLibrary(request, env, pathname, url)
   if (library) return library
+  const social = await routeSocial(request, env, pathname, url)
+  if (social) return social
   const me = await routeMe(request, env, pathname)
   if (me) return me
   const profile = await routeProfile(request, env, pathname)

@@ -12,10 +12,15 @@ dist
 dist-ssr
 *.local
 
+# wrangler 本地状态（本地 D1/KV）
+.wrangler
+
 # Local secrets
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
 
 # Editor directories and files
 .vscode/*

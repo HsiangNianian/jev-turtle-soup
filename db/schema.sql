@@ -77,7 +77,9 @@ CREATE TABLE IF NOT EXISTS reports (
   note TEXT NOT NULL,
   snapshot_json TEXT,
   status TEXT NOT NULL DEFAULT 'open',
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  target_type TEXT,            -- 'comment' 之类：举报的具体对象
+  target_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_reports_created ON reports (created_at DESC);
@@ -115,3 +117,26 @@ CREATE TABLE IF NOT EXISTS judge_flags (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_judge_flags_turn ON judge_flags (turn_log_id);
 CREATE INDEX IF NOT EXISTS idx_judge_flags_created ON judge_flags (created_at DESC);
+
+-- 点赞与留言板：target 只分两类，profile 用 uid，puzzle 用题号
+CREATE TABLE IF NOT EXISTS likes (
+  id TEXT PRIMARY KEY,
+  target_type TEXT NOT NULL,   -- 'profile' | 'puzzle'
+  target_id TEXT NOT NULL,
+  player_key TEXT NOT NULL,    -- 登录用 uid，未登录用本机设备号
+  created_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_likes_unique ON likes (target_type, target_id, player_key);
+CREATE INDEX IF NOT EXISTS idx_likes_target ON likes (target_type, target_id);
+
+CREATE TABLE IF NOT EXISTS comments (
+  id TEXT PRIMARY KEY,
+  target_type TEXT NOT NULL,   -- 'profile' | 'puzzle'
+  target_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_target ON comments (target_type, target_id, created_at DESC);

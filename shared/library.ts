@@ -327,6 +327,14 @@ export async function deletePuzzle(db: D1Like, uid: string, id: string) {
   if (!row) throw new ApiError(404, '这道汤不存在')
   if (row.owner_id !== uid) throw new ApiError(403, '只能删除自己上传的汤')
   await db.prepare('DELETE FROM attempts WHERE puzzle_id = ?').bind(id).run()
+  await db
+    .prepare("DELETE FROM comments WHERE target_type = 'puzzle' AND target_id = ?")
+    .bind(id)
+    .run()
+  await db
+    .prepare("DELETE FROM likes WHERE target_type = 'puzzle' AND target_id = ?")
+    .bind(id)
+    .run()
   await db.prepare('DELETE FROM puzzles WHERE id = ?').bind(id).run()
   return { ok: true }
 }

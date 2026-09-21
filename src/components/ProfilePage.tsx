@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Lock } from 'lucide-react'
 
 import { Empty, PageShell } from '@/components/Bits'
+import { SocialPanel } from '@/components/SocialPanel'
 
 import { getPublicProfile, type PublicProfile } from '@/lib/library-client'
 import { renderInline } from '@/lib/markdown'
@@ -113,6 +114,15 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
             ))}
           </ul>
         </>
+      ) : null}
+
+      {profile.profilePublic ? (
+        <SocialPanel
+          kind="profile"
+          id={profile.handle}
+          path={`/u/${profile.handle}`}
+          title={profile.displayName}
+        />
       ) : null}
     </PageShell>
   )

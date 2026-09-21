@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, Loader2 } from 'lucide-react'
 
 import { Button, Empty, PageShell } from '@/components/Bits'
+import { SocialPanel } from '@/components/SocialPanel'
 
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
 import { Link } from '@/components/Link'
@@ -93,6 +94,13 @@ export function PuzzleDetailPage({
           {t('回到题库')}
         </Link>
       </div>
+
+      <SocialPanel
+        kind="puzzle"
+        id={puzzle.id}
+        path={`/library/${puzzle.id}`}
+        title={puzzle.title}
+      />
     </PageShell>
   )
 }

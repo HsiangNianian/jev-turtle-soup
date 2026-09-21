@@ -100,6 +100,9 @@ export interface ReportInput {
   snapshot: unknown
   playerKey: string
   locale: string
+  /** 举报的具体对象（例如一条留言） */
+  targetType?: string
+  targetId?: string
 }
 
 export async function submitReport(db: D1Like, input: ReportInput): Promise<{ id: string }> {
@@ -112,8 +115,8 @@ export async function submitReport(db: D1Like, input: ReportInput): Promise<{ id
   const id = crypto.randomUUID()
   await db
     .prepare(
-      `INSERT INTO reports (id, puzzle_id, kind, player_key, locale, note, snapshot_json, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?)`,
+      `INSERT INTO reports (id, puzzle_id, kind, player_key, locale, note, snapshot_json, status, created_at, target_type, target_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
     )
     .bind(
       id,
@@ -124,6 +127,8 @@ export async function submitReport(db: D1Like, input: ReportInput): Promise<{ id
       note,
       snapshot,
       Date.now(),
+      text(input.targetType, 16) || null,
+      text(input.targetId, 64) || null,
     )
     .run()
   return { id }

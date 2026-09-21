@@ -1,3 +1,5 @@
+import { uid } from '@/lib/utils'
+
 const DEVICE_KEY = 'turtle-soup.device.v1'
 
 export interface LuckTier {
@@ -46,7 +48,7 @@ export function getDeviceId(): string {
   try {
     const existing = localStorage.getItem(DEVICE_KEY)
     if (existing) return existing
-    const created = crypto.randomUUID()
+    const created = uid()
     localStorage.setItem(DEVICE_KEY, created)
     return created
   } catch {

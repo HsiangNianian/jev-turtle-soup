@@ -25,6 +25,11 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(pkg.version),
       __BUILD_ID__: JSON.stringify(buildId()),
     },
+    // 默认目标是 Safari 16，而线上真有人用更老的 iOS。
+    // 降到 15 只是多降级一点语法，换来老机器上不会整个 bundle 解析失败。
+    build: {
+      target: ['es2020', 'safari15'],
+    },
     plugins: [react(), tailwindcss(), turtleSoupApi(env)],
     resolve: {
       alias: {

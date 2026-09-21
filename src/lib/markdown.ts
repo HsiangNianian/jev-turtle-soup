@@ -28,19 +28,34 @@ export function renderInline(source: string): ReactNode[] {
     if (cursor < text.length) nodes.push(text.slice(cursor))
   }
 
-  const patterns: Array<{ re: RegExp; render: (m: RegExpExecArray) => ReactNode }> = [
+  const patterns: Array<{
+    find: (text: string) => { index: number; match: RegExpExecArray } | null
+    render: (m: RegExpExecArray) => ReactNode
+  }> = [
     {
-      re: /\[([^\]]+)\]\(\s*([^)\s]+)\s*\)/,
+      find: scan(/\[([^\]]+)\]\(\s*([^)\s]+)\s*\)/),
       render: (m) => (isSafeUrl(m[2]) ? linkNode(`l${key++}`, m[2], m[1]) : m[0]),
     },
-    { re: /\*\*([^*]+)\*\*/, render: (m) => createElement('strong', { key: `b${key++}` }, m[1]) },
-    { re: /~~([^~]+)~~/, render: (m) => createElement('del', { key: `s${key++}` }, m[1]) },
     {
-      re: /(?<!\*)\*([^*\n]+)\*(?!\*)/,
+      find: scan(/\*\*([^*]+)\*\*/),
+      render: (m) => createElement('strong', { key: `b${key++}` }, m[1]),
+    },
+    { find: scan(/~~([^~]+)~~/), render: (m) => createElement('del', { key: `s${key++}` }, m[1]) },
+    {
+      // *斜体* 两侧不能再挨着 *，否则那是 **粗体** 的一部分
+      find: scan(/\*([^*\n]+)\*/, (text, m) => {
+        const before = text[m.index - 1]
+        const after = text[m.index + m[0].length]
+        return before !== '*' && after !== '*'
+      }),
       render: (m) => createElement('em', { key: `i${key++}` }, m[1]),
     },
     {
-      re: /(?<![\w_])_([^_\n]+)_(?![\w_])/,
+      // _斜体_ 两侧不能是字母数字，免得吃掉 snake_case 里的下划线
+      find: scan(/_([^_\n]+)_/, (text, m) => {
+        const isWord = (ch: string | undefined) => Boolean(ch && /\w/.test(ch))
+        return !isWord(text[m.index - 1]) && !isWord(text[m.index + m[0].length])
+      }),
       render: (m) => createElement('em', { key: `i${key++}` }, m[1]),
     },
   ]
@@ -52,9 +67,9 @@ export function renderInline(source: string): ReactNode[] {
       pattern: (typeof patterns)[number]
     } | null = null
     for (const pattern of patterns) {
-      const match = pattern.re.exec(rest)
-      if (match && (earliest === null || (match.index ?? 0) < earliest.index)) {
-        earliest = { index: match.index ?? 0, match, pattern }
+      const found = pattern.find(rest)
+      if (found && (earliest === null || found.index < earliest.index)) {
+        earliest = { ...found, pattern }
       }
     }
     if (!earliest) {
@@ -67,6 +82,25 @@ export function renderInline(source: string): ReactNode[] {
   }
 
   return nodes
+}
+
+/**
+ * 在整段文本里找第一个通过边界检查的匹配。
+ * 边界本来是用正则的 lookbehind 写的，但 lookbehind 要 Safari 16.4 才支持，
+ * 更老的 iOS 上整个 bundle 会在**解析阶段**就 SyntaxError，直接白屏——
+ * 所以改成扫描 + 回调判断。
+ */
+function scan(re: RegExp, guard?: (text: string, match: RegExpExecArray) => boolean) {
+  const scanner = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`)
+  return (text: string) => {
+    scanner.lastIndex = 0
+    let match = scanner.exec(text)
+    while (match) {
+      if (!guard || guard(text, match)) return { index: match.index, match }
+      match = scanner.exec(text)
+    }
+    return null
+  }
 }
 
 const LINK_CLASS =

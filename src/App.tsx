@@ -47,7 +47,7 @@ import {
 import { navigate, matchPath, usePath } from '@/lib/router'
 import { utcToday, type DailyDetail } from '@/lib/daily-client'
 import { dailyLuck, getDeviceId, todayKey } from '@/lib/luck'
-import { cn } from '@/lib/utils'
+import { cn, uid } from '@/lib/utils'
 import { Link } from '@/components/Link'
 import { useI18n } from '@/lib/i18n'
 
@@ -192,7 +192,7 @@ export default function App() {
   const startLibraryGame = useCallback(
     (puzzle: LibraryPuzzleDetail) => {
       setSession({
-        sessionId: crypto.randomUUID(),
+        sessionId: uid(),
         title: puzzle.title,
         surface: puzzle.surface,
         difficulty: puzzle.difficulty,
@@ -202,7 +202,7 @@ export default function App() {
       })
       setMessages([
         {
-          id: crypto.randomUUID(),
+          id: uid(),
           role: 'host',
           text: t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。'),
         },
@@ -240,7 +240,7 @@ export default function App() {
         hostGreeting: greeting,
         dailyDate: daily.date,
       })
-      setMessages([{ id: crypto.randomUUID(), role: 'host', text: greeting }])
+      setMessages([{ id: uid(), role: 'host', text: greeting }])
       setRevealed(false)
       setTruth(null)
       setSolved(false)
@@ -276,7 +276,7 @@ export default function App() {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: uid(),
           role: 'host',
           text: turn.reply,
           tone: toneFor(turn),
@@ -309,7 +309,7 @@ export default function App() {
     async (text: string) => {
       if (!session) return
       const history = messages
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'player', text }])
+      setMessages((prev) => [...prev, { id: uid(), role: 'player', text }])
       setAsking(true)
       setTurnCount((count) => count + 1)
       const context = {
@@ -344,7 +344,7 @@ export default function App() {
         setMessages((prev) => [
           ...prev,
           {
-            id: crypto.randomUUID(),
+            id: uid(),
             role: 'host',
             tone: 'error',
             text: error instanceof Error ? error.message : t('请求失败，请稍后再试'),
@@ -374,7 +374,7 @@ export default function App() {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: uid(),
           role: 'host',
           text: t('今天的官方汤不能提前揭晓——明天它就会解锁，到时候你随时可以翻看。'),
         },
@@ -388,7 +388,7 @@ export default function App() {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: uid(),
           role: 'host',
           text: t('（主持人把碗底翻了过来，汤底就在案卷里。）'),
         },
@@ -397,7 +397,7 @@ export default function App() {
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: uid(),
           role: 'host',
           tone: 'error',
           text: error instanceof Error ? error.message : t('揭晓失败'),

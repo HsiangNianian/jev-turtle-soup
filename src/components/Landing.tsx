@@ -111,6 +111,7 @@ export function Landing({
   const openCases = todayDailyGame
     ? activeGames.filter((game) => game.id !== todayDailyGame.id)
     : activeGames
+  const hasSections = Boolean(todayDaily) || openCases.length > 0 || archives.length > 0
 
   function requestDelete(id: string) {
     if (skipConfirm) {
@@ -348,21 +349,32 @@ export function Landing({
             </ul>
           </>
         ) : null}
-      </div>
-
-      <div className="mt-8 flex flex-wrap items-center gap-3">
-        <Link
-          to="/library"
-          className="flex items-center gap-3 bg-foreground px-6 py-3.5 font-mono text-[12px] font-bold tracking-[0.22em] text-background transition-opacity hover:opacity-85"
+        {/*
+          收尾行：题库 / 官方汤往期是「另一类入口」，不该和今天这碗抢同一档重量。
+          所以一律用描边按钮，实心只留给「今日」那一个动作；
+          今天没有汤可玩时，才把「玩今日官方汤」补出来当入口。
+        */}
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-3 pt-6',
+            hasSections && 'mt-10 border-t border-foreground/25',
+          )}
         >
-          {t('去题库挑一碗')} <ArrowRight className="size-4" />
-        </Link>
-        <Link
-          to="/daily"
-          className="flex items-center gap-3 border border-foreground px-6 py-3.5 font-mono text-[12px] font-bold tracking-[0.22em] transition-colors hover:bg-foreground hover:text-background"
-        >
-          {t('玩今日官方汤')} <ArrowRight className="size-4" />
-        </Link>
+          <Link
+            to="/library"
+            className="flex items-center gap-2.5 border border-foreground px-5 py-3 font-mono text-[11px] font-bold tracking-[0.2em] transition-colors hover:bg-foreground hover:text-background"
+          >
+            {t('去题库挑一碗')} <ArrowRight className="size-3.5" />
+          </Link>
+          {todayDaily ? null : (
+            <Link
+              to="/daily"
+              className="flex items-center gap-2.5 border border-foreground px-5 py-3 font-mono text-[11px] font-bold tracking-[0.2em] transition-colors hover:bg-foreground hover:text-background"
+            >
+              {t('玩今日官方汤')} <ArrowRight className="size-3.5" />
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="mt-10 flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">

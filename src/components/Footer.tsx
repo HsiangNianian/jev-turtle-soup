@@ -20,14 +20,9 @@ export function Footer() {
   return (
     <footer className="mx-auto mt-16 w-full max-w-3xl px-5 pb-10 sm:px-6">
       <div className="border-t border-foreground/25 pt-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <span className="font-mono text-[10px] tracking-[0.24em] text-foreground">
-            {t('海龟汤调查局')}
-          </span>
-          <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
-            Meaningless Meaning Studio
-          </span>
-        </div>
+        <span className="font-mono text-[10px] tracking-[0.24em] text-foreground">
+          {t('海龟汤调查局')}
+        </span>
 
         <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10px] tracking-[0.16em]">
           {INNER_LINKS.map((item) => (

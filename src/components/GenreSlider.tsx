@@ -32,15 +32,23 @@ const FLIP_GAP_MS = 120
  * 字号上限与下限。真正的字号按容器宽度折算（见 useFitText）——
  * 「变格·怪力乱神」比「居中 · 不限」长得多，写死一个 rem 总有一头要溢出。
  */
-const MAX_FONT_PX = 104
-const MIN_FONT_PX = 20
+const MAX_FONT_PX = 84
+const MIN_FONT_PX = 18
+
+/**
+ * 大字只占容器宽度的这个比例，剩下两边留给波形。
+ * 取 1 就会顶满整条示波器，字看着像块背景板而不是读数。
+ */
+const FILL_RATIO = 0.66
 /** 量宽用的参考字号：用大一点的数字量，折算误差小。 */
 const PROBE_PX = 100
 
 /**
- * 让一行字始终装得下：用一个隐藏的探针按参考字号量出文案宽度，
- * 再按容器宽度折算字号。改的是 DOM 上的 style，不经过 React state，
- * 所以不会每换一次字就多一次渲染。窗口大小变化会重算。
+ * 让这一行字始终装得下，而且**框子大小恒定**：
+ * 宽度直接钉成容器宽度的 FILL_RATIO，再用隐藏探针量出的文案宽度折算字号。
+ * 宽度不跟着文案走，翻页时旧字再长也顶不出控件（多出来的部分被裁掉）。
+ * 改的是 DOM 上的 style，不经过 React state，所以不会每换一次字就多一次渲染。
+ * 窗口大小变化会重算。
  */
 function useFitText(text: string) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -56,7 +64,9 @@ function useFitText(text: string) {
       const available = box.clientWidth
       const width = probe.getBoundingClientRect().width
       if (!available || !width) return
-      const size = Math.max(MIN_FONT_PX, Math.min(MAX_FONT_PX, (available / width) * PROBE_PX))
+      const frameWidth = available * FILL_RATIO
+      const size = Math.max(MIN_FONT_PX, Math.min(MAX_FONT_PX, (frameWidth / width) * PROBE_PX))
+      target.style.width = `${frameWidth}px`
       target.style.fontSize = `${size}px`
     }
     fit()
@@ -184,7 +194,7 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
   }
 
   return (
-    <div ref={boxRef} className="relative mt-6 h-40 select-none sm:h-52">
+    <div ref={boxRef} className="relative mt-6 h-36 select-none sm:h-44">
       {/* 量宽探针：同字体同字重，按参考字号量一遍文案宽度 */}
       <span
         ref={probeRef}
@@ -220,13 +230,8 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
       >
         <span
           ref={sizeRef}
-          className="relative inline-block h-[1.3em] overflow-hidden whitespace-nowrap align-bottom font-serif text-[2rem] leading-none font-black tracking-[-0.02em] tabular-nums"
+          className="relative inline-block h-[1.3em] overflow-hidden text-center whitespace-nowrap align-bottom font-serif text-[2rem] leading-none font-black tracking-[-0.02em] tabular-nums"
         >
-          {/* 撑开盒子的量宽层（不可见），真正的字浮在上面 */}
-          <span className="invisible block">{fromText ?? toText}</span>
-          {fromText !== null && fromText !== toText ? (
-            <span className="invisible block">{toText}</span>
-          ) : null}
           {fromText ? (
             <span
               key={`out-${frame.id}`}

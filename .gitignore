@@ -27,3 +27,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 其它 agent 的 skill 软链（安装器生成，本仓库只保留 .agents/）
+.claude/
+agent/

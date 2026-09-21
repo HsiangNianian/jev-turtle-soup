@@ -139,7 +139,28 @@ const GENRE_STYLE: Record<Genre, string> = {
   supernatural: '怪力乱神：可以有鬼神与因果，但要克制、有规矩，读起来像一则民间怪谈而非血浆片。',
 }
 
-function systemPrompt(genre: Genre) {
+export type Locale = 'zh-CN' | 'en' | 'ja'
+
+export function readLocale(value: unknown): Locale {
+  return value === 'en' || value === 'ja' ? value : 'zh-CN'
+}
+
+/** 出题正文必须用请求者当前的语言，否则英文站会端上一碗中文汤。 */
+const LANGUAGE_RULE: Record<Locale, string> = {
+  'zh-CN':
+    'Story language: Simplified Chinese only. Write the title, surface, truth, hint and tags in Chinese.',
+  en: 'Story language: English only. Write the title, surface, truth, hint and tags in natural, idiomatic English; never leave Chinese in the output.',
+  ja: 'Story language: Japanese only. Write the title, surface, truth, hint and tags in natural Japanese; never leave Chinese in the output.',
+}
+
+const STYLE_RULE: Record<Locale, string> = {
+  'zh-CN':
+    '不要血腥、色情、恐怖 jump scare 或违法内容；正文里不要出现「汤面」「汤底」「答案」这类出题术语。',
+  en: 'No gore, sexual content, jump scares or anything illegal, and never use the words "surface", "truth" or "answer" inside the prose itself.',
+  ja: '残虐・性的表現・ジャンプスケア・違法な内容は避け、本文中に「湯面」「真相」「答え」といった出題用語を書かないこと。',
+}
+
+function systemPrompt(genre: Genre, locale: Locale = 'zh-CN') {
   return `你是一位顶级海龟汤（情境推理游戏）出题人。海龟汤由两部分组成：汤面是呈现给玩家的一段诡异、简短、只描述现象的情境；汤底是隐藏的完整真相。
 
 请创作一则原创、公平、逻辑自洽的海龟汤，并且只输出一个 JSON 对象。
@@ -155,7 +176,9 @@ ${LINK_RULES}
 
 题材风格：${GENRE_STYLE[genre]}
 
-风格约束：只用简体中文；不要血腥、色情、恐怖jump scare 或违法内容；不要出现"汤面""汤底""答案"等出题术语在正文里。
+风格约束：${STYLE_RULE[locale]}
+${LANGUAGE_RULE[locale]}
+${genre === 'supernatural' ? 'tags 里必须包含「怪力乱神」这个标签。' : ''}
 
 输出格式（严格 JSON，不要 markdown 代码块）：
 {"title": "标题", "surface": "汤面", "truth": "汤底", "hint": "提示", "difficulty": "中等", "tags": ["标签1", "标签2"]}`
@@ -165,19 +188,53 @@ export function readGenre(value: unknown): Genre {
   return value === 'supernatural' ? 'supernatural' : 'realistic'
 }
 
-function buildUserPrompt(difficulty: string, theme: string, avoid: string[] = []) {
-  const parts = [`请创作一则难度为「${difficulty}」的海龟汤。`]
-  if (theme.trim()) parts.push(`主题或背景偏好：${theme.trim()}。`)
+function buildUserPrompt(
+  difficulty: string,
+  theme: string,
+  avoid: string[] = [],
+  locale: Locale = 'zh-CN',
+) {
+  const openers: Record<Locale, string> = {
+    'zh-CN': `请创作一则难度为「${difficulty}」的海龟汤。`,
+    en: `Write one turtle-soup puzzle at ${difficultyEn(difficulty)} difficulty.`,
+    ja: `海亀スープのお題を一つ、難易度「${difficultyJa(difficulty)}」で書いてください。`,
+  }
+  const themeLabels: Record<Locale, string> = {
+    'zh-CN': '主题或背景偏好',
+    en: 'Theme or setting preference',
+    ja: '題材・舞台の希望',
+  }
+  const avoidIntro: Record<Locale, string> = {
+    'zh-CN':
+      '最近已经出过下面这些题，请换一个完全不同的场景、物件和转折，不要与之相似，也不要同题：',
+    en: 'These puzzles were generated recently. Pick a completely different setting, object and twist — do not repeat or closely echo any of them:',
+    ja: '最近出したお題は以下です。舞台・小道具・どんでん返しを大きく変え、類似や同一は避けてください：',
+  }
+  const outro: Record<Locale, string> = {
+    'zh-CN': '以 json 格式输出，只输出 json。',
+    en: 'Answer with json only, no commentary.',
+    ja: 'json のみで出力すること。',
+  }
+  const parts = [openers[locale]]
+  if (theme.trim()) parts.push(`${themeLabels[locale]}：${theme.trim()}。`)
   if (avoid.length) {
     parts.push(
-      `最近已经出过下面这些题，请换一个完全不同的场景、物件和转折，不要与之相似，也不要同题：\n${avoid
+      `${avoidIntro[locale]}\n${avoid
         .slice(0, 12)
         .map((item) => `- ${item}`)
         .join('\n')}`,
     )
   }
-  parts.push('以 json 格式输出，只输出 json。')
+  parts.push(outro[locale])
   return parts.join('')
+}
+
+function difficultyEn(value: string): string {
+  return value === '简单' ? 'easy' : value === '困难' ? 'hard' : 'normal'
+}
+
+function difficultyJa(value: string): string {
+  return value === '简单' ? 'やさしい' : value === '困难' ? 'むずかしい' : 'ふつう'
 }
 
 function extractJson(text: string): unknown {
@@ -190,7 +247,13 @@ function extractJson(text: string): unknown {
   return JSON.parse(slice)
 }
 
-type Effort = 'max' | 'high'
+type Effort = 'max' | 'high' | 'low'
+
+/**
+ * 思考模式总开关。先关掉换速度与稳定性（开着时单次要几十秒到几分钟）。
+ * 想开回来只要改成 true，effort 阶梯依然有效。
+ */
+const THINKING_ENABLED = false
 type ChatTurn = { role: 'system' | 'user' | 'assistant'; content: string }
 
 /**
@@ -295,13 +358,13 @@ async function callChat(
         stream_options: { include_usage: true },
         // 结构化输出：prompt 里已给出 json 样例
         response_format: { type: 'json_object' },
-        // 思维链也算 token（max 档常上万字），留足空间免得 content 被挤空
-        max_tokens: 65536,
-        reasoning_effort: effort,
-        // DeepSeek 扩展字段：思考模式开关（OpenAI 类型里没有）
-        thinking: { type: 'enabled' },
+        // 思考模式：思维链也算 token（max 档常上万字），不思考时 8K 足够
+        max_tokens: THINKING_ENABLED ? 65536 : 8192,
+        ...(THINKING_ENABLED
+          ? { reasoning_effort: effort, thinking: { type: 'enabled' as const } }
+          : { thinking: { type: 'disabled' as const } }),
       } as OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming & {
-        thinking: { type: 'enabled' }
+        thinking: { type: 'enabled' | 'disabled' }
       },
       { signal },
     )
@@ -351,14 +414,23 @@ async function generateWithLlm(
   difficulty: string,
   theme: string,
   genre: Genre,
-  effort: Effort = 'high',
+  effort: Effort = 'low',
   avoid: string[] = [],
+  locale: Locale = 'zh-CN',
   onProgress?: (progress: GenerateProgress) => void,
 ): Promise<GeneratedPuzzle> {
-  const requirements = `${systemPrompt(genre)}\n\n${buildUserPrompt(difficulty, theme, avoid)}`
+  const requirements = `${systemPrompt(genre, locale)}\n\n${buildUserPrompt(
+    difficulty,
+    theme,
+    avoid,
+    locale,
+  )}`
   const messages: ChatTurn[] = [
-    { role: 'system', content: systemPrompt(genre) },
-    { role: 'user', content: buildUserPrompt(difficulty, theme, avoid) },
+    { role: 'system', content: systemPrompt(genre, locale) },
+    {
+      role: 'user',
+      content: buildUserPrompt(difficulty, theme, avoid, locale),
+    },
   ]
   let lastIssues: string[] = []
 
@@ -389,7 +461,10 @@ async function generateWithLlm(
     if (round < MAX_ROUNDS) {
       console.warn(`[turtle-soup] 输出校验未通过，回炉第 ${round} 次：`, issues.join('；'))
       messages.push({ role: 'assistant', content })
-      messages.push({ role: 'user', content: correctionPrompt(issues, requirements) })
+      messages.push({
+        role: 'user',
+        content: correctionPrompt(issues, requirements),
+      })
     }
   }
 
@@ -577,42 +652,128 @@ function readLuck(value: unknown): LuckInfo | null {
   }
 }
 
-function replyLuck(luck: LuckInfo | null) {
-  if (!luck) {
-    return '主持人翻了翻手边的册子，又合上了：「今日人品得在首页那格日历上看——你刷新一下再来问我。」'
-  }
-  const mood =
-    luck.score >= 85
-      ? '今天手气好得反常'
-      : luck.score >= 60
-        ? '今天还算顺'
-        : luck.score >= 35
-          ? '今天不好不坏'
-          : '今天最好别硬猜'
-  return `主持人翻开手边的册子念了一句：「${luck.date}，人品 ${luck.score}，${luck.tier}——${mood}。宜${luck.good}，忌${luck.bad}。」他把册子合上，「信不信随你，汤底我是不会提前给你的。」`
+interface HostCopy {
+  verdict: Record<string, string>
+  rephrase: string
+  howToPlay: string
+  hint: (hint: string) => string
+  reveal: string
+  solved: string
+  closeHigh: string
+  closeMid: string
+  closeLow: string
+  unclear: string
+  luckMissing: string
+  luck: (luck: LuckInfo) => string
+  greeting: string
+  greetingFallback: string
+}
+
+function luckMoodZh(score: number) {
+  return score >= 85
+    ? '今天手气好得反常'
+    : score >= 60
+      ? '今天还算顺'
+      : score >= 35
+        ? '今天不好不坏'
+        : '今天最好别硬猜'
+}
+
+const HOST_COPY: Record<Locale, HostCopy> = {
+  'zh-CN': {
+    verdict: {
+      yes: '是。',
+      no: '不是。',
+      partly: '是，也不是。',
+      irrelevant: '无关。',
+    },
+    rephrase: '这个问题主持人有点拿不准……能换一个更具体的问法吗？',
+    howToPlay:
+      '玩法：主持人只会回答「是」「不是」「无关」或者「是，也不是」。你可以不断提出能用是 / 否回答的问题，一步步逼近汤底；也可以随时说出你的完整推理，猜对了就通关。',
+    hint: (hint) => `主持人压低声音说了一句提示：「${hint}」`,
+    reveal: '好吧，既然你坚持——这就是真相。',
+    solved: '……没错，就是这样。你完全还原了真相，这一碗被你喝到底了。',
+    closeHigh: '已经很接近了！核心抓住了，但还差最后一块关键拼图。',
+    closeMid: '沾到一点边了，方向可以再往关键的地方想想。',
+    closeLow: '嗯……这个说法和真相差得有点远，再换条线索想想。',
+    unclear: '主持人没太听懂。你可以问一个是非题，或者直接说出你的推理。',
+    luckMissing:
+      '主持人翻了翻手边的册子，又合上了：「今日人品得在首页那格日历上看——你刷新一下再来问我。」',
+    luck: (luck) =>
+      `主持人翻开手边的册子念了一句：「${luck.date}，人品 ${luck.score}，${luck.tier}——${luckMoodZh(
+        luck.score,
+      )}。宜${luck.good}，忌${luck.bad}。」他把册子合上，「信不信随你，汤底我是不会提前给你的。」`,
+    greeting: '汤面已经端上来了。开始提问吧，我只会回答「是」「不是」「无关」或者「是，也不是」。',
+    greetingFallback: '（这次出题没成功，先用一则经典汤顶上。）汤面已经端上来了，开始提问吧。',
+  },
+  en: {
+    verdict: {
+      yes: 'Yes.',
+      no: 'No.',
+      partly: 'Partly.',
+      irrelevant: 'Unrelated.',
+    },
+    rephrase: 'The host is not quite sure about that one… could you ask it more concretely?',
+    howToPlay:
+      'How it works: the host only answers yes, no, unrelated, or partly. Keep asking questions that can be answered with yes or no to close in on the truth, or state your full theory — get it right and the case is solved.',
+    hint: (hint) => `The host lowers his voice: “${hint}”`,
+    reveal: 'All right, if you insist — this is what really happened.',
+    solved: '…yes, exactly. You have the whole truth; this bowl is finished.',
+    closeHigh: 'Very close! You have the core of it, but one key piece is still missing.',
+    closeMid: 'You are brushing against it — steer toward the crucial detail.',
+    closeLow: 'Hmm… that is rather far from the truth. Try another thread.',
+    unclear: 'The host did not quite follow. Ask a yes-or-no question, or state your theory.',
+    luckMissing:
+      'The host leafs through a small notebook and closes it. “Today’s luck is on the calendar on the front page — refresh and ask me again.”',
+    luck: (luck) =>
+      `The host reads from a notebook: “${luck.date}, luck ${luck.score}, ${luck.tier}. Good for: ${
+        luck.good
+      }. Bad for: ${luck.bad}.” He shuts it. “Believe it or not, I still will not hand you the truth early.”`,
+    greeting: 'The surface is served. Ask away — I only answer yes, no, or unrelated.',
+    greetingFallback:
+      '(Generation did not work out, so a classic bowl stands in.) The surface is served — ask away.',
+  },
+  ja: {
+    verdict: {
+      yes: 'はい。',
+      no: 'いいえ。',
+      partly: 'どちらでもある。',
+      irrelevant: '無関係です。',
+    },
+    rephrase: 'その質問は司会にも判断しかねるようです……もう少し具体的に訊いてもらえますか。',
+    howToPlay:
+      '遊びかた：司会が答えるのは「はい」「いいえ」「無関係」「どちらでもある」だけです。はい／いいえで答えられる質問を重ねて真相に近づくか、推理をそのまま述べてください。当たれば解決です。',
+    hint: (hint) => `司会が声を落として言った。「${hint}」`,
+    reveal: 'わかりました、そこまで言うなら——これが真相です。',
+    solved: '……そのとおり。あなたは真相を言い当てました。この一杯は飲みきられました。',
+    closeHigh: 'かなり近い！芯は掴めていますが、あと一枚だけ重要なピースが足りません。',
+    closeMid: '少し触れています。核心に寄せていってください。',
+    closeLow: 'うーん……それは真相からだいぶ遠いですね。別の糸をたどってみては。',
+    unclear: '司会にはよく伝わらなかったようです。はい／いいえの質問か、推理を述べてください。',
+    luckMissing:
+      '司会は手元の帳面をめくり、閉じた。「今日の運勢はホームの暦にあります。更新してもう一度訊いてください。」',
+    luck: (luck) =>
+      `司会が帳面を読み上げる。「${luck.date}、運勢 ${luck.score}、${luck.tier}。向くこと：${
+        luck.good
+      }。避けること：${luck.bad}。」帳面を閉じて、「信じるかは自由ですが、真相は先に渡しませんよ。」`,
+    greeting:
+      '湯面をどうぞ。質問を始めてください。答えるのは「はい」「いいえ」「無関係」だけです。',
+    greetingFallback:
+      '（今回はうまく作れなかったので、定番の一杯で失礼します。）湯面をどうぞ、質問を始めてください。',
+  },
 }
 
 const META_KINDS = new Set(['hint', 'full_answer', 'how_to_play', 'jrrp'])
 
-const VERDICT_REPLY: Record<string, string> = {
-  yes: '是。',
-  no: '不是。',
-  partly: '是，也不是。',
-  irrelevant: '无关。',
-}
-
-const REPHRASE = '这个问题主持人有点拿不准……能换一个更具体的问法吗？'
-const HOW_TO_PLAY =
-  '玩法：主持人只会回答「是」「不是」「无关」或者「是，也不是」。你可以不断提出能用是 / 否回答的问题，一步步逼近汤底；也可以随时说出你的完整推理，猜对了就通关。'
-
-function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null) {
+function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null, locale: Locale) {
+  const copy = HOST_COPY[locale]
   if (kind === 'hint') {
     return {
       intent: 'meta',
       verdict: 'hint',
       solved: false,
       revealed: false,
-      reply: `主持人压低声音说了一句提示：「${puzzle.hint}」`,
+      reply: copy.hint(puzzle.hint),
     }
   }
   if (kind === 'full_answer') {
@@ -621,7 +782,7 @@ function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null) {
       verdict: 'reveal',
       solved: false,
       revealed: true,
-      reply: '好吧，既然你坚持——这就是真相。',
+      reply: copy.reveal,
     }
   }
   if (kind === 'how_to_play') {
@@ -630,7 +791,7 @@ function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null) {
       verdict: 'how_to_play',
       solved: false,
       revealed: false,
-      reply: HOW_TO_PLAY,
+      reply: copy.howToPlay,
     }
   }
   if (kind === 'jrrp') {
@@ -639,7 +800,7 @@ function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null) {
       verdict: 'jrrp',
       solved: false,
       revealed: false,
-      reply: replyLuck(luck),
+      reply: luck ? copy.luck(luck) : copy.luckMissing,
     }
   }
   return {
@@ -647,11 +808,17 @@ function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null) {
     verdict: 'unclear',
     solved: false,
     revealed: false,
-    reply: REPHRASE,
+    reply: copy.rephrase,
   }
 }
 
-export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo | null = null) {
+export function composeTurn(
+  puzzle: Puzzle,
+  answers: HostAnswers,
+  luck: LuckInfo | null = null,
+  locale: Locale = 'zh-CN',
+) {
+  const copy = HOST_COPY[locale]
   const intentAnswer = answers.intent
   const intent = intentAnswer.choice as string
   const intentConfidence = intentAnswer.confidence
@@ -667,15 +834,11 @@ export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo
         revealed: true,
         closeness,
         confidence: solved,
-        reply: '……没错，就是这样。你完全还原了真相，这一碗被你喝到底了。',
+        reply: copy.solved,
       }
     }
     const reply =
-      closeness >= 0.66
-        ? '已经很接近了！核心抓住了，但还差最后一块关键拼图。'
-        : closeness >= 0.33
-          ? '沾到一点边了，方向可以再往关键的地方想想。'
-          : '嗯……这个说法和真相差得有点远，再换条线索想想。'
+      closeness >= 0.66 ? copy.closeHigh : closeness >= 0.33 ? copy.closeMid : copy.closeLow
     return {
       intent,
       verdict: 'partial',
@@ -689,7 +852,7 @@ export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo
 
   if (intent === 'meta') {
     return {
-      ...handleMeta(answers.meta_request.choice as string, puzzle, luck),
+      ...handleMeta(answers.meta_request.choice as string, puzzle, luck, locale),
       closeness: null,
       confidence: answers.meta_request.confidence,
     }
@@ -706,10 +869,10 @@ export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo
         revealed: false,
         closeness: null,
         confidence,
-        reply: REPHRASE,
+        reply: copy.rephrase,
       }
     }
-    const reply = VERDICT_REPLY[verdict] ?? REPHRASE
+    const reply = copy.verdict[verdict] ?? copy.rephrase
     return {
       intent,
       verdict,
@@ -725,7 +888,7 @@ export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo
   const metaChoice = answers.meta_request.choice as string
   if (META_KINDS.has(metaChoice) && answers.meta_request.confidence >= 0.5) {
     return {
-      ...handleMeta(metaChoice, puzzle, luck),
+      ...handleMeta(metaChoice, puzzle, luck, locale),
       closeness: null,
       confidence: answers.meta_request.confidence,
     }
@@ -738,7 +901,7 @@ export function composeTurn(puzzle: Puzzle, answers: HostAnswers, luck: LuckInfo
     revealed: false,
     closeness: null,
     confidence: intentConfidence,
-    reply: '主持人没太听懂。你可以问一个是非题，或者直接说出你的推理。',
+    reply: copy.unclear,
   }
 }
 
@@ -813,6 +976,7 @@ export async function startGame(
     typeof body.difficulty === 'string' && body.difficulty.trim() ? body.difficulty.trim() : '中等'
   const theme = typeof body.theme === 'string' ? body.theme : ''
   const genre = readGenre(body.genre)
+  const locale = readLocale(body.locale)
   const llm = resolveLlm(env)
 
   const avoid = await store.recentSurfaces(30)
@@ -821,8 +985,8 @@ export async function startGame(
   let lastError: unknown = null
 
   if (llm) {
-    // max 档偶尔会因为思维链过长而失败；high 更快更稳，失败再上 max
-    for (const effort of ['high', 'max'] as const) {
+    // max 档偶尔会因为思维链过长而失败；low, high 更快更稳，失败再上 max
+    for (const effort of ['low', 'high', 'max'] as const) {
       try {
         const candidate = await generateWithLlm(
           llm,
@@ -831,6 +995,7 @@ export async function startGame(
           genre,
           effort,
           avoid,
+          locale,
           onProgress,
         )
         if (avoid.includes(normaliseSurface(candidate.surface))) {
@@ -874,9 +1039,7 @@ export async function startGame(
     difficulty: puzzle.difficulty ?? difficulty,
     source,
     hostGreeting:
-      source === 'builtin'
-        ? '（这次出题没成功，先用一则经典汤顶上。）汤面已经端上来了，开始提问吧。'
-        : '汤面已经端上来了。开始提问吧，我只会回答「是」「不是」「无关」或者「是，也不是」。',
+      source === 'builtin' ? HOST_COPY[locale].greetingFallback : HOST_COPY[locale].greeting,
   }
 }
 
@@ -939,6 +1102,6 @@ export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, u
     questions: HOST_QUESTIONS,
   })
 
-  const turn = composeTurn(puzzle, answers, readLuck(body.luck))
+  const turn = composeTurn(puzzle, answers, readLuck(body.luck), readLocale(body.locale))
   return { ...turn, model, debug: buildDebug(answers) }
 }

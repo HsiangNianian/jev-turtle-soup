@@ -181,7 +181,7 @@ export default function App() {
       saveGames(merged)
     }
     try {
-      const created = await createGame(difficulty, theme, genre, (update) => {
+      const created = await createGame(difficulty, theme, genre, locale, (update) => {
         const chars = new Intl.NumberFormat(locale).format(update.chars)
         setProgress(
           update.stage === 'writing'

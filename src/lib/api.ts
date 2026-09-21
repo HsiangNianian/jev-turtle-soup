@@ -91,12 +91,13 @@ export async function createGame(
   difficulty: string,
   theme: string,
   genre: Genre,
+  locale: string,
   onProgress?: (progress: GenerateProgress) => void,
 ): Promise<GameSession> {
   const response = await fetch('/api/game/new', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ difficulty, theme, genre }),
+    body: JSON.stringify({ difficulty, theme, genre, locale }),
   })
 
   const streamed = response.headers.get('content-type')?.includes('event-stream')

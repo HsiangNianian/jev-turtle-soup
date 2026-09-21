@@ -55,6 +55,11 @@ export function interpolate(template: string, params?: TranslateParams): string 
   )
 }
 
+/** 按指定语言取词，用于「界面中文但玩家用日文提问」这类情况。 */
+export function translateFor(locale: Locale, key: string, params?: TranslateParams): string {
+  return interpolate(DICTS[locale][key] ?? key, params)
+}
+
 export const I18nContext = createContext<I18nValue | null>(null)
 
 export function useI18n(): I18nValue {

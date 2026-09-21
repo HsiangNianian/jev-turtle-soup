@@ -311,4 +311,9 @@ export const en: Record<string, string> = {
   '半途而废': 'giving up halfway',
   '急着揭晓': 'revealing too soon',
   '自说自话': 'talking past the host',
+  '推理维度 DIMENSIONS': 'Reasoning dimensions',
+  '动机': 'motive',
+  '手法': 'method',
+  '反转': 'twist',
+  '玩家语言': 'language',
 }

@@ -115,6 +115,11 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
                   {t('与既往矛盾')} {debug.contradictsEarlier.noul.toFixed(2)}
                 </span>
               ) : null}
+              {debug.messageLanguage ? (
+                <span className="tabular-nums">
+                  {t('玩家语言')} {debug.messageLanguage.choice}
+                </span>
+              ) : null}
               {debug.matchesEarlier ? (
                 <span className="tabular-nums">
                   {t('复问')} {debug.matchesEarlier.choice}
@@ -123,6 +128,21 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
                     : ` (${debug.matchesEarlier.confidence.toFixed(2)})`}
                 </span>
               ) : null}
+            </div>
+          </Section>
+        ) : null}
+        {debug.dimensions ? (
+          <Section title={t('推理维度 DIMENSIONS')}>
+            <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] tabular-nums text-muted-foreground/70">
+              <span>
+                {t('动机')} {debug.dimensions.motive.toFixed(2)}
+              </span>
+              <span>
+                {t('手法')} {debug.dimensions.method.toFixed(2)}
+              </span>
+              <span>
+                {t('反转')} {debug.dimensions.twist.toFixed(2)}
+              </span>
             </div>
           </Section>
         ) : null}

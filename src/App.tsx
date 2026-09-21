@@ -280,6 +280,7 @@ export default function App() {
           text: turn.reply,
           tone: toneFor(turn),
           verdict: turn.verdict,
+          replyLocale: turn.replyLocale,
           debug: turn.debug,
           model: turn.model,
           closeness: turn.closeness,

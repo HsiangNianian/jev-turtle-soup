@@ -1,4 +1,4 @@
-import { TypeSafeClient, choice, noul, score, type EntryType } from '@typesafe-ai/sdk'
+import { TypeSafeClient, choice, noul, type EntryType } from '@typesafe-ai/sdk'
 import OpenAI from 'openai'
 import { z } from 'zod'
 
@@ -602,6 +602,15 @@ function candidateOptions(candidates: { index: number; fact: EstablishedFact }[]
   return options
 }
 
+const REPLY_LOCALES: Record<string, Locale> = { 'zh-CN': 'zh-CN', en: 'en', ja: 'ja' }
+
+/** 玩家用什么语言提问，主持人就用什么语言回答；认不出或没把握时跟随界面语言。 */
+function replyLocaleFor(answers: HostAnswers, uiLocale: Locale): Locale {
+  const answer = answers.message_language
+  const picked = answer ? REPLY_LOCALES[answer.choice] : undefined
+  return picked && answer!.confidence >= 0.6 ? picked : uiLocale
+}
+
 function hostQuestions(candidates: { index: number; fact: EstablishedFact }[]) {
   return {
     ...HOST_QUESTIONS,
@@ -681,31 +690,41 @@ const HOST_QUESTIONS = {
       cannot_answer: 'The message is not a yes/no question about the story.',
     },
   ),
-  guess_closeness: score(
+  motive_correct: noul(
     {
-      question: 'How close is the player explanation to the hidden truth in `puzzle.truth`?',
+      question: "Is the player's stated motive for what happened correct, per `puzzle.truth`?",
       compare: ['latest_player_message', 'puzzle.truth'],
       focus:
-        'Only rate an explanation attempt. If the player did not propose an explanation, choose the lowest level.',
+        'Judge only the reason or intention behind the events. If the player proposed no explanation, answer false.',
     },
-    [
-      {
-        what: 'No explanation was proposed, or the explanation is unrelated to the truth or points the wrong way.',
-        examples: ['What did he eat for breakfast?', 'It was aliens.'],
-      },
-      {
-        what: 'One or two true details are present, but the core explanation is wrong or missing.',
-        examples: ['He was a doctor.'],
-      },
-      {
-        what: 'The main idea of the truth is captured, but an important cause or the key twist is still wrong or missing.',
-        examples: ['He faked his death to escape debt, but who helped him is missing.'],
-      },
-      {
-        what: 'The explanation matches the truth including the key twist; wording may differ.',
-        examples: ['A complete, correct reconstruction of the truth.'],
-      },
-    ],
+    {
+      true: 'The why the player gives matches the truth.',
+      false: 'The motive is missing, wrong, or only tangentially related.',
+    },
+  ),
+  method_correct: noul(
+    {
+      question: "Is the player's account of how it happened correct, per `puzzle.truth`?",
+      compare: ['latest_player_message', 'puzzle.truth'],
+      focus:
+        'Judge only the mechanics: who did what, in what order, by what means. If no explanation was proposed, answer false.',
+    },
+    {
+      true: 'The sequence of events and the means match the truth.',
+      false: 'The mechanics are missing, wrong, or only partly right.',
+    },
+  ),
+  twist_correct: noul(
+    {
+      question: 'Has the player identified the key twist of `puzzle.truth`?',
+      compare: ['latest_player_message', 'puzzle.truth'],
+      focus:
+        'Judge only the single surprising fact that makes the surface make sense. If no explanation was proposed, answer false.',
+    },
+    {
+      true: 'The player named the key twist, in any wording.',
+      false: 'The key twist is missing or named incorrectly.',
+    },
   ),
   solved: noul(
     {
@@ -723,6 +742,20 @@ const HOST_QUESTIONS = {
         what: 'The message misses a key fact, gets the twist wrong, or is only partly right.',
         examples: ['Only a surface-level guess is right.'],
       },
+    },
+  ),
+  message_language: choice(
+    {
+      question: 'Which language is `latest_player_message` written in?',
+      inspect: '`latest_player_message`',
+      focus:
+        'Judge the language of the message itself, not of the puzzle or the interface. For a message with no words at all, choose unclear.',
+    },
+    {
+      'zh-CN': 'Chinese (simplified or traditional).',
+      en: 'English.',
+      ja: 'Japanese (including kana or kanji-only sentences).',
+      unclear: 'No words to judge, or the language is not one of the above.',
     },
   ),
   meta_request: choice(
@@ -747,22 +780,19 @@ interface ChoiceAnswer {
   probabilities: Record<string, number>
 }
 
-interface ScoreAnswer {
-  score: number
-  confidence: number
-  probabilities: Record<string, number>
-}
-
 interface NoulAnswer {
   noul: number
 }
 
 interface HostAnswers {
+  message_language?: ChoiceAnswer
   contradicts_earlier?: NoulAnswer
   matches_earlier?: ChoiceAnswer
   intent: ChoiceAnswer
   verdict: ChoiceAnswer
-  guess_closeness: ScoreAnswer
+  motive_correct: NoulAnswer
+  method_correct: NoulAnswer
+  twist_correct: NoulAnswer
   solved: NoulAnswer
   meta_request: ChoiceAnswer
 }
@@ -967,16 +997,21 @@ export function composeTurn(
   const intentConfidence = intentAnswer.confidence
 
   if (intent === 'guess') {
-    const solved = answers.solved.noul
-    const closeness = answers.guess_closeness.score / 3
-    if (solved >= 0.7) {
+    const motive = answers.motive_correct.noul
+    const method = answers.method_correct.noul
+    const twist = answers.twist_correct.noul
+    // 接近度由三个维度加权而来（反转权重最高），进度条和文案都用它
+    const closeness = Math.min(1, 0.25 * motive + 0.3 * method + 0.45 * twist)
+    // 通关判定：整体判断通过，或者三块都咬得很死
+    const solved = answers.solved.noul >= 0.7 || (twist >= 0.85 && motive >= 0.7 && method >= 0.5)
+    if (solved) {
       return {
         intent,
         verdict: 'solved',
         solved: true,
         revealed: true,
         closeness,
-        confidence: solved,
+        confidence: answers.solved.noul,
         reply: copy.solved,
       }
     }
@@ -1082,14 +1117,37 @@ function buildDebug(answers: HostAnswers) {
     },
     solved: answers.solved.noul,
     closeness: {
-      score: answers.guess_closeness.score,
-      confidence: answers.guess_closeness.confidence,
-      probabilities: answers.guess_closeness.probabilities,
+      score:
+        Math.round(
+          Math.min(
+            1,
+            0.25 * answers.motive_correct.noul +
+              0.3 * answers.method_correct.noul +
+              0.45 * answers.twist_correct.noul,
+          ) *
+            3 *
+            100,
+        ) / 100,
+      confidence: answers.twist_correct.noul,
+      probabilities: {},
+    },
+    dimensions: {
+      motive: answers.motive_correct.noul,
+      method: answers.method_correct.noul,
+      twist: answers.twist_correct.noul,
     },
     metaRequest: {
       choice: answers.meta_request.choice,
       confidence: answers.meta_request.confidence,
     },
+    ...(answers.message_language
+      ? {
+          messageLanguage: {
+            choice: answers.message_language.choice,
+            confidence: answers.message_language.confidence,
+          },
+        }
+      : {}),
     ...(answers.contradicts_earlier
       ? { contradictsEarlier: { noul: answers.contradicts_earlier.noul } }
       : {}),
@@ -1282,10 +1340,20 @@ export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, u
     questions: hostQuestions(candidates),
   })
 
-  const turn = composeTurn(puzzle, answers, readLuck(body.luck), locale, established, candidates)
+  const replyLocale = replyLocaleFor(answers, locale)
+  const turn = composeTurn(
+    puzzle,
+    answers,
+    readLuck(body.luck),
+    replyLocale,
+    established,
+    candidates,
+  )
   return {
     ...turn,
     model,
+    // 前端据此渲染判定徽章（可能和界面语言不同）
+    replyLocale,
     debug: buildDebug(answers),
     // 只有「这一次真的揭晓了」才把汤底一起带回去，其余一律不给
     ...(turn.revealed ? { truth: puzzle.truth } : {}),

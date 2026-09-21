@@ -37,6 +37,10 @@ export interface DebugInfo {
     choice: string
     confidence: number
   }
+  /** 三个独立的推理维度（替掉原来单一的接近度） */
+  dimensions?: { motive: number; method: number; twist: number }
+  /** 玩家这条消息用的语言 */
+  messageLanguage?: { choice: string; confidence: number }
   /** 一致性自查：本次回答是否与已确立的结论矛盾、是否与某条重复 */
   contradictsEarlier?: { noul: number }
   matchesEarlier?: { choice: string; confidence: number }
@@ -47,6 +51,8 @@ export interface HostTurn {
   verdict: string
   solved: boolean
   revealed: boolean
+  /** 主持人这次用的语言（跟随玩家提问的语言，可能与界面语言不同）。 */
+  replyLocale?: 'zh-CN' | 'en' | 'ja'
   /** 仅在本次揭晓时返回（服务端不主动给答案）。 */
   truth?: string
   closeness: number | null
@@ -188,6 +194,8 @@ export interface ChatMessage {
   text: string
   tone?: 'normal' | 'verdict' | 'celebrate' | 'error'
   verdict?: string
+  /** 判定徽章按这个语言渲染 */
+  replyLocale?: 'zh-CN' | 'en' | 'ja'
   closeness?: number | null
   debug?: DebugInfo
   model?: string

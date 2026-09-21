@@ -4,7 +4,7 @@ import { ArrowRight, Eye, Flag, Lightbulb, Wand2 } from 'lucide-react'
 import { TurnDebug } from '@/components/TurnDebug'
 import type { ChatMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { useI18n } from '@/lib/i18n'
+import { translateFor, useI18n } from '@/lib/i18n'
 
 interface ChatPanelProps {
   messages: ChatMessage[]
@@ -57,15 +57,17 @@ function Row({
 }
 
 export function Transcript({ messages, asking }: { messages: ChatMessage[]; asking?: boolean }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   return (
     <>
       {messages.map((message, messageIndex) => {
         const isPlayer = message.role === 'player'
-        const verdictText =
-          message.tone === 'verdict' && message.verdict
-            ? (t(VERDICT_TEXT[message.verdict]) ?? null)
-            : null
+        const verdictWord =
+          message.tone === 'verdict' && message.verdict ? VERDICT_TEXT[message.verdict] : null
+        // 玩家用日文问、界面是中文时，徽章也要跟回复语言一致
+        const verdictText = verdictWord
+          ? translateFor(message.replyLocale ?? locale, verdictWord)
+          : null
 
         return (
           <Row

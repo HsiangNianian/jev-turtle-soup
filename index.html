@@ -21,10 +21,24 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="/og.png" />
     <!--meta:end-->
+    <!--
+      字体 CSS 不阻塞首屏：它是跨域请求，放在 head 里会让白屏一直等到
+      Google 回话。改成 preload + onload 换成 stylesheet，页面先用系统字体画出来，
+      字体到了再换（字体本身已经是 display=swap，本来就不会挡文字）。
+      关掉 JS 的人走下面的 noscript 分支。
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700;900&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400..700&family=Noto+Serif+SC:wght@400..900&display=swap"
+      onload="this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400..700&family=Noto+Serif+SC:wght@400..900&display=swap"
+      />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>

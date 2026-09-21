@@ -1,23 +1,58 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, TriangleAlert } from 'lucide-react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Loader2, TriangleAlert } from 'lucide-react'
 
-import { AboutPage } from '@/components/AboutPage'
-import { ArchiveView } from '@/components/ArchiveView'
 import { CaseDrawer } from '@/components/CaseDrawer'
-import { ChatPanel } from '@/components/ChatPanel'
 import { LocaleMenu, ThemeToggle } from '@/components/Controls'
-import { DailyDetailPage, DailyIndexPage } from '@/components/DailyPage'
 import { Footer } from '@/components/Footer'
 import { Landing } from '@/components/Landing'
-import { LeavingPage } from '@/components/LeavingPage'
-import { LibraryPage } from '@/components/LibraryPage'
-import { LoginPage } from '@/components/LoginPage'
-import { MePage } from '@/components/MePage'
-import { ProfileEditPage } from '@/components/ProfileEditPage'
-import { ProfilePage } from '@/components/ProfilePage'
-import { PuzzleDetailPage } from '@/components/PuzzleDetailPage'
-import { PuzzlePanel } from '@/components/PuzzlePanel'
-import { UploadPage } from '@/components/UploadPage'
+
+/**
+ * 首屏只留「打开首页真正需要的东西」：外壳、首页、页脚。
+ * 其余按路由拆开，谁用到谁再下 —— 手机上首屏省下的每一 KB 都是实打实的。
+ *
+ * 逐个手写而不是套一个泛型助手：助手会把组件的 props 类型抹成 any，
+ * 那样传错参数也不会报错了。
+ */
+const AboutPage = lazy(() =>
+  import('@/components/AboutPage').then((m) => ({ default: m.AboutPage })),
+)
+const ArchiveView = lazy(() =>
+  import('@/components/ArchiveView').then((m) => ({ default: m.ArchiveView })),
+)
+const ChatPanel = lazy(() =>
+  import('@/components/ChatPanel').then((m) => ({ default: m.ChatPanel })),
+)
+const DailyIndexPage = lazy(() =>
+  import('@/components/DailyPage').then((m) => ({ default: m.DailyIndexPage })),
+)
+const DailyDetailPage = lazy(() =>
+  import('@/components/DailyPage').then((m) => ({ default: m.DailyDetailPage })),
+)
+const LeavingPage = lazy(() =>
+  import('@/components/LeavingPage').then((m) => ({ default: m.LeavingPage })),
+)
+const LibraryPage = lazy(() =>
+  import('@/components/LibraryPage').then((m) => ({ default: m.LibraryPage })),
+)
+const LoginPage = lazy(() =>
+  import('@/components/LoginPage').then((m) => ({ default: m.LoginPage })),
+)
+const MePage = lazy(() => import('@/components/MePage').then((m) => ({ default: m.MePage })))
+const ProfileEditPage = lazy(() =>
+  import('@/components/ProfileEditPage').then((m) => ({ default: m.ProfileEditPage })),
+)
+const ProfilePage = lazy(() =>
+  import('@/components/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+)
+const PuzzleDetailPage = lazy(() =>
+  import('@/components/PuzzleDetailPage').then((m) => ({ default: m.PuzzleDetailPage })),
+)
+const PuzzlePanel = lazy(() =>
+  import('@/components/PuzzlePanel').then((m) => ({ default: m.PuzzlePanel })),
+)
+const UploadPage = lazy(() =>
+  import('@/components/UploadPage').then((m) => ({ default: m.UploadPage })),
+)
 import {
   askHost,
   fetchHealth,
@@ -785,7 +820,7 @@ export default function App() {
         </div>
       ) : null}
 
-      {renderBody()}
+      <Suspense fallback={<PageFallback />}>{renderBody()}</Suspense>
     </div>
   )
 }
@@ -797,6 +832,15 @@ function ScrollArea({ children }: { children: React.ReactNode }) {
       {children}
       <Footer />
     </main>
+  )
+}
+
+/** 拆出去的页面还在下载时的占位：和别处一样的细转圈，不跳动。 */
+function PageFallback() {
+  return (
+    <div className="flex flex-1 items-center justify-center py-24 text-muted-foreground">
+      <Loader2 className="size-4 animate-spin" />
+    </div>
   )
 }
 

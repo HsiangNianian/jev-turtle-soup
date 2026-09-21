@@ -37,9 +37,9 @@
   --v-partly: #a8791f;
   --v-irrelevant: #8c8677;
 
+  /* 不引 Inter 了：全站只有一处用到 sans，为它多下一套字体不划算，系统字体就够 */
   --font-sans:
-    'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui,
-    sans-serif;
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
   --font-serif:
     'Noto Serif SC', 'Songti SC', 'Source Han Serif SC', 'Noto Serif CJK SC', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, 'PingFang SC', monospace;

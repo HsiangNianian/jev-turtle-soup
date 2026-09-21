@@ -67,7 +67,6 @@ function CommentRow({
   const { t } = useI18n()
   return (
     <li className="rule-dashed flex items-start gap-3 py-3.5">
-      <span className="mt-0.5 shrink-0 font-mono text-[11px] text-stamp">@</span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
           {comment.author.handle ? (
@@ -75,10 +74,10 @@ function CommentRow({
               to={`/u/${comment.author.handle}`}
               className="text-stamp transition-opacity hover:opacity-70"
             >
-              {comment.author.displayName}
+              @{comment.author.displayName}
             </Link>
           ) : (
-            <span className="text-stamp">{comment.author.displayName}</span>
+            <span className="text-stamp">@{comment.author.displayName}</span>
           )}
           <span>{formatWhen(comment.createdAt)}</span>
           {comment.mine ? <span className="opacity-70">{t('你')}</span> : null}

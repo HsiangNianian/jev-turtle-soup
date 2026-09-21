@@ -22,6 +22,7 @@ import {
   createGame,
   fetchHealth,
   revealGame,
+  type HostTurn,
   type ChatMessage,
   type GameSession,
   type HealthInfo,
@@ -251,6 +252,57 @@ export default function App() {
     [t],
   )
 
+  /** 早期存档没存题库题号，恢复后会一直「过期」——按标题回查一次补上。 */
+  const repairLibraryId = useCallback(async (game: ArchivedGame) => {
+    try {
+      const items = await listPuzzles({ q: game.title })
+      const hits = items.filter((item) => item.title === game.title)
+      if (hits.length !== 1) return null
+      const libraryId = hits[0].id
+      setGames((prev) =>
+        persist(prev.map((item) => (item.id === game.id ? { ...item, libraryId } : item))),
+      )
+      setSession((prev) => (prev && prev.sessionId === game.id ? { ...prev, libraryId } : prev))
+      return libraryId
+    } catch {
+      return null
+    }
+  }, [])
+
+  /** 把一次判读结果落进界面状态（正常路径与修复后的重试共用）。 */
+  const applyTurn = useCallback(
+    (turn: HostTurn) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'host',
+          text: turn.reply,
+          tone: toneFor(turn),
+          verdict: turn.verdict,
+          debug: turn.debug,
+          model: turn.model,
+          closeness: turn.closeness,
+        },
+      ])
+      if (typeof turn.closeness === 'number') {
+        setCloseness((prev) => Math.max(prev ?? 0, turn.closeness ?? 0))
+      }
+      if (turn.revealed && turn.truth) setTruth(turn.truth)
+      if (turn.solved) {
+        setSolved(true)
+        setRevealed(true)
+        setDrawerOpen(true)
+      } else if (turn.revealed) {
+        setRevealed(true)
+        setDrawerOpen(true)
+        // 老服务端或题库题可能没带汤底，兜底再取一次
+        if (!turn.truth) void fetchTruth()
+      }
+    },
+    [fetchTruth],
+  )
+
   const handleSend = useCallback(
     async (text: string) => {
       if (!session) return
@@ -258,51 +310,35 @@ export default function App() {
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'player', text }])
       setAsking(true)
       setTurnCount((count) => count + 1)
+      const context = {
+        locale,
+        playerKey: getDeviceId(),
+        seq: turnCount + 1,
+        luck: todayLuck,
+        // 台账由本地 transcript 推导，服务端据此拦截重复提问
+        established: ledger.slice(-40).map(({ question, verdict }) => ({ question, verdict })),
+      }
+      const turns = history.map(({ role, text: body }) => ({ role, text: body }))
+
       try {
-        const context = {
-          locale,
-          playerKey: getDeviceId(),
-          seq: turnCount + 1,
-          luck: todayLuck,
-          // 台账由本地 transcript 推导，服务端据此拦截重复提问
-          established: ledger.slice(-40).map(({ question, verdict }) => ({ question, verdict })),
-        }
         const turn = session.libraryId
-          ? await askLibraryPuzzle(
-              session.libraryId,
-              text,
-              history.map(({ role, text: body }) => ({ role, text: body })),
-              context,
-            )
+          ? await askLibraryPuzzle(session.libraryId, text, turns, context)
           : await askHost(session, text, history, context)
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'host',
-            text: turn.reply,
-            tone: toneFor(turn),
-            verdict: turn.verdict,
-            debug: turn.debug,
-            model: turn.model,
-            closeness: turn.closeness,
-          },
-        ])
-        if (typeof turn.closeness === 'number') {
-          setCloseness((prev) => Math.max(prev ?? 0, turn.closeness ?? 0))
-        }
-        if (turn.revealed && turn.truth) setTruth(turn.truth)
-        if (turn.solved) {
-          setSolved(true)
-          setRevealed(true)
-          setDrawerOpen(true)
-        } else if (turn.revealed) {
-          setRevealed(true)
-          setDrawerOpen(true)
-          // 老服务端或题库题可能没带汤底，兜底再取一次
-          if (!turn.truth) void fetchTruth()
-        }
+        applyTurn(turn)
       } catch (error) {
+        // 旧的题库存档丢了题号：回查一次再试，别让玩家看到「已过期」
+        const archived = allGames.find((item) => item.id === session.sessionId)
+        if (!session.libraryId && session.source === 'library' && archived) {
+          const libraryId = await repairLibraryId(archived)
+          if (libraryId) {
+            try {
+              applyTurn(await askLibraryPuzzle(libraryId, text, turns, context))
+              return
+            } catch {
+              /* 还是不行，走下面的报错 */
+            }
+          }
+        }
         setMessages((prev) => [
           ...prev,
           {
@@ -316,7 +352,18 @@ export default function App() {
         setAsking(false)
       }
     },
-    [messages, session, todayLuck, locale, turnCount, ledger, fetchTruth, t],
+    [
+      messages,
+      session,
+      todayLuck,
+      locale,
+      turnCount,
+      ledger,
+      applyTurn,
+      allGames,
+      repairLibraryId,
+      t,
+    ],
   )
 
   const handleReveal = useCallback(async () => {
@@ -356,23 +403,6 @@ export default function App() {
     },
     [handleReveal, handleSend, t],
   )
-
-  /** 早期存档没存题库题号，恢复后会一直「过期」——按标题回查一次补上。 */
-  const repairLibraryId = useCallback(async (game: ArchivedGame) => {
-    try {
-      const items = await listPuzzles({ q: game.title })
-      const hits = items.filter((item) => item.title === game.title)
-      if (hits.length !== 1) return null
-      const libraryId = hits[0].id
-      setGames((prev) =>
-        persist(prev.map((item) => (item.id === game.id ? { ...item, libraryId } : item))),
-      )
-      setSession((prev) => (prev && prev.sessionId === game.id ? { ...prev, libraryId } : prev))
-      return libraryId
-    } catch {
-      return null
-    }
-  }, [])
 
   const handleContinue = useCallback(
     (id: string) => {

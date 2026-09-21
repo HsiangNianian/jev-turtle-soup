@@ -679,12 +679,13 @@ const HOST_QUESTIONS = {
         'If `latest_player_message` is a yes/no question or a narrow factual claim about the story, how should the host answer it given only `puzzle.truth`?',
       compare: ['latest_player_message', 'puzzle.truth'],
       focus:
-        'Judge strictly against the hidden truth. If the message is not a yes/no question about the story, choose cannot_answer.',
+        'Check for a half-right reading before anything else: if the truth makes the claim or question partly true — right outcome but wrong reason, or one half of a bundled question — choose partly. Only when the claim is cleanly true or cleanly ruled out, choose yes or no. If the message is not a yes/no question about the story, choose cannot_answer.',
     },
     {
       yes: 'The truth confirms the claim or answers the question YES.',
-      no: 'The truth contradicts the claim or answers the question NO.',
-      partly: 'The truth is partly right and partly wrong, so a plain yes or no would mislead.',
+      no: 'Use only when the truth clearly rules the claim out, so that answering yes would be misleading.',
+      partly:
+        'The question or claim comes out true under one natural reading and false under another, so yes or no alone would mislead. Reach for this whenever the claim is true in the sense the player means but a detail differs: the outcome is right but the reason or mechanism they give is wrong ("did he do it to pay off a debt?" when he did do it, but for another motive); the question bundles two things that are not both so ("is he the father and the killer?" when he is one but not the other); or it is true loosely but not literally ("does the body exist?" when there is a body, but not where they think). Prefer partly over no whenever a plain no would make the player drop a thread that is actually half right.',
       irrelevant:
         'The question asks about a detail the truth never addresses and that does not affect the story; it is neither true nor false.',
       cannot_answer: 'The message is not a yes/no question about the story.',

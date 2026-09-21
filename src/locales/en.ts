@@ -326,4 +326,5 @@ export const en: Record<string, string> = {
   '英文': 'English',
   '日文': 'Japanese',
   '今天的汤是{language}的': 'Today’s bowl is in {language}.',
+  '{count} 桩': '{count} open',
 }

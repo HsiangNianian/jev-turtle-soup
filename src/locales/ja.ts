@@ -325,4 +325,5 @@ export const ja: Record<string, string> = {
   '英文': '英語',
   '日文': '日本語',
   '今天的汤是{language}的': '本日の一杯は{language}です。',
+  '{count} 桩': '{count} 件',
 }

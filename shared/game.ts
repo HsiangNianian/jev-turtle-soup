@@ -679,13 +679,22 @@ const HOST_QUESTIONS = {
         'If `latest_player_message` is a yes/no question or a narrow factual claim about the story, how should the host answer it given only `puzzle.truth`?',
       compare: ['latest_player_message', 'puzzle.truth'],
       focus:
-        'Check for a half-right reading before anything else: if the truth makes the claim or question partly true — right outcome but wrong reason, or one half of a bundled question — choose partly. Only when the claim is cleanly true or cleanly ruled out, choose yes or no. If the message is not a yes/no question about the story, choose cannot_answer.',
+        'Before answering, check whether a word in the question has more than one legitimate referent in the truth — a time, a place, a person, an object or an action. If the claim comes out true for one referent and false for another, choose partly: the player has asked an ambiguous question and neither yes nor no would be honest. Then check the other half-right shapes (right outcome but wrong reason; one half of a bundled question). Only when the claim is cleanly true or cleanly ruled out, choose yes or no. If the message is not a yes/no question about the story, choose cannot_answer.',
     },
     {
       yes: 'The truth confirms the claim or answers the question YES.',
       no: 'Use only when the truth clearly rules the claim out, so that answering yes would be misleading.',
-      partly:
-        'The question or claim comes out true under one natural reading and false under another, so yes or no alone would mislead. Reach for this whenever the claim is true in the sense the player means but a detail differs: the outcome is right but the reason or mechanism they give is wrong ("did he do it to pay off a debt?" when he did do it, but for another motive); the question bundles two things that are not both so ("is he the father and the killer?" when he is one but not the other); or it is true loosely but not literally ("does the body exist?" when there is a body, but not where they think). Prefer partly over no whenever a plain no would make the player drop a thread that is actually half right.',
+      partly: {
+        what: 'The claim comes out true under one legitimate reading and false under another, so yes or no alone would mislead the player.',
+        not_for:
+          'Do not use partly when the claim is simply wrong, or when only one reading of the question is actually available in the story.',
+        examples: [
+          'The story: he worked through the night at the office, fell asleep at his desk, missed the company clock-in cut-off, and only badged in later, after the system had already marked him late. The question: "was he awake at clock-in time?" — asleep at the required clock-in time, awake at the moment he actually badged in, so the honest answer is partly. Both readings of "clock-in time" are real in this story.',
+          'The question: "is he both the father and the killer?" when he is the father but not the killer.',
+          'The question: "did he do it to pay off a debt?" when he did do it, but for another reason.',
+          'The question: "does the body exist?" when there is a body, but not where the player thinks.',
+        ],
+      },
       irrelevant:
         'The question asks about a detail the truth never addresses and that does not affect the story; it is neither true nor false.',
       cannot_answer: 'The message is not a yes/no question about the story.',
@@ -937,6 +946,27 @@ const HOST_COPY: Record<Locale, HostCopy> = {
 
 const META_KINDS = new Set(['hint', 'full_answer', 'how_to_play', 'jrrp'])
 
+/**
+ * 模型在「不是」和「是，也不是」之间摇摆时倾向后者。
+ * 两种误判代价不对等：假「不是」会让玩家丢掉半条正确线索，假「是，也不是」追问一句就澄清了。
+ * 阈值写在代码里，方便用 turn_logs 复盘。
+ */
+const PARTLY_NUDGE_MIN = 0.3
+const PARTLY_NUDGE_GAP = 0.3
+
+function nudgeTowardPartly(
+  verdict: string,
+  probabilities: Record<string, number>,
+): { verdict: string; nudged: boolean } {
+  if (verdict !== 'yes' && verdict !== 'no') return { verdict, nudged: false }
+  const partly = probabilities.partly ?? 0
+  const top = probabilities[verdict] ?? 1
+  if (partly >= PARTLY_NUDGE_MIN && top - partly <= PARTLY_NUDGE_GAP) {
+    return { verdict: 'partly', nudged: true }
+  }
+  return { verdict, nudged: false }
+}
+
 function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null, locale: Locale) {
   const copy = HOST_COPY[locale]
   if (kind === 'hint') {
@@ -1058,12 +1088,12 @@ export function composeTurn(
       }
     }
 
-    const verdict = answers.verdict.choice as string
+    const rawVerdict = answers.verdict.choice as string
     const confidence = answers.verdict.confidence
-    if (verdict === 'cannot_answer' || confidence < 0.35 || intentConfidence < 0.4) {
+    if (rawVerdict === 'cannot_answer' || confidence < 0.35 || intentConfidence < 0.4) {
       return {
         intent,
-        verdict,
+        verdict: rawVerdict,
         solved: false,
         revealed: false,
         closeness: null,
@@ -1071,6 +1101,7 @@ export function composeTurn(
         reply: copy.rephrase,
       }
     }
+    const { verdict, nudged } = nudgeTowardPartly(rawVerdict, answers.verdict.probabilities)
     const reply = copy.verdict[verdict] ?? copy.rephrase
     return {
       intent,
@@ -1080,6 +1111,7 @@ export function composeTurn(
       closeness: null,
       confidence,
       reply,
+      ...(nudged ? { nudgedFrom: rawVerdict } : {}),
     }
   }
 
@@ -1115,6 +1147,11 @@ function buildDebug(answers: HostAnswers) {
       choice: answers.verdict.choice,
       confidence: answers.verdict.confidence,
       probabilities: answers.verdict.probabilities,
+    },
+    partlyNudge: {
+      min: PARTLY_NUDGE_MIN,
+      gap: PARTLY_NUDGE_GAP,
+      partlyProbability: answers.verdict.probabilities?.partly ?? 0,
     },
     solved: answers.solved.noul,
     closeness: {

@@ -6,22 +6,20 @@ import { Empty, PageShell, inputClass } from '@/components/Bits'
 import { listPuzzles, rerankPuzzles, type LibraryPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
+import { GenreSlider, GENRE_NEUTRAL } from '@/components/GenreSlider'
 import { useI18n } from '@/lib/i18n'
-
-/** 滑块的默认位置：居中 = 不挑题材，列表还是按 最新 / 最热 排。 */
-const GENRE_NEUTRAL = 50
 
 /** 打完字停多久才让 Jev 重排。重排是一次模型调用，不能跟着每一次按键跑。 */
 const RERANK_DELAY_MS = 700
 
-function genreLabel(score: number | null, t: (key: string) => string): string | null {
-  if (typeof score !== 'number') return null
-  return score >= GENRE_NEUTRAL ? `${t('变格度')} ${score}` : `${t('本格度')} ${100 - score}`
-}
-
 function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
   const { t } = useI18n()
-  const label = genreLabel(puzzle.genreScore, t)
+  const label =
+    typeof puzzle.genreScore !== 'number'
+      ? null
+      : puzzle.genreScore >= GENRE_NEUTRAL
+        ? `${t('变格度')} ${puzzle.genreScore}`
+        : `${t('本格度')} ${100 - puzzle.genreScore}`
   return (
     <Link
       to={`/library/${puzzle.id}`}
@@ -51,9 +49,7 @@ export function LibraryPage() {
   const [items, setItems] = useState<LibraryPuzzle[] | null>(null)
   const [sort, setSort] = useState<'new' | 'hot'>('new')
   const [query, setQuery] = useState('')
-  // genre 只负责游标和填充的实时跟手；真正拿去检索的是放手下那一刻的 committedGenre。
-  // 不然拖动时每移动一个像素都会发一次请求。
-  const [genre, setGenre] = useState(GENRE_NEUTRAL)
+  // 滑块自己管游标的实时跟手；只有松手那一刻的值才会到这里来触发检索。
   const [committedGenre, setCommittedGenre] = useState(GENRE_NEUTRAL)
   const [error, setError] = useState<string | null>(null)
   // 语义重排是异步补上的：先给关键字结果，重排回来再换一次顺序
@@ -63,17 +59,6 @@ export function LibraryPage() {
 
   // 居中 = 不挑题材；一旦拖动就让服务端按「离这个位置多近」排序
   const genreFilter = committedGenre === GENRE_NEUTRAL ? undefined : committedGenre
-
-  // 用原生 change 事件当作「松手了」：鼠标、触屏、键盘方向键都会在这里收尾，
-  // 松手在滑动条外面也算数（range 会捕获指针）。
-  const rangeRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    const node = rangeRef.current
-    if (!node) return
-    const onSettled = () => setCommittedGenre(Number(node.value))
-    node.addEventListener('change', onSettled)
-    return () => node.removeEventListener('change', onSettled)
-  }, [])
 
   const search = useCallback(
     async (text: string, signal: { alive: boolean }) => {
@@ -148,37 +133,8 @@ export function LibraryPage() {
         </div>
       }
     >
-      <div className="mt-5 border border-foreground/30 bg-card px-4 py-4 sm:px-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-            {t('题材坐标')}
-          </span>
-          <span className="font-mono text-[11px] tracking-[0.16em] tabular-nums">
-            {genreFilter === undefined ? (
-              <span className="text-muted-foreground">{t('居中 · 不限')}</span>
-            ) : (
-              genreLabel(genre, t)
-            )}
-          </span>
-        </div>
-
-        <input
-          ref={rangeRef}
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={genre}
-          aria-label={t('题材坐标')}
-          onChange={(event) => setGenre(Number(event.target.value))}
-          style={{ '--fill': `${genre}%` } as React.CSSProperties}
-          className="genre-range mt-4"
-        />
-
-        <div className="flex items-start justify-between gap-4 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-          <span className="max-w-[45%]">{t('本格·逻辑推理')}</span>
-          <span className="max-w-[45%] text-right">{t('变格·怪力乱神')}</span>
-        </div>
+      <div className="mt-5">
+        <GenreSlider onCommit={setCommittedGenre} />
       </div>
 
       <div className="mt-4 flex items-center gap-2.5">

@@ -199,6 +199,16 @@
     border: 2px solid var(--stamp);
   }
 
+  /* 题材坐标松手后扫过的那一道 */
+  @keyframes genre-sweep {
+    from {
+      left: -8%;
+    }
+    to {
+      left: 104%;
+    }
+  }
+
   /* 题材坐标的滑动条：一根发丝轨道 + 一道细游标，黑白、无圆角。
      --fill 用 @property 注册成 <percentage>，这样填充长度可以真的插值过渡。 */
   @property --fill {

@@ -650,22 +650,14 @@ export default function App() {
     if (path === '/upload') {
       return (
         <ScrollArea>
-          {user ? (
-            <UploadPage />
-          ) : (
-            <Missing label={t('上传')} message={t('请先登录。')} />
-          )}
+          {user ? <UploadPage /> : <Missing label={t('上传')} message={t('请先登录。')} />}
         </ScrollArea>
       )
     }
     if (path === '/me/profile') {
       return (
         <ScrollArea>
-          {user ? (
-            <ProfileEditPage />
-          ) : (
-            <Missing label={t('编辑资料')} message={t('请先登录。')} />
-          )}
+          {user ? <ProfileEditPage /> : <Missing label={t('编辑资料')} message={t('请先登录。')} />}
         </ScrollArea>
       )
     }

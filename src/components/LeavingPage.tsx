@@ -30,10 +30,7 @@ export function LeavingPage() {
   }
 
   return (
-    <PageShell
-      label={t('站外链接')}
-      title={safe ? t('即将离开本站') : t('这个链接不能用')}
-    >
+    <PageShell label={t('站外链接')} title={safe ? t('即将离开本站') : t('这个链接不能用')}>
       {safe ? (
         <>
           <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">

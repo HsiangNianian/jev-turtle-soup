@@ -161,7 +161,9 @@ export async function listPublicPuzzles(
   const query = options.query.trim()
   const tag = (options.tag ?? '').trim().slice(0, 12)
   const secondary = options.sort === 'hot' ? 'p.plays DESC, p.created_at DESC' : 'p.created_at DESC'
-  const genre = Number.isFinite(options.genre) ? Math.min(Math.max(options.genre ?? 0, 0), 100) : null
+  const genre = Number.isFinite(options.genre)
+    ? Math.min(Math.max(options.genre ?? 0, 0), 100)
+    : null
 
   const filters = [`p.visibility = 'public'`]
   const bindings: unknown[] = []
@@ -175,7 +177,8 @@ export async function listPublicPuzzles(
     bindings.push(`%"${tag}"%`)
   }
   // 没打过分的按中间值算，免得刚上传的题因为 NULL 被甩到最后
-  const order = genre === null ? secondary : `ABS(COALESCE(p.genre_score, 50) - ?) ASC, ${secondary}`
+  const order =
+    genre === null ? secondary : `ABS(COALESCE(p.genre_score, 50) - ?) ASC, ${secondary}`
   if (genre !== null) bindings.push(genre)
   bindings.push(limit, offset)
 
@@ -344,11 +347,7 @@ export async function createPuzzle(
 /**
  * 给还没打分的公开题补分。跑在定时维护里——LLM 调用不能塞进列表请求的热路径。
  */
-export async function scoreUnscoredPuzzles(
-  env: GameEnv,
-  db: D1Like,
-  limit = 5,
-): Promise<number> {
+export async function scoreUnscoredPuzzles(env: GameEnv, db: D1Like, limit = 5): Promise<number> {
   const { results } = await db
     .prepare(
       `SELECT id, title, surface, truth, hint, tags FROM puzzles
@@ -356,7 +355,14 @@ export async function scoreUnscoredPuzzles(
         ORDER BY created_at DESC LIMIT ?`,
     )
     .bind(Math.max(1, Math.min(Math.trunc(limit), 20)))
-    .all<{ id: string; title: string; surface: string; truth: string; hint: string; tags: string }>()
+    .all<{
+      id: string
+      title: string
+      surface: string
+      truth: string
+      hint: string
+      tags: string
+    }>()
 
   let scored = 0
   for (const row of results ?? []) {
@@ -416,8 +422,7 @@ export async function updatePuzzle(
       .bind(id)
       .first<{ title: string; surface: string; truth: string; hint: string; tags: string }>()
     if (updated) {
-      const score =
-        (await scoreGenre(env, updated)) ?? genreFromTags(safeTags(updated.tags))
+      const score = (await scoreGenre(env, updated)) ?? genreFromTags(safeTags(updated.tags))
       await db.prepare('UPDATE puzzles SET genre_score = ? WHERE id = ?').bind(score, id).run()
     }
   }
@@ -491,10 +496,7 @@ function assertCooldown(label: string, last: number | null, windowMs: number): v
   if (last === null) return
   const readyAt = last + windowMs
   if (Date.now() < readyAt) {
-    throw new ApiError(
-      429,
-      `${label}在冷却期内，下次可以修改的日期是 ${formatDay(readyAt)}`,
-    )
+    throw new ApiError(429, `${label}在冷却期内，下次可以修改的日期是 ${formatDay(readyAt)}`)
   }
 }
 

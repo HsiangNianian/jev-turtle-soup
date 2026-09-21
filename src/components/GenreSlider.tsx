@@ -1,23 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
 /**
- * 题材坐标：一根示波器。
+ * 题材坐标：没有轨道、没有边框，读数本身就是控件。
  *
- * 波形随位置变形——越靠变格，振幅越大、右边那道尖峰越炸；红色光标落在曲线上，
- * 拖动时波形走得快，静止时也留一点极慢的行进，让它看起来是活的。
+ * 一行大字当背景（本格度 59 / 居中 · 不限 / 变格·怪力乱神……），上面跑一条示波器曲线，
+ * 红色光标落在曲线上。读数变化时旧字向上退出、新字从下方顶上来（上下覆写）。
  *
- * 两个刻意的取舍：
+ * 三个刻意的取舍：
  * - 检索只发生在**松手**那一刻（原生 change），拖动过程一帧一请求都发不出去。
+ * - 翻字有最小间隔：拖得快时直接换字，不让每一帧都重启动画——否则字会永远停在
+ *   半路上，整块看起来像空的。
  * - 出屏或系统开了「减少动态效果」就停帧，别让一个常驻动画白烧电。
  */
 export const GENRE_NEUTRAL = 50
+
+/** 两头留一点余地，滑到最边上直接报出这一极的名字。 */
+const POLE = 4
 
 /** 采样点数：够平滑，又不至于每帧算太多。 */
 const SAMPLES = 128
 const VIEW_HEIGHT = 64
 const BASELINE = VIEW_HEIGHT / 2
+
+/** 翻字动画时长，以及两次翻字之间的最小间隔。 */
+const FLIP_MS = 150
+const FLIP_GAP_MS = 120
 
 function waveY(x: number, value: number, phase: number): number {
   const amp = 4 + (value / 100) * 20
@@ -32,11 +42,31 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
   const [value, setValue] = useState(GENRE_NEUTRAL)
   const [phase, setPhase] = useState(0)
   const [dragging, setDragging] = useState(false)
-  const [sweeping, setSweeping] = useState(false)
   const [visible, setVisible] = useState(true)
   const [calm, setCalm] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
+
+  const readout = useMemo(
+    () => (next: number) => {
+      if (next <= POLE) return t('本格·逻辑推理')
+      if (next >= 100 - POLE) return t('变格·怪力乱神')
+      if (next === GENRE_NEUTRAL) return t('居中 · 不限')
+      return next > GENRE_NEUTRAL ? `${t('变格度')} ${next}` : `${t('本格度')} ${100 - next}`
+    },
+    [t],
+  )
+
+  /**
+   * 上下覆写用的两帧。存的是**数值**不是文案：文案在渲染时按当前语言算，
+   * 所以切换界面语言时大字自己就跟着变了，不需要额外的同步。
+   */
+  const [frame, setFrame] = useState(() => ({
+    from: null as number | null,
+    to: GENRE_NEUTRAL,
+    id: 0,
+  }))
+  const lastFlip = useRef(0)
 
   // 松手那一刻才通知外面去检索
   useEffect(() => {
@@ -89,120 +119,106 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
       list.push(`${(x * 100).toFixed(2)},${waveY(x, value, phase).toFixed(2)}`)
     }
     return list.join(' ')
-    // value 变了要重画；phase 一直在动，所以波形一直是活的
   }, [value, phase])
 
   const cursorY = waveY(value / 100, value, phase)
-  const readoutLabel =
-    value === GENRE_NEUTRAL ? t('居中 · 不限') : value > GENRE_NEUTRAL ? t('变格度') : t('本格度')
-  const readoutValue = value === GENRE_NEUTRAL ? null : value > GENRE_NEUTRAL ? value : 100 - value
-  const readoutText = readoutValue === null ? readoutLabel : `${readoutLabel} ${readoutValue}`
+  const readoutText = readout(value)
+  const fromText = frame.from === null ? null : readout(frame.from)
+  const toText = readout(frame.to)
 
-  function release() {
-    if (calm) return
-    setSweeping(false)
-    window.requestAnimationFrame(() => setSweeping(true))
-    window.setTimeout(() => setSweeping(false), 520)
+  function handleInput(next: number) {
+    setValue(next)
+    const now = performance.now()
+    // 拖得太快就只换字、不重启动画：否则每帧都从半路重来，整块会看着像空的
+    const flip = frame.id === 0 || now - lastFlip.current >= FLIP_GAP_MS
+    if (flip) lastFlip.current = now
+    setFrame((prev) =>
+      prev.to === next
+        ? prev
+        : flip
+          ? { from: prev.to, to: next, id: prev.id + 1 }
+          : { ...prev, to: next },
+    )
   }
 
   return (
-    <div ref={boxRef} className="border border-foreground/30 bg-card px-4 py-4 sm:px-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-          {t('题材坐标')}
-        </span>
-        <span className="font-mono text-[11px] tracking-[0.16em] tabular-nums">
-          <span className="text-muted-foreground">{readoutLabel}</span>
-          {readoutValue === null ? null : <> {readoutValue}</>}
-        </span>
-      </div>
+    <div ref={boxRef} className="relative mt-6 h-36 select-none sm:h-44">
+      <input
+        ref={inputRef}
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        aria-label={t('题材坐标')}
+        aria-valuetext={readoutText}
+        onChange={(event) => handleInput(Number(event.target.value))}
+        onPointerDown={() => setDragging(true)}
+        onPointerUp={() => setDragging(false)}
+        onKeyDown={() => setDragging(true)}
+        onKeyUp={() => setDragging(false)}
+        onBlur={() => setDragging(false)}
+        className="peer absolute inset-0 z-10 h-full w-full cursor-ew-resize opacity-0"
+      />
 
-      <div className="relative mt-4 h-16">
-        <input
-          ref={inputRef}
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={value}
-          aria-label={t('题材坐标')}
-          aria-valuetext={readoutText}
-          onChange={(event) => setValue(Number(event.target.value))}
-          onPointerDown={() => setDragging(true)}
-          onPointerUp={() => {
-            setDragging(false)
-            release()
-          }}
-          onKeyDown={() => setDragging(true)}
-          onKeyUp={() => {
-            setDragging(false)
-            release()
-          }}
-          onBlur={() => setDragging(false)}
-          className="peer absolute inset-0 z-10 h-full w-full cursor-ew-resize opacity-0"
-        />
-
-        <svg
-          className="absolute inset-0 h-full w-full text-foreground"
-          viewBox={`0 0 100 ${VIEW_HEIGHT}`}
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          {[16, 32, 48].map((y) => (
-            <line
-              key={y}
-              x1="0"
-              x2="100"
-              y1={y}
-              y2={y}
-              stroke="currentColor"
-              strokeWidth="0.2"
-              opacity="0.14"
-            />
-          ))}
-          {[25, 50, 75].map((x) => (
-            <line
-              key={x}
-              x1={x}
-              x2={x}
-              y1="0"
-              y2={VIEW_HEIGHT}
-              stroke="currentColor"
-              strokeWidth="0.2"
-              opacity="0.14"
-            />
-          ))}
-          <polyline
-            points={points}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="0.7"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-
-        {/* 松手后扫一道；键盘操作时也算 */}
-        {sweeping ? (
+      {/* 大字：既是读数，也是背景 */}
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        aria-hidden
+      >
+        <span className="relative inline-block h-[1.25em] overflow-hidden whitespace-nowrap align-bottom font-mono text-[2rem] leading-none tracking-tight tabular-nums sm:text-[3rem]">
+          <span className="invisible block">{fromText ?? toText}</span>
+          {fromText !== null && fromText !== toText ? (
+            <span className="invisible block">{toText}</span>
+          ) : null}
+          {fromText ? (
+            <span
+              key={`out-${frame.id}`}
+              className="absolute inset-x-0 top-0 text-muted-foreground/40"
+              style={{
+                animation: `genre-flip-out ${FLIP_MS}ms cubic-bezier(0.3,0.8,0.3,1) forwards`,
+              }}
+            >
+              {fromText}
+            </span>
+          ) : null}
           <span
-            className="pointer-events-none absolute inset-y-0 w-8 bg-gradient-to-r from-transparent via-foreground/25 to-transparent"
-            style={{ animation: 'genre-sweep 500ms linear' }}
-          />
-        ) : null}
-
-        <div
-          className="pointer-events-none absolute inset-y-0 w-px bg-[var(--stamp)] opacity-80 peer-focus-visible:w-[2px]"
-          style={{ left: `${value}%` }}
-        />
-        <span
-          className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--stamp)]"
-          style={{ left: `${value}%`, top: `${(cursorY / VIEW_HEIGHT) * 100}%` }}
-        />
+            key={`in-${frame.id}`}
+            className={cn('absolute inset-x-0 top-0', frame.id === 0 && 'text-foreground')}
+            style={
+              frame.id === 0
+                ? undefined
+                : { animation: `genre-flip-in ${FLIP_MS}ms cubic-bezier(0.3,0.8,0.3,1)` }
+            }
+          >
+            {toText}
+          </span>
+        </span>
       </div>
 
-      <div className="mt-3 flex items-start justify-between gap-4 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-        <span className="max-w-[45%]">{t('本格·逻辑推理')}</span>
-        <span className="max-w-[45%] text-right">{t('变格·怪力乱神')}</span>
-      </div>
+      <svg
+        className="pointer-events-none absolute inset-0 h-full w-full text-foreground/70"
+        viewBox={`0 0 100 ${VIEW_HEIGHT}`}
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <polyline
+          points={points}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.7"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+
+      <div
+        className="pointer-events-none absolute inset-y-0 w-px bg-[var(--stamp)] opacity-80 peer-focus-visible:w-[2px]"
+        style={{ left: `${value}%` }}
+      />
+      <span
+        className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--stamp)]"
+        style={{ left: `${value}%`, top: `${(cursorY / VIEW_HEIGHT) * 100}%` }}
+      />
     </div>
   )
 }

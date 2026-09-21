@@ -199,13 +199,22 @@
     border: 2px solid var(--stamp);
   }
 
-  /* 题材坐标松手后扫过的那一道 */
-  @keyframes genre-sweep {
+  /* 题材坐标的读数翻页：旧字向上退出，新字从下方顶上来到位 */
+  @keyframes genre-flip-out {
     from {
-      left: -8%;
+      transform: translateY(0);
     }
     to {
-      left: 104%;
+      transform: translateY(-105%);
+    }
+  }
+
+  @keyframes genre-flip-in {
+    from {
+      transform: translateY(105%);
+    }
+    to {
+      transform: translateY(0);
     }
   }
 

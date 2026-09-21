@@ -133,9 +133,7 @@ export function LibraryPage() {
         </div>
       }
     >
-      <div className="mt-5">
-        <GenreSlider onCommit={setCommittedGenre} />
-      </div>
+      <GenreSlider onCommit={setCommittedGenre} />
 
       <div className="mt-4 flex items-center gap-2.5">
         <Search className="size-4 shrink-0 text-muted-foreground" />

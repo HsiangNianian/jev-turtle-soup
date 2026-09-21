@@ -23,6 +23,17 @@ export interface DailyDetail extends DailySummary {
   review?: unknown
 }
 
+/**
+ * 今天的汤一整天都是同一碗，历史也不会变，所以这次会话里记住就行——
+ * 否则每次回到首页都要为同一份数据再打一次接口。
+ * 键里带上 UTC 日期：跨过午夜自动失效，不会把「今天」缓存成昨天。
+ */
+let indexCache: {
+  key: string
+  value: { today: DailyDetail | null; history: DailySummary[] }
+} | null = null
+const dailyCache = new Map<string, DailyDetail>()
+
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(path, { headers: { Accept: 'application/json' } })
   const data = (await response.json().catch(() => ({}))) as { error?: string }
@@ -31,13 +42,24 @@ async function request<T>(path: string): Promise<T> {
 }
 
 export function listDailies() {
-  return request<{ today: DailyDetail | null; history: DailySummary[] }>('/api/daily')
+  const key = utcToday()
+  if (indexCache?.key === key) return Promise.resolve(indexCache.value)
+  return request<{ today: DailyDetail | null; history: DailySummary[] }>('/api/daily').then(
+    (value) => {
+      indexCache = { key, value }
+      return value
+    },
+  )
 }
 
 export function getDaily(date: string) {
-  return request<{ daily: DailyDetail }>(`/api/daily/${encodeURIComponent(date)}`).then(
-    (data) => data.daily,
-  )
+  // 只有过去的日期能放心缓存：今天这一页在午夜之后会变成「已解锁」
+  const cached = date === utcToday() ? undefined : dailyCache.get(date)
+  if (cached) return Promise.resolve(cached)
+  return request<{ daily: DailyDetail }>(`/api/daily/${encodeURIComponent(date)}`).then((data) => {
+    if (date !== utcToday()) dailyCache.set(date, data.daily)
+    return data.daily
+  })
 }
 
 /**

@@ -107,6 +107,25 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
             highlight={debug.verdict.choice}
           />
         </Section>
+        {debug.contradictsEarlier || debug.matchesEarlier ? (
+          <Section title={t('一致性 CONSISTENCY')}>
+            <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] text-muted-foreground/70">
+              {debug.contradictsEarlier ? (
+                <span className="tabular-nums">
+                  {t('与既往矛盾')} {debug.contradictsEarlier.noul.toFixed(2)}
+                </span>
+              ) : null}
+              {debug.matchesEarlier ? (
+                <span className="tabular-nums">
+                  {t('复问')} {debug.matchesEarlier.choice}
+                  {debug.matchesEarlier.choice === 'none'
+                    ? ''
+                    : ` (${debug.matchesEarlier.confidence.toFixed(2)})`}
+                </span>
+              ) : null}
+            </div>
+          </Section>
+        ) : null}
         <Section title={t('推理接近度 GUESS_CLOSENESS')}>
           <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground/70">
             <span className="tabular-nums text-foreground/75">

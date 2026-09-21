@@ -262,6 +262,8 @@ export default function App() {
           playerKey: getDeviceId(),
           seq: turnCount + 1,
           luck: todayLuck,
+          // 台账由本地 transcript 推导，服务端据此拦截重复提问
+          established: ledger.slice(-40).map(({ question, verdict }) => ({ question, verdict })),
         }
         const turn = session.libraryId
           ? await askLibraryPuzzle(
@@ -312,7 +314,7 @@ export default function App() {
         setAsking(false)
       }
     },
-    [messages, session, todayLuck, locale, turnCount, fetchTruth, t],
+    [messages, session, todayLuck, locale, turnCount, ledger, fetchTruth, t],
   )
 
   const handleReveal = useCallback(async () => {

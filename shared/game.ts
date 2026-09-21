@@ -1,4 +1,4 @@
-import { TypeSafeClient, choice, noul, score } from '@typesafe-ai/sdk'
+import { TypeSafeClient, choice, noul, score, type EntryType } from '@typesafe-ai/sdk'
 import OpenAI from 'openai'
 import { z } from 'zod'
 
@@ -499,6 +499,102 @@ export function pickBuiltin(
   return list[Math.floor(Math.random() * list.length)]
 }
 
+export interface EstablishedFact {
+  question: string
+  verdict: string
+}
+
+const MAX_ESTABLISHED = 40
+const MAX_CANDIDATES = 5
+const VERDICT_CHOICES = ['yes', 'no', 'partly', 'irrelevant']
+
+function readEstablished(value: unknown): EstablishedFact[] {
+  if (!Array.isArray(value)) return []
+  const facts: EstablishedFact[] = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as { question?: unknown; verdict?: unknown }
+    const question = typeof row.question === 'string' ? row.question.trim().slice(0, 200) : ''
+    const verdict = typeof row.verdict === 'string' ? row.verdict : ''
+    if (!question || !VERDICT_CHOICES.includes(verdict)) continue
+    facts.push({ question, verdict })
+  }
+  return facts.slice(-MAX_ESTABLISHED)
+}
+
+function normaliseForCompare(value: string): string {
+  return value.replace(/[\s，。？！、,.?!；;：:"'「」（）()【】\]]+/g, '').toLowerCase()
+}
+
+function bigrams(value: string): Set<string> {
+  const out = new Set<string>()
+  for (let i = 0; i + 2 <= value.length; i += 1) out.add(value.slice(i, i + 2))
+  return out
+}
+
+/**
+ * 先用代码做一次廉价的相似度预筛，只把最像的几条交给 Jev 选——
+ * 让模型在候选中「选」而不是「重新生成」，一致性才有保证。
+ */
+function similarFacts(
+  message: string,
+  facts: EstablishedFact[],
+): { index: number; fact: EstablishedFact }[] {
+  const target = bigrams(normaliseForCompare(message))
+  if (!target.size) return []
+  return facts
+    .map((fact, index) => {
+      const candidate = bigrams(normaliseForCompare(fact.question))
+      let shared = 0
+      for (const gram of candidate) if (target.has(gram)) shared += 1
+      const score = shared / Math.min(target.size, candidate.size || 1)
+      return { index, fact, score }
+    })
+    .filter((item) => item.score >= 0.3)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_CANDIDATES)
+}
+
+/** 候选会随台账变化，所以问题表要按状态生成。 */
+function candidateOptions(candidates: { index: number; fact: EstablishedFact }[]) {
+  const options: Record<string, { what: string }> = {}
+  for (const { index, fact } of candidates) {
+    options[`fact_${index}`] = {
+      what: `The player is asking the same thing as: “${fact.question}”`,
+    }
+  }
+  options.none = { what: 'It is a new question, not a repeat of any candidate.' }
+  return options
+}
+
+function hostQuestions(candidates: { index: number; fact: EstablishedFact }[]) {
+  return {
+    ...HOST_QUESTIONS,
+    contradicts_earlier: noul(
+      {
+        question:
+          'Would the answer to `latest_player_message` contradict an answer already recorded in `established` or `recent_conversation`?',
+        compare: ['latest_player_message', 'established', 'recent_conversation'],
+        focus: 'Only judge whether a contradiction exists, not which answer is better.',
+      },
+      {
+        true: 'A recorded answer already commits to the opposite of what this question would get.',
+        false: 'Nothing recorded is contradicted by answering this question.',
+      },
+    ),
+    matches_earlier: choice(
+      {
+        question:
+          'Is `latest_player_message` essentially the same question as one of the recorded facts?',
+        compare: ['latest_player_message', 'established'],
+        focus:
+          'Match only when the player is asking the same thing again, not merely about the same topic. If no candidate matches, choose none.',
+      },
+      candidateOptions(candidates),
+    ),
+  }
+}
+
 const HOST_QUESTIONS = {
   intent: choice(
     {
@@ -627,6 +723,8 @@ interface NoulAnswer {
 }
 
 interface HostAnswers {
+  contradicts_earlier?: NoulAnswer
+  matches_earlier?: ChoiceAnswer
   intent: ChoiceAnswer
   verdict: ChoiceAnswer
   guess_closeness: ScoreAnswer
@@ -658,6 +756,7 @@ function readLuck(value: unknown): LuckInfo | null {
 
 interface HostCopy {
   verdict: Record<string, string>
+  repeat: (word: string) => string
   rephrase: string
   howToPlay: string
   hint: (hint: string) => string
@@ -691,6 +790,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       partly: '是，也不是。',
       irrelevant: '无关。',
     },
+    repeat: (word) => `这个问题你之前问过了，答案还是「${word}」。`,
     rephrase: '这个问题主持人有点拿不准……能换一个更具体的问法吗？',
     howToPlay:
       '玩法：主持人只会回答「是」「不是」「无关」或者「是，也不是」。你可以不断提出能用是 / 否回答的问题，一步步逼近汤底；也可以随时说出你的完整推理，猜对了就通关。',
@@ -717,6 +817,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       partly: 'Partly.',
       irrelevant: 'Unrelated.',
     },
+    repeat: (word) => `You asked this before — the answer is still “${word}”.`,
     rephrase: 'The host is not quite sure about that one… could you ask it more concretely?',
     howToPlay:
       'How it works: the host only answers yes, no, unrelated, or partly. Keep asking questions that can be answered with yes or no to close in on the truth, or state your full theory — get it right and the case is solved.',
@@ -744,6 +845,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       partly: 'どちらでもある。',
       irrelevant: '無関係です。',
     },
+    repeat: (word) => `その質問は前にも出ました。答えは変わりません——「${word}」。`,
     rephrase: 'その質問は司会にも判断しかねるようです……もう少し具体的に訊いてもらえますか。',
     howToPlay:
       '遊びかた：司会が答えるのは「はい」「いいえ」「無関係」「どちらでもある」だけです。はい／いいえで答えられる質問を重ねて真相に近づくか、推理をそのまま述べてください。当たれば解決です。',
@@ -821,6 +923,8 @@ export function composeTurn(
   answers: HostAnswers,
   luck: LuckInfo | null = null,
   locale: Locale = 'zh-CN',
+  established: EstablishedFact[] = [],
+  candidates: { index: number; fact: EstablishedFact }[] = [],
 ) {
   const copy = HOST_COPY[locale]
   const intentAnswer = answers.intent
@@ -863,6 +967,26 @@ export function composeTurn(
   }
 
   if (intent === 'yes_no_question') {
+    // 重复提问时直接复用当时那条结论，不让模型重新判读出相反答案
+    const matched = answers.matches_earlier?.choice
+    if (matched && matched.startsWith('fact_')) {
+      const index = Number(matched.slice('fact_'.length))
+      const fact = established[index]
+      const known = candidates.some((item) => item.index === index)
+      if (known && fact && VERDICT_CHOICES.includes(fact.verdict)) {
+        const word = (copy.verdict[fact.verdict] ?? fact.verdict).replace(/[。.]$/, '')
+        return {
+          intent,
+          verdict: fact.verdict,
+          solved: false,
+          revealed: false,
+          closeness: null,
+          confidence: answers.matches_earlier?.confidence ?? 0.9,
+          reply: copy.repeat(word),
+        }
+      }
+    }
+
     const verdict = answers.verdict.choice as string
     const confidence = answers.verdict.confidence
     if (verdict === 'cannot_answer' || confidence < 0.35 || intentConfidence < 0.4) {
@@ -931,6 +1055,17 @@ function buildDebug(answers: HostAnswers) {
       choice: answers.meta_request.choice,
       confidence: answers.meta_request.confidence,
     },
+    ...(answers.contradicts_earlier
+      ? { contradictsEarlier: { noul: answers.contradicts_earlier.noul } }
+      : {}),
+    ...(answers.matches_earlier
+      ? {
+          matchesEarlier: {
+            choice: answers.matches_earlier.choice,
+            confidence: answers.matches_earlier.confidence,
+          },
+        }
+      : {}),
   }
 }
 
@@ -1090,23 +1225,35 @@ export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, u
     })
     .filter((turn) => turn.text)
 
+  const established = readEstablished(body.established)
+  const candidates = similarFacts(message, established)
+
   const state = {
     puzzle: {
       title: puzzle.title,
       surface: puzzle.surface,
       truth: puzzle.truth,
     },
+    established,
     recent_conversation: recentConversation,
     latest_player_message: message,
   }
 
   const client = getClient(env)
   const { answers, model } = await client.systemOne({
-    state,
-    questions: HOST_QUESTIONS,
+    // 台账是 interface 数组，SDK 的 EntryType 认的是索引签名，这里收口一次
+    state: state as unknown as EntryType,
+    questions: hostQuestions(candidates),
   })
 
-  const turn = composeTurn(puzzle, answers, readLuck(body.luck), readLocale(body.locale))
+  const turn = composeTurn(
+    puzzle,
+    answers,
+    readLuck(body.luck),
+    readLocale(body.locale),
+    established,
+    candidates,
+  )
   return {
     ...turn,
     model,

@@ -37,6 +37,9 @@ export interface DebugInfo {
     choice: string
     confidence: number
   }
+  /** 一致性自查：本次回答是否与已确立的结论矛盾、是否与某条重复 */
+  contradictsEarlier?: { noul: number }
+  matchesEarlier?: { choice: string; confidence: number }
 }
 
 export interface HostTurn {
@@ -157,6 +160,8 @@ export interface AskContext {
   playerKey: string
   seq: number
   luck?: LuckPayload
+  /** 已经确立的结论，用来保证重复提问得到一致的回答。 */
+  established?: { question: string; verdict: string }[]
 }
 
 export function askHost(

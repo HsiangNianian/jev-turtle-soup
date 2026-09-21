@@ -15,16 +15,21 @@ import {
 
 /** Dev-only in-memory stand-in for D1: sessions live as long as the process. */
 function memoryStore(): PuzzleStore {
-  const puzzles = new Map<string, Puzzle & { difficulty: string; createdAt: number }>()
+  const puzzles = new Map<
+    string,
+    Puzzle & { difficulty: string; createdAt: number; visibility: string }
+  >()
   return {
     async create(puzzle, meta) {
       const id = crypto.randomUUID()
-      puzzles.set(id, { ...puzzle, ...meta })
+      puzzles.set(id, { ...puzzle, ...meta, visibility: meta.visibility ?? 'session' })
       return id
     },
     async get(id) {
       const found = puzzles.get(id)
-      return found ? { ...found } : null
+      if (!found) return null
+      const { createdAt: _createdAt, ...rest } = found
+      return rest
     },
     async sweep(olderThan) {
       for (const [id, puzzle] of puzzles) {

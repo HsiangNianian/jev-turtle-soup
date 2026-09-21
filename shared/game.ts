@@ -144,7 +144,7 @@ export type Locale = 'zh-CN' | 'en' | 'ja'
 /** 玩家会在对话里看到的报错，必须跟着界面语言走。 */
 const ASK_ERRORS: Record<
   Locale,
-  Record<'missing' | 'empty' | 'tooLong' | 'notFound' | 'notPublic', string>
+  Record<'missing' | 'empty' | 'tooLong' | 'notFound' | 'notPublic' | 'locked', string>
 > = {
   'zh-CN': {
     missing: '这一局已经过期了，请重新生成一碗海龟汤',
@@ -152,6 +152,7 @@ const ASK_ERRORS: Record<
     tooLong: '内容太长了，缩短一点再问吧',
     notFound: '这道汤不存在',
     notPublic: '这道汤没有公开',
+    locked: '今天的官方汤不能提前揭晓，明天它就会解锁。',
   },
   en: {
     missing: 'This case has expired — start a new one',
@@ -159,6 +160,7 @@ const ASK_ERRORS: Record<
     tooLong: 'That is too long, please shorten it',
     notFound: 'This puzzle does not exist',
     notPublic: 'This puzzle is not public',
+    locked: 'Today’s official bowl cannot be unsealed early — it unlocks tomorrow.',
   },
   ja: {
     missing: 'この一件は期限切れです。新しい一杯を作ってください',
@@ -166,14 +168,18 @@ const ASK_ERRORS: Record<
     tooLong: '長すぎます。もう少し短くしてください',
     notFound: 'このお題は存在しません',
     notPublic: 'このお題は公開されていません',
+    locked: '本日の公式の一杯は前もって開封できません。明日になれば解放されます。',
   },
 }
 
 export function askError(locale: Locale, key: keyof (typeof ASK_ERRORS)['zh-CN']): ApiError {
-  return new ApiError(
-    key === 'missing' || key === 'notFound' ? 404 : key === 'notPublic' ? 403 : 400,
-    ASK_ERRORS[locale][key],
-  )
+  const status =
+    key === 'missing' || key === 'notFound'
+      ? 404
+      : key === 'notPublic' || key === 'locked'
+        ? 403
+        : 400
+  return new ApiError(status, ASK_ERRORS[locale][key])
 }
 
 export function readLocale(value: unknown): Locale {
@@ -448,6 +454,60 @@ ${issues.map((issue) => `- ${issue}`).join('\n')}
 ${requirements}`
 }
 
+/**
+ * 「让模型产出结构化结果 + 校验 + 带着报错回炉」的通用原语。
+ * 出题和每日官方汤的每一段流水线都走它，规则一致。
+ */
+export async function generateJson<T>(
+  cfg: LlmConfig,
+  options: {
+    system: string
+    user: string
+    effort: Effort
+    /** 把解析出来的值变成「问题列表」；空数组表示通过 */
+    check: (value: unknown) => { value?: T; issues: string[] }
+    rounds?: number
+    onProgress?: (progress: GenerateProgress) => void
+  },
+): Promise<T> {
+  const requirements = `${options.system}\n\n${options.user}`
+  const messages: ChatTurn[] = [
+    { role: 'system', content: options.system },
+    { role: 'user', content: options.user },
+  ]
+  const rounds = options.rounds ?? MAX_ROUNDS
+  let lastIssues: string[] = []
+
+  for (let round = 1; round <= rounds; round += 1) {
+    const content = await callChat(cfg, messages, options.effort, (progress) =>
+      options.onProgress?.({ ...progress, round }),
+    )
+
+    let issues: string[] = []
+    let accepted: T | undefined
+    try {
+      const result = options.check(extractJson(content))
+      issues = result.issues
+      accepted = result.value
+    } catch (error) {
+      issues = [
+        `不是合法的 json：${error instanceof Error ? error.message.slice(0, 160) : '解析失败'}`,
+      ]
+    }
+
+    if (accepted !== undefined && !issues.length) return accepted
+
+    lastIssues = issues
+    if (round < rounds) {
+      console.warn(`[turtle-soup] 输出校验未通过，回炉第 ${round} 次：`, issues.join('；'))
+      messages.push({ role: 'assistant', content })
+      messages.push({ role: 'user', content: correctionPrompt(issues, requirements) })
+    }
+  }
+
+  throw new Error(`模型连续 ${rounds} 次都没给出合格输出：${lastIssues.join('；')}`)
+}
+
 async function generateWithLlm(
   cfg: LlmConfig,
   difficulty: string,
@@ -458,56 +518,20 @@ async function generateWithLlm(
   locale: Locale = 'zh-CN',
   onProgress?: (progress: GenerateProgress) => void,
 ): Promise<GeneratedPuzzle> {
-  const requirements = `${systemPrompt(genre, locale)}\n\n${buildUserPrompt(
-    difficulty,
-    theme,
-    avoid,
-    locale,
-  )}`
-  const messages: ChatTurn[] = [
-    { role: 'system', content: systemPrompt(genre, locale) },
-    {
-      role: 'user',
-      content: buildUserPrompt(difficulty, theme, avoid, locale),
-    },
-  ]
-  let lastIssues: string[] = []
-
-  for (let round = 1; round <= MAX_ROUNDS; round += 1) {
-    const content = await callChat(cfg, messages, effort, (progress) =>
-      onProgress?.({ ...progress, round }),
-    )
-
-    let candidate: GeneratedPuzzle | null = null
-    let issues: string[] = []
-    try {
-      const parsed = PuzzleSchema.safeParse(extractJson(content))
-      if (parsed.success) {
-        candidate = parsed.data
-        issues = validatePuzzle(candidate)
-      } else {
-        issues = [`json 结构不合法：${parsed.error.message.slice(0, 200)}`]
+  return generateJson<GeneratedPuzzle>(cfg, {
+    system: systemPrompt(genre, locale),
+    user: buildUserPrompt(difficulty, theme, avoid, locale),
+    effort,
+    onProgress,
+    check: (raw) => {
+      const parsed = PuzzleSchema.safeParse(raw)
+      if (!parsed.success) {
+        return { issues: [`json 结构不合法：${parsed.error.message.slice(0, 200)}`] }
       }
-    } catch (error) {
-      issues = [
-        `不是合法的 json：${error instanceof Error ? error.message.slice(0, 160) : '解析失败'}`,
-      ]
-    }
-
-    if (candidate && !issues.length) return candidate
-
-    lastIssues = issues
-    if (round < MAX_ROUNDS) {
-      console.warn(`[turtle-soup] 输出校验未通过，回炉第 ${round} 次：`, issues.join('；'))
-      messages.push({ role: 'assistant', content })
-      messages.push({
-        role: 'user',
-        content: correctionPrompt(issues, requirements),
-      })
-    }
-  }
-
-  throw new Error(`模型连续 ${MAX_ROUNDS} 次都没给出合格输出：${lastIssues.join('；')}`)
+      const issues = validatePuzzle(parsed.data)
+      return issues.length ? { issues } : { value: parsed.data, issues: [] }
+    },
+  })
 }
 
 /** 归一化汤面，用来判断两则题是不是同一则。 */
@@ -841,6 +865,7 @@ function readLuck(value: unknown): LuckInfo | null {
 interface HostCopy {
   verdict: Record<string, string>
   repeat: (word: string) => string
+  dailyLocked: string
   rephrase: string
   howToPlay: string
   hint: (hint: string) => string
@@ -874,6 +899,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       partly: '是，也不是。',
       irrelevant: '无关。',
     },
+    dailyLocked: '今天这碗官方汤不能提前揭晓——明天它就会解锁，到时候你随时可以翻看。',
     repeat: (word) => `这个问题你之前问过了，答案还是「${word}」。`,
     rephrase: '这个问题主持人有点拿不准……能换一个更具体的问法吗？',
     howToPlay:
@@ -901,6 +927,8 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       partly: 'Partly.',
       irrelevant: 'Unrelated.',
     },
+    dailyLocked:
+      'The daily bowl cannot be unsealed early — it unlocks tomorrow, and then you can read the truth whenever you like.',
     repeat: (word) => `You asked this before — the answer is still “${word}”.`,
     rephrase: 'The host is not quite sure about that one… could you ask it more concretely?',
     howToPlay:
@@ -929,6 +957,8 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       partly: 'どちらでもある。',
       irrelevant: '無関係です。',
     },
+    dailyLocked:
+      '本日の公式の一杯は前もって開封できません。明日になれば解放され、いつでも真相を読めます。',
     repeat: (word) => `その質問は前にも出ました。答えは変わりません——「${word}」。`,
     rephrase: 'その質問は司会にも判断しかねるようです……もう少し具体的に訊いてもらえますか。',
     howToPlay:
@@ -976,7 +1006,13 @@ function nudgeTowardPartly(
   return { verdict, nudged: false }
 }
 
-function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null, locale: Locale) {
+function handleMeta(
+  kind: string,
+  puzzle: Puzzle,
+  luck: LuckInfo | null,
+  locale: Locale,
+  truthLocked: boolean,
+) {
   const copy = HOST_COPY[locale]
   if (kind === 'hint') {
     return {
@@ -988,6 +1024,16 @@ function handleMeta(kind: string, puzzle: Puzzle, luck: LuckInfo | null, locale:
     }
   }
   if (kind === 'full_answer') {
+    // 今日官方汤：当天不许提前揭晓
+    if (truthLocked) {
+      return {
+        intent: 'meta',
+        verdict: 'locked',
+        solved: false,
+        revealed: false,
+        reply: copy.dailyLocked,
+      }
+    }
     return {
       intent: 'meta',
       verdict: 'reveal',
@@ -1030,6 +1076,7 @@ export function composeTurn(
   locale: Locale = 'zh-CN',
   established: EstablishedFact[] = [],
   candidates: { index: number; fact: EstablishedFact }[] = [],
+  truthLocked = false,
 ) {
   const copy = HOST_COPY[locale]
   const intentAnswer = answers.intent
@@ -1070,7 +1117,7 @@ export function composeTurn(
 
   if (intent === 'meta') {
     return {
-      ...handleMeta(answers.meta_request.choice as string, puzzle, luck, locale),
+      ...handleMeta(answers.meta_request.choice as string, puzzle, luck, locale, truthLocked),
       closeness: null,
       confidence: answers.meta_request.confidence,
     }
@@ -1128,7 +1175,7 @@ export function composeTurn(
   const metaChoice = answers.meta_request.choice as string
   if (META_KINDS.has(metaChoice) && answers.meta_request.confidence >= 0.5) {
     return {
-      ...handleMeta(metaChoice, puzzle, luck, locale),
+      ...handleMeta(metaChoice, puzzle, luck, locale, truthLocked),
       closeness: null,
       confidence: answers.meta_request.confidence,
     }
@@ -1236,8 +1283,11 @@ export interface GenerateProgress {
 }
 
 export interface PuzzleStore {
-  create(puzzle: Puzzle, meta: { difficulty: string; createdAt: number }): Promise<string>
-  get(id: string): Promise<(Puzzle & { difficulty: string }) | null>
+  create(
+    puzzle: Puzzle,
+    meta: { difficulty: string; createdAt: number; visibility?: 'session' | 'daily' },
+  ): Promise<string>
+  get(id: string): Promise<(Puzzle & { difficulty: string; visibility: string }) | null>
   sweep(olderThan: number): Promise<void>
   /** 最近生成过的汤面（已归一化），用来避免重复出题 */
   recentSurfaces(limit: number): Promise<string[]>
@@ -1333,11 +1383,16 @@ export function readPuzzle(value: unknown): Puzzle {
   return { title, surface, truth, hint }
 }
 
-export async function askHost(env: GameEnv, store: PuzzleStore, body: Record<string, unknown>) {
+export async function askHost(
+  env: GameEnv,
+  store: PuzzleStore,
+  body: Record<string, unknown>,
+  options: { truthLocked?: boolean } = {},
+) {
   const puzzleId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
   const puzzle = puzzleId ? await store.get(puzzleId) : null
   if (!puzzle) throw askError(readLocale(body.locale), 'missing')
-  return judge(env, puzzle, body)
+  return judge(env, puzzle, body, options)
 }
 
 export async function revealGame(store: PuzzleStore, body: Record<string, unknown>) {
@@ -1348,7 +1403,12 @@ export async function revealGame(store: PuzzleStore, body: Record<string, unknow
 }
 
 /** Judge a single player message against a puzzle whose truth we already hold. */
-export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, unknown>) {
+export async function judge(
+  env: GameEnv,
+  puzzle: Puzzle,
+  body: Record<string, unknown>,
+  options: { truthLocked?: boolean } = {},
+) {
   const locale = readLocale(body.locale)
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   if (!message) throw askError(locale, 'empty')
@@ -1395,6 +1455,7 @@ export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, u
     replyLocale,
     established,
     candidates,
+    options.truthLocked ?? false,
   )
   return {
     ...turn,

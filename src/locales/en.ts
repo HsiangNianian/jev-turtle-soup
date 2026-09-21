@@ -316,4 +316,27 @@ export const en: Record<string, string> = {
   '手法': 'method',
   '反转': 'twist',
   '玩家语言': 'language',
+  '每日': 'Daily',
+  官方每日: 'Official daily',
+  '官方每日汤 · 明日解锁': 'Daily official bowl · unlocks tomorrow',
+  '今日官方汤 / DAILY': 'Daily official bowl',
+  '今日官方汤 / PLAYING': 'Daily bowl in progress',
+  明日解锁: 'Unlocks tomorrow',
+  往期与汤底: 'Past bowls & truths',
+  '官方汤 / DAILY': 'Daily bowl',
+  每日官方汤: 'Daily official bowl',
+  打不开这一碗: 'Could not open this bowl',
+  回到每日官方汤: 'Back to the daily bowl',
+  '今天的官方汤还不能揭晓——过了午夜，汤底会自己浮上来。':
+    'Today’s official bowl cannot be revealed yet — after midnight the truth surfaces on its own.',
+  '今天的官方汤不能提前揭晓——明天它就会解锁，到时候你随时可以翻看。':
+    'Today’s official bowl cannot be unsealed early — it unlocks tomorrow, and then you can read the truth whenever you like.',
+  '完整故事 / FULL STORY': 'Full story',
+  '每天零点（UTC）由砚熬一碗，所有人都拿到同一道题。当天的汤只能问，不能揭晓；过了午夜就能回看汤底。':
+    'Ellis brews one bowl at 00:00 UTC every day, and everyone gets the same puzzle. On the day itself you can only question — no revealing; after midnight you can look back at the truth.',
+  '今日 / TODAY': 'Today',
+  查看案卷: 'View the case file',
+  '今天的汤还在熬，稍后再来。': 'Today’s bowl is still brewing — check back soon.',
+  '往期 / PAST': 'Past',
+  '{count} 碗': '{count} bowls',
 }

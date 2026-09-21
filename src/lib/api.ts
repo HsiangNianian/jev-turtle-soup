@@ -3,10 +3,12 @@ export interface GameSession {
   title: string
   surface: string
   difficulty: string
-  source: 'llm' | 'builtin' | 'library'
+  source: 'llm' | 'builtin' | 'library' | 'daily'
   hostGreeting: string
   /** 题库里的题：判读走 /api/library/puzzles/:id/ask */
   libraryId?: string
+  /** 官方每日汤：记下日期，用来判断当天是否还锁着汤底 */
+  dailyDate?: string
 }
 
 /** 汤底只存在于服务端；只有揭晓时才拿到。 */

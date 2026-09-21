@@ -6,6 +6,7 @@ import { ArchiveView } from '@/components/ArchiveView'
 import { CaseDrawer } from '@/components/CaseDrawer'
 import { ChatPanel } from '@/components/ChatPanel'
 import { LocaleMenu, ThemeToggle } from '@/components/Controls'
+import { DailyDetailPage, DailyIndexPage } from '@/components/DailyPage'
 import { Footer } from '@/components/Footer'
 import { Landing } from '@/components/Landing'
 import { LeavingPage } from '@/components/LeavingPage'
@@ -45,6 +46,7 @@ import {
   type LibraryPuzzleDetail,
 } from '@/lib/library-client'
 import { navigate, matchPath, usePath } from '@/lib/router'
+import { utcToday, type DailyDetail } from '@/lib/daily-client'
 import { dailyLuck, getDeviceId, todayKey } from '@/lib/luck'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
@@ -124,6 +126,8 @@ export default function App() {
   }, [])
 
   const gameOver = solved || revealed
+  /** 当天生成的官方汤：汤底要到第二天才许揭开。 */
+  const lockedDaily = session?.source === 'daily' && session.dailyDate === utcToday()
   const liveStatus: GameStatus = solved ? 'solved' : revealed ? 'revealed' : 'active'
 
   const buildEntry = useCallback(
@@ -138,6 +142,7 @@ export default function App() {
         hostGreeting: session.hostGreeting,
         hint: '',
         libraryId: session.libraryId,
+        dailyDate: session.dailyDate,
         createdAt: startedAt,
         updatedAt: Date.now(),
         messages,
@@ -164,7 +169,9 @@ export default function App() {
     [allGames],
   )
   const archives = useMemo(() => allGames.filter((game) => game.status !== 'active'), [allGames])
-  const canGenerate = !activeGames.some((game) => game.source !== 'library')
+  const canGenerate = !activeGames.some(
+    (game) => game.source !== 'library' && game.source !== 'daily',
+  )
   const ledger = useMemo(() => buildLedger(messages), [messages])
 
   useEffect(() => {
@@ -263,6 +270,40 @@ export default function App() {
       navigate('/play')
     },
     [t],
+  )
+
+  /** 官方每日汤：题号就是当天的那道题，判读走 /api/game/ask。 */
+  const startDailyGame = useCallback(
+    (daily: DailyDetail) => {
+      // 同一天再次点进来是「续摊」：题号相同，直接恢复那份案卷，别把问答清空
+      const existing = allGames.find((game) => game.id === daily.puzzleId)
+      if (existing) {
+        if (session?.sessionId !== existing.id) hydrate(existing)
+        setDrawerOpen(true)
+        navigate('/play')
+        return
+      }
+      const greeting = t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。')
+      setSession({
+        sessionId: daily.puzzleId,
+        title: daily.title,
+        surface: daily.surface,
+        difficulty: daily.difficulty,
+        source: 'daily',
+        hostGreeting: greeting,
+        dailyDate: daily.date,
+      })
+      setMessages([{ id: crypto.randomUUID(), role: 'host', text: greeting }])
+      setRevealed(false)
+      setTruth(null)
+      setSolved(false)
+      setCloseness(null)
+      setTurnCount(0)
+      setStartedAt(Date.now())
+      setDrawerOpen(true)
+      navigate('/play')
+    },
+    [allGames, hydrate, session, t],
   )
 
   /** 早期存档没存题库题号，恢复后会一直「过期」——按标题回查一次补上。 */
@@ -382,6 +423,17 @@ export default function App() {
 
   const handleReveal = useCallback(async () => {
     if (!session || revealed) return
+    if (lockedDaily) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'host',
+          text: t('今天的官方汤不能提前揭晓——明天它就会解锁，到时候你随时可以翻看。'),
+        },
+      ])
+      return
+    }
     try {
       await fetchTruth()
       setRevealed(true)
@@ -405,7 +457,7 @@ export default function App() {
         },
       ])
     }
-  }, [revealed, session, fetchTruth, t])
+  }, [revealed, lockedDaily, session, fetchTruth, t])
 
   const handleQuick = useCallback(
     (kind: 'hint' | 'reveal' | 'how_to_play') => {
@@ -532,6 +584,7 @@ export default function App() {
         closeness={closeness}
         turnCount={turnCount}
         ledger={ledger}
+        locked={lockedDaily}
         onReveal={handleReveal}
         onStart={onStart}
       />
@@ -580,6 +633,7 @@ export default function App() {
               messages={messages}
               asking={asking}
               disabled={gameOver}
+              locked={lockedDaily}
               onSend={handleSend}
               onQuick={handleQuick}
               onReport={handleReport}
@@ -612,6 +666,30 @@ export default function App() {
       return (
         <ScrollArea>
           <LibraryPage />
+        </ScrollArea>
+      )
+    }
+    if (path === '/daily') {
+      return (
+        <ScrollArea>
+          <DailyIndexPage
+            activeGames={activeGames}
+            onStart={startDailyGame}
+            onContinue={handleContinue}
+          />
+        </ScrollArea>
+      )
+    }
+    const dailyMatch = matchPath(path, '/daily/:date')
+    if (dailyMatch) {
+      return (
+        <ScrollArea>
+          <DailyDetailPage
+            date={dailyMatch.date}
+            activeGames={activeGames}
+            onStart={startDailyGame}
+            onContinue={handleContinue}
+          />
         </ScrollArea>
       )
     }
@@ -692,6 +770,7 @@ export default function App() {
           onGenreChange={setGenre}
           onThemeChange={setTheme}
           onGenerate={handleNew}
+          onStartDaily={startDailyGame}
           onContinue={handleContinue}
           onView={(id) => navigate(`/archive/${id}`)}
           onAbandon={handleAbandon}
@@ -726,6 +805,15 @@ export default function App() {
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 font-mono text-[10px] tracking-[0.16em] sm:gap-4 sm:tracking-[0.2em]">
+            <Link
+              to="/daily"
+              className={cn(
+                'transition-opacity hover:opacity-60',
+                path.startsWith('/daily') ? 'opacity-100' : 'opacity-70',
+              )}
+            >
+              {t('每日')}
+            </Link>
             <Link
               to="/library"
               className={cn(

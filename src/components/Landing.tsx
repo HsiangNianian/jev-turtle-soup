@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowRight, Loader2, Lock, Trash2 } from 'lucide-react'
 
 import { Link } from '@/components/Link'
 import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
+import { listDailies, type DailyDetail } from '@/lib/daily-client'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -49,6 +50,90 @@ function StatusStamp({ status }: { status: GameStatus }) {
   )
 }
 
+/** 首页的「今日官方汤」卡片：拿不到就安静地不出现。 */
+function DailyCard({
+  activeGames,
+  onStart,
+  onContinue,
+}: {
+  activeGames: ArchivedGame[]
+  onStart: (daily: DailyDetail) => void
+  onContinue: (id: string) => void
+}) {
+  const { t } = useI18n()
+  const [daily, setDaily] = useState<DailyDetail | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    listDailies()
+      .then((data) => {
+        if (alive) setDaily(data.today)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  if (!daily) return null
+
+  const ongoing = activeGames.find(
+    (game) => game.source === 'daily' && game.dailyDate === daily.date,
+  )
+
+  return (
+    <div className="mt-9 border border-foreground bg-card">
+      <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
+        <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+          {t('今日官方汤 / DAILY')} · {daily.date}
+        </span>
+        <span className="stamp flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
+          <Lock className="size-3" /> {t('明日解锁')}
+        </span>
+      </div>
+      <div className="px-4 py-5 sm:px-5">
+        <h2 className="font-serif text-2xl leading-snug font-semibold">{daily.title}</h2>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+          <span className="border border-foreground/25 px-1.5 py-0.5">{t(daily.difficulty)}</span>
+          {daily.tags.map((tag) => (
+            <span key={tag}>#{tag}</span>
+          ))}
+        </div>
+        <div className="mt-5 border-l-2 border-brand/50 pl-4">
+          <p className="surface-prose font-serif text-[15px] leading-8 text-foreground/90">
+            {daily.surface}
+          </p>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          {ongoing ? (
+            <button
+              type="button"
+              onClick={() => onContinue(ongoing.id)}
+              className="flex items-center gap-2.5 bg-foreground px-6 py-3 font-mono text-[12px] font-bold tracking-[0.22em] text-background transition-opacity hover:opacity-85"
+            >
+              {t('继续调查')} <ArrowRight className="size-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onStart(daily)}
+              className="flex items-center gap-2.5 bg-foreground px-6 py-3 font-mono text-[12px] font-bold tracking-[0.22em] text-background transition-opacity hover:opacity-85"
+            >
+              {t('开始推理')} <ArrowRight className="size-4" />
+            </button>
+          )}
+          <Link
+            to="/daily"
+            className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t('往期与汤底')}
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface LandingProps {
   difficulty: string
   genre: 'realistic' | 'supernatural'
@@ -63,6 +148,7 @@ interface LandingProps {
   onGenreChange: (value: 'realistic' | 'supernatural') => void
   onThemeChange: (value: string) => void
   onGenerate: () => void
+  onStartDaily: (daily: DailyDetail) => void
   onContinue: (id: string) => void
   onView: (id: string) => void
   onAbandon: (id: string) => void
@@ -83,6 +169,7 @@ export function Landing({
   onGenreChange,
   onThemeChange,
   onGenerate,
+  onStartDaily,
   onContinue,
   onView,
   onAbandon,
@@ -135,6 +222,8 @@ export function Landing({
         )}
       </p>
 
+      <DailyCard activeGames={activeGames} onStart={onStartDaily} onContinue={onContinue} />
+
       {activeGames.length ? (
         <div className="mt-9 space-y-4">
           {activeGames.map((game) => (
@@ -143,7 +232,9 @@ export function Landing({
                 <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
                   {game.source === 'library'
                     ? t('题库里的汤 / PLAYING')
-                    : t('在办案件 / OPEN CASE')}
+                    : game.source === 'daily'
+                      ? t('今日官方汤 / PLAYING')
+                      : t('在办案件 / OPEN CASE')}
                 </span>
                 <span className="stamp px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
                   {t('机密')}

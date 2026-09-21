@@ -24,6 +24,10 @@
   "vars": {
     "MAIL_FROM": "noreply@hgt.mmstudio.games"
   },
+  // 00:00 UTC 生成当天官方汤；每 6 小时补一次，避免当天缺题
+  "triggers": {
+    "crons": ["0 0 * * *", "0 */6 * * *"]
+  },
   "observability": {
     "enabled": true
   }

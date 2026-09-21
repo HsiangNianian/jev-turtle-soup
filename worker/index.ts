@@ -9,7 +9,8 @@ import {
   type PuzzleStore,
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
-import { readLocale } from '../shared/game.ts'
+import { composeDaily, utcDateKey } from '../shared/daily.ts'
+import { askError, readLocale } from '../shared/game.ts'
 import { applyMeta, pickMetaLocale, type MetaOverride } from '../shared/meta.ts'
 import {
   clearedCookie,
@@ -51,6 +52,7 @@ export interface Env extends GameEnv {
   AUTH_SECRET?: string
   MAIL_FROM?: string
   AUTH_EXPOSE_CODE?: string
+  DAILY_ADMIN_TOKEN?: string
 }
 
 interface Viewer {
@@ -85,6 +87,114 @@ function sessionToken(request: Request): string | null {
 
 const SESSION_VISIBILITY = 'session'
 
+interface DailyRow {
+  date: string
+  puzzle_id: string
+  title: string
+  surface: string
+  truth: string
+  story: string
+  hint: string
+  tags: string
+  difficulty: string
+  review_json: string | null
+  attempts: number
+  relaxed: number
+  created_at: number
+}
+
+function dailyByDate(db: D1Like, date: string) {
+  return db.prepare('SELECT * FROM dailies WHERE date = ?').bind(date).first<DailyRow>()
+}
+
+/** 这道题是不是「今天的」官方汤——当天的汤不许提前揭晓。 */
+async function isLockedDaily(db: D1Like, puzzleId: string): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT date FROM dailies WHERE puzzle_id = ?')
+    .bind(puzzleId)
+    .first<{ date: string }>()
+  return row?.date === utcDateKey()
+}
+
+function dailyPayload(row: DailyRow, locked: boolean) {
+  let tags: string[] = []
+  try {
+    tags = JSON.parse(row.tags) as string[]
+  } catch {
+    tags = []
+  }
+  return {
+    date: row.date,
+    title: row.title,
+    puzzleId: row.puzzle_id,
+    surface: row.surface,
+    difficulty: row.difficulty,
+    tags,
+    locked,
+    relaxed: row.relaxed === 1,
+    ...(locked
+      ? {}
+      : {
+          truth: row.truth,
+          story: row.story,
+          hint: row.hint,
+          review: row.review_json ? (JSON.parse(row.review_json) as unknown) : null,
+        }),
+  }
+}
+
+/**
+ * 生成当天官方汤：先写完整故事，再凝练汤底/汤面，再由 Jev 审核，
+ * 不过就带着问题重来并逐次放宽；全不过则发布分数最高的一版。
+ */
+async function generateTodayDaily(
+  env: Env,
+  onProgress?: (progress: import('../shared/daily.ts').DailyProgress) => void,
+): Promise<void> {
+  const db = requireDb(env)
+  const date = utcDateKey()
+  if (await dailyByDate(db, date)) {
+    console.log(`[daily] ${date} 已存在，跳过`)
+    return
+  }
+  const { results } = await db
+    .prepare('SELECT title, surface FROM dailies ORDER BY created_at DESC LIMIT 10')
+    .all<{ title: string; surface: string }>()
+  const avoid = (results ?? []).map((row) => `${row.title}｜${row.surface}`)
+
+  const draft = await composeDaily(env, { avoid, date, onProgress })
+  const store = puzzleStore(db)
+  const puzzleId = await store.create(
+    { title: draft.title, surface: draft.surface, truth: draft.truth, hint: draft.hint },
+    { difficulty: draft.difficulty, createdAt: Date.now(), visibility: 'daily' },
+  )
+  await db
+    .prepare(
+      `INSERT INTO dailies
+         (date, puzzle_id, title, surface, truth, story, hint, tags, difficulty, review_json, attempts, relaxed, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      date,
+      puzzleId,
+      draft.title,
+      draft.surface,
+      draft.truth,
+      draft.story,
+      draft.hint,
+      JSON.stringify(draft.tags),
+      draft.difficulty,
+      JSON.stringify(draft.review),
+      draft.attempts,
+      draft.relaxed ? 1 : 0,
+      Date.now(),
+    )
+    .run()
+  console.log(
+    `[daily] ${date} 已生成《${draft.title}》｜${draft.attempts} 次尝试｜relaxed=${draft.relaxed}`,
+  )
+}
+
 function puzzleStore(db: D1Like): PuzzleStore {
   return {
     async create(puzzle, meta) {
@@ -101,7 +211,7 @@ function puzzleStore(db: D1Like): PuzzleStore {
           puzzle.truth,
           puzzle.hint,
           meta.difficulty,
-          SESSION_VISIBILITY,
+          meta.visibility ?? SESSION_VISIBILITY,
           meta.createdAt,
         )
         .run()
@@ -110,8 +220,8 @@ function puzzleStore(db: D1Like): PuzzleStore {
     async get(id) {
       const row = await db
         .prepare(
-          `SELECT title, surface, truth, hint, difficulty FROM puzzles
-           WHERE id = ? AND visibility = ?`,
+          `SELECT title, surface, truth, hint, difficulty, visibility FROM puzzles
+           WHERE id = ? AND visibility IN (?, 'daily')`,
         )
         .bind(id, SESSION_VISIBILITY)
         .first<{
@@ -120,6 +230,7 @@ function puzzleStore(db: D1Like): PuzzleStore {
           truth: string
           hint: string
           difficulty: string
+          visibility: string
         }>()
       return row ?? null
     },
@@ -372,6 +483,43 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     const handled = await routeAuth(request, env, pathname)
     return handled ?? json({ error: '未知接口' }, 404)
   }
+  if (pathname === '/api/daily') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const db = requireDb(env)
+    const today = await dailyByDate(db, utcDateKey())
+    const { results } = await db
+      .prepare(
+        'SELECT date, title, difficulty, tags, relaxed FROM dailies ORDER BY date DESC LIMIT 60',
+      )
+      .all<{ date: string; title: string; difficulty: string; tags: string; relaxed: number }>()
+    return json({
+      today: today ? dailyPayload(today, true) : null,
+      history: (results ?? []).map((row) => {
+        let tags: string[] = []
+        try {
+          tags = JSON.parse(row.tags) as string[]
+        } catch {
+          tags = []
+        }
+        return {
+          date: row.date,
+          title: row.title,
+          difficulty: row.difficulty,
+          tags,
+          relaxed: row.relaxed === 1,
+        }
+      }),
+    })
+  }
+
+  const dailyMatch = /^\/api\/daily\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)
+  if (dailyMatch) {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const row = await dailyByDate(requireDb(env), dailyMatch[1])
+    if (!row) throw new ApiError(404, '没有这一天的官方汤')
+    return json({ daily: dailyPayload(row, row.date === utcDateKey()) })
+  }
+
   if (pathname === '/api/reports') {
     if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
     const body = await readJson(request)
@@ -414,9 +562,17 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     const wantsStream = request.headers.get('accept')?.includes('text/event-stream')
     return wantsStream ? gameStream(env, store, body) : json(await startGame(env, store, body))
   }
-  if (pathname === '/api/game/reveal') return json(await revealGame(store, body))
+  if (pathname === '/api/game/reveal') {
+    const targetId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
+    if (targetId && (await isLockedDaily(db, targetId))) {
+      throw askError(readLocale(body.locale), 'locked')
+    }
+    return json(await revealGame(store, body))
+  }
 
-  const turn = await askHost(env, store, body)
+  const lockedId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
+  const truthLocked = lockedId ? await isLockedDaily(db, lockedId) : false
+  const turn = await askHost(env, store, body, { truthLocked })
   await logTurn(db, {
     puzzleId: typeof body.puzzleId === 'string' ? body.puzzleId : '',
     kind: 'session',
@@ -503,8 +659,80 @@ async function serveHtml(
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  /** Cron：00:00 UTC 生成当天官方汤；每 6 小时补一次，防止当天缺题。 */
+  async scheduled(
+    _event: { scheduledTime: number },
+    env: Env,
+    ctx: { waitUntil(promise: Promise<unknown>): void },
+  ): Promise<void> {
+    ctx.waitUntil(
+      generateTodayDaily(env).catch((error) => {
+        console.error('[daily] 生成失败：', error)
+      }),
+    )
+  },
+
+  async fetch(
+    request: Request,
+    env: Env,
+    _ctx?: { waitUntil(promise: Promise<unknown>): void },
+  ): Promise<Response> {
     const url = new URL(request.url)
+
+    // 管理触发：和出题一样走 SSE，边跑边回报进度。
+    // 注意不能用 waitUntil 后台跑——HTTP 请求的 waitUntil 只续命约 30 秒，
+    // 而这个流水线要几分钟，会被掐掉（Cron 才有 15 分钟额度）。
+    if (url.pathname === '/api/daily/generate') {
+      if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+      const adminToken = env.DAILY_ADMIN_TOKEN ?? env.AUTH_SECRET
+      if (!adminToken || request.headers.get('x-admin-token') !== adminToken) {
+        return json({ error: '无权操作' }, 403)
+      }
+      let replace = false
+      try {
+        const body = await readJson(request)
+        replace = Boolean(body.replace)
+      } catch {
+        /* 允许空 body */
+      }
+
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream({
+        async start(controller) {
+          let closed = false
+          const send = (event: string, data: unknown) => {
+            if (closed) return
+            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+          }
+          const ping = setInterval(() => {
+            if (!closed) controller.enqueue(encoder.encode(': ping\n\n'))
+          }, 8000)
+          try {
+            const db = requireDb(env)
+            if (replace) {
+              await db.prepare('DELETE FROM dailies WHERE date = ?').bind(utcDateKey()).run()
+            }
+            await generateTodayDaily(env, (progress) => send('progress', progress))
+            const row = await dailyByDate(db, utcDateKey())
+            send('done', { daily: row ? dailyPayload(row, true) : null })
+          } catch (error) {
+            console.error('[daily] 手动生成失败：', error)
+            send('error', { error: error instanceof Error ? error.message : '生成失败' })
+          } finally {
+            clearInterval(ping)
+            closed = true
+            controller.close()
+          }
+        },
+      })
+      return new Response(stream, {
+        headers: {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-store',
+        },
+      })
+    }
+
     if (url.pathname.startsWith('/api/')) {
       try {
         return await route(request, env, url)

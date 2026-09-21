@@ -12,6 +12,8 @@ interface PuzzlePanelProps {
   closeness: number | null
   turnCount: number
   ledger: LedgerItem[]
+  /** 今日官方汤：当天不许拆封汤底 */
+  locked?: boolean
   onReveal: () => void
   /** 移动端案卷简报里的「开始游戏」，用于收起抽屉。 */
   onStart?: () => void
@@ -49,6 +51,7 @@ export function PuzzlePanel({
   closeness,
   turnCount,
   ledger,
+  locked = false,
   onReveal,
   onStart,
   readOnly = false,
@@ -94,9 +97,11 @@ export function PuzzlePanel({
           value={
             session.source === 'llm'
               ? t('AI 现熬')
-              : session.source === 'library'
-                ? t('题库')
-                : t('经典存档')
+              : session.source === 'daily'
+                ? t('官方每日')
+                : session.source === 'library'
+                  ? t('题库')
+                  : t('经典存档')
           }
         />
         <Field label={t('已问')} value={t('{turns} 轮', { turns: turnCount })} />
@@ -122,7 +127,7 @@ export function PuzzlePanel({
       ) : null}
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
-        {!revealed && !readOnly ? (
+        {!revealed && !readOnly && !locked ? (
           <button
             type="button"
             onClick={onReveal}
@@ -131,6 +136,13 @@ export function PuzzlePanel({
             <Lock className="size-3.5" />
             {t('拆封汤底')}
           </button>
+        ) : null}
+
+        {!revealed && locked ? (
+          <div className="flex items-center gap-2 border border-dashed border-stamp/60 px-4 py-2.5 font-mono text-[11px] tracking-[0.18em] text-stamp">
+            <Lock className="size-3.5" />
+            {t('官方每日汤 · 明日解锁')}
+          </div>
         ) : null}
 
         {!revealed && readOnly ? (

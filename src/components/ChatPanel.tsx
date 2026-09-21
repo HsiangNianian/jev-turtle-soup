@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Eye, Flag, Lightbulb, Wand2 } from 'lucide-react'
+import { ArrowRight, Eye, Flag, Lightbulb, Lock, Wand2 } from 'lucide-react'
 
 import { TurnDebug } from '@/components/TurnDebug'
 import type { ChatMessage } from '@/lib/api'
@@ -10,6 +10,8 @@ interface ChatPanelProps {
   messages: ChatMessage[]
   asking: boolean
   disabled: boolean
+  /** 今日官方汤：当天没有「揭晓」可点 */
+  locked?: boolean
   onSend: (text: string) => void
   onQuick: (kind: 'hint' | 'reveal' | 'how_to_play') => void
   onReport: (note: string) => Promise<void>
@@ -132,6 +134,7 @@ export function ChatPanel({
   messages,
   asking,
   disabled,
+  locked = false,
   onSend,
   onQuick,
   onReport,
@@ -217,15 +220,22 @@ export function ChatPanel({
             <Flag className="size-3" />
             {t('反馈')}
           </button>
-          <button
-            type="button"
-            onClick={() => onQuick('reveal')}
-            disabled={asking || disabled}
-            className="ml-auto flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
-          >
-            <Eye className="size-3" />
-            {t('揭晓')}
-          </button>
+          {locked ? (
+            <span className="ml-auto flex items-center gap-1.5 text-muted-foreground/70">
+              <Lock className="size-3" />
+              {t('官方每日汤 · 明日解锁')}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onQuick('reveal')}
+              disabled={asking || disabled}
+              className="ml-auto flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
+            >
+              <Eye className="size-3" />
+              {t('揭晓')}
+            </button>
+          )}
         </div>
 
         {reporting ? (

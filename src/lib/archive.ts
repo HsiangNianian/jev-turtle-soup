@@ -7,11 +7,13 @@ export interface ArchivedGame {
   title: string
   surface: string
   difficulty: string
-  source: 'llm' | 'builtin' | 'library'
+  source: 'llm' | 'builtin' | 'library' | 'daily'
   hostGreeting: string
   hint: string
   /** 题库题才有：原题 id（否则恢复存档后会走错接口） */
   libraryId?: string
+  /** 官方每日汤才有：这道汤是哪一天的（当天不许提前揭晓） */
+  dailyDate?: string
   createdAt: number
   updatedAt: number
   messages: ChatMessage[]
@@ -80,6 +82,7 @@ export function toSession(game: ArchivedGame): GameSession {
     source: game.source,
     hostGreeting: game.hostGreeting,
     libraryId: game.libraryId,
+    dailyDate: game.dailyDate,
   }
 }
 
@@ -100,6 +103,13 @@ export function buildLedger(
     }
   }
   return items
+}
+
+/** 已经开案的官方每日汤：同一个日期再点一次应该续摊，而不是从头开始。 */
+export function findActiveDaily(games: ArchivedGame[], date: string): ArchivedGame | undefined {
+  return games.find(
+    (game) => game.source === 'daily' && game.dailyDate === date && game.status === 'active',
+  )
 }
 
 export function formatWhen(timestamp: number): string {

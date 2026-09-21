@@ -12,16 +12,17 @@ import { useI18n } from '@/lib/i18n'
 const TAG_SLOTS = 10
 
 function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
+  const { t } = useI18n()
   return (
     <Link
       to={`/library/${puzzle.id}`}
       className="flex h-full flex-col border border-foreground/30 bg-card p-4 transition-colors hover:border-foreground"
     >
       <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-        <span className="border border-foreground/25 px-1.5 py-0.5">{puzzle.difficulty}</span>
-        <span>游玩 {puzzle.plays}</span>
+        <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
+        <span>{t('游玩 {plays}', { plays: puzzle.plays })}</span>
         <span>·</span>
-        <span>解开 {puzzle.solves}</span>
+        <span>{t('解开 {solves}', { solves: puzzle.solves })}</span>
       </div>
       <h3 className="mt-2.5 font-serif text-lg leading-snug">{puzzle.title}</h3>
       <p className="mt-1.5 line-clamp-3 font-serif text-[13px] leading-6 text-foreground/75">
@@ -150,7 +151,9 @@ export function LibraryPage() {
       ) : null}
       {items && !items.length ? (
         <Empty>
-          {tag ? `还没有带「${tag}」标签的汤。` : t('还没有人公开过海龟汤，你可以第一个。')}
+          {tag
+            ? t('还没有带「{tag}」标签的汤。', { tag })
+            : t('还没有人公开过海龟汤，你可以第一个。')}
         </Empty>
       ) : null}
 

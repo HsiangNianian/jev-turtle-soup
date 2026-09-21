@@ -19,8 +19,14 @@ export function isInternalUrl(url: string, currentHost = window.location.host): 
   if (value.startsWith('/') && !value.startsWith('//')) return true
   if (!/^https?:\/\//i.test(value)) return false
   try {
-    const target = new URL(value).host.toLowerCase().replace(/^www\./, '').split(':')[0]
-    const current = currentHost.toLowerCase().replace(/^www\./, '').split(':')[0]
+    const target = new URL(value).host
+      .toLowerCase()
+      .replace(/^www\./, '')
+      .split(':')[0]
+    const current = currentHost
+      .toLowerCase()
+      .replace(/^www\./, '')
+      .split(':')[0]
     return target === current
   } catch {
     return false

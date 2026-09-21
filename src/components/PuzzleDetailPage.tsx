@@ -59,12 +59,12 @@ export function PuzzleDetailPage({
       title={puzzle.title}
       meta={
         <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-          游玩 {puzzle.plays} · 解开 {puzzle.solves}
+          {t('游玩 {plays} · 解开 {solves}', { plays: puzzle.plays, solves: puzzle.solves })}
         </span>
       }
     >
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-        <span className="border border-foreground/25 px-1.5 py-0.5">{puzzle.difficulty}</span>
+        <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         {puzzle.tags.map((tag) => (
           <span key={tag}>#{tag}</span>
         ))}

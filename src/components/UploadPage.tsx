@@ -125,7 +125,7 @@ export function UploadPage() {
                     : 'border-foreground/30 text-muted-foreground hover:text-foreground',
                 )}
               >
-                {value}
+                {t(value)}
               </button>
             ))}
           </span>
@@ -179,7 +179,7 @@ export function UploadPage() {
                     : 'border-foreground/30 text-muted-foreground hover:text-foreground',
                 )}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </span>
@@ -190,7 +190,7 @@ export function UploadPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => void submit()} disabled={busy || !ready}>
             {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            上传
+            {t('上传')}
           </Button>
           <Button variant="ghost" onClick={() => navigate('/me')}>
             {t('返回我的题库')}

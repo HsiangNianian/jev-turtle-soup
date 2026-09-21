@@ -54,14 +54,21 @@ export function AboutPage() {
         )}
       </p>
       <p className="mt-3 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-        它由 Meaningless Meaning Studio 的{' '}
-        <ExternalLink
-          href="https://academic.jyunko.cn"
-          className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-        >
-          {t('简律纯')}
-        </ExternalLink>{' '}
-        制作。
+        {t('它由 Meaningless Meaning Studio 的 {name} 制作。')
+          .split('{name}')
+          .map((part, index, parts) => (
+            <span key={index}>
+              {part}
+              {index < parts.length - 1 ? (
+                <ExternalLink
+                  href="https://academic.jyunko.cn"
+                  className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+                >
+                  {t('简律纯')}
+                </ExternalLink>
+              ) : null}
+            </span>
+          ))}
       </p>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
@@ -69,9 +76,13 @@ export function AboutPage() {
       </div>
       <ul className="mt-3 border-t border-foreground/20">
         {HOW_TO_PLAY.map((item) => (
-          <li key={t(item.step)} className="rule-dashed flex gap-4 py-3.5">
-            <span className="w-10 shrink-0 font-mono text-[11px] text-stamp">{t(item.step)}</span>
-            <span className="font-serif text-[14px] leading-7 text-foreground/80">{t(item.body)}</span>
+          <li key={t(item.step)} className="rule-dashed flex items-start gap-4 py-3.5">
+            <span className="w-20 shrink-0 pt-0.5 font-mono text-[11px] leading-5 break-words text-stamp sm:w-24">
+              {t(item.step)}
+            </span>
+            <span className="font-serif text-[14px] leading-7 text-foreground/80">
+              {t(item.body)}
+            </span>
           </li>
         ))}
       </ul>
@@ -81,16 +92,20 @@ export function AboutPage() {
       </div>
       <ul className="mt-3 border-t border-foreground/20">
         {DATA.map((item) => (
-          <li key={t(item.name)} className="rule-dashed flex gap-4 py-3.5">
-            <span className="w-24 shrink-0 font-serif text-[13px] text-muted-foreground">
+          <li key={t(item.name)} className="rule-dashed flex items-start gap-4 py-3.5">
+            <span className="w-20 shrink-0 pt-1 font-serif text-[13px] leading-6 break-words text-muted-foreground sm:w-28">
               {t(item.name)}
             </span>
-            <span className="font-serif text-[14px] leading-7 text-foreground/80">{t(item.body)}</span>
+            <span className="font-serif text-[14px] leading-7 text-foreground/80">
+              {t(item.body)}
+            </span>
           </li>
         ))}
       </ul>
       <p className="mt-4 border-l-2 border-l-foreground/40 bg-card px-4 py-3 font-serif text-[13px] leading-7 text-foreground/75">
-        {t('没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。')}
+        {t(
+          '没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。',
+        )}
       </p>
 
       <div className="mt-9">
@@ -98,7 +113,7 @@ export function AboutPage() {
           to="/"
           className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
         >
-          ← 回首页
+          {t('← 回首页')}
         </Link>
       </div>
     </PageShell>

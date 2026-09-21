@@ -82,7 +82,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
           </Field>
         ) : null}
 
-        {devCode ? <Notice>开发模式：验证码是 {devCode}</Notice> : null}
+        {devCode ? <Notice>{t('开发模式：验证码是 {code}', { code: devCode })}</Notice> : null}
         {error ? <Notice tone="stamp">{error}</Notice> : null}
 
         <div className="flex flex-wrap items-center gap-3">
@@ -90,7 +90,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
             <>
               <Button onClick={() => void submit()} disabled={busy || code.length !== 6}>
                 {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                登录
+                {t('登录')}
               </Button>
               <Button variant="ghost" onClick={() => void sendCode()} disabled={busy}>
                 {t('重新发送')}
@@ -99,7 +99,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
           ) : (
             <Button onClick={() => void sendCode()} disabled={busy || !email.includes('@')}>
               {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-              发送验证码
+              {t('发送验证码')}
             </Button>
           )}
         </div>

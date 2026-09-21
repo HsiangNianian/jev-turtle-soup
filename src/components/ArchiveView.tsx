@@ -35,7 +35,7 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
       <section className="flex min-h-0 flex-1 flex-col">
         <CaseDrawer
           title={game.title}
-          meta={`${STATUS_LABEL[game.status]} · 已问 ${game.turnCount} 轮`}
+          meta={`${t(STATUS_LABEL[game.status])} · ${t('已问 {turns} 轮', { turns: game.turnCount })}`}
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
         >
@@ -47,7 +47,7 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
             {t('讯问记录 / TRANSCRIPT')}
           </span>
           <span className="truncate font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-            {STATUS_LABEL[game.status]} · {formatWhen(game.updatedAt)}
+            {t(STATUS_LABEL[game.status])} · {formatWhen(game.updatedAt)}
           </span>
         </div>
 

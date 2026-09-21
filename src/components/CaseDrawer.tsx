@@ -37,7 +37,9 @@ export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDr
         aria-expanded={open}
         className="flex w-full shrink-0 items-center gap-3 border-b border-foreground px-4 py-3 text-left transition-colors active:bg-foreground/[0.04]"
       >
-        <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">{t('案卷')}</span>
+        <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">
+          {t('案卷')}
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-serif text-[15px] leading-6">{title}</span>
           <span className="mt-0.5 block font-mono text-[10px] tracking-[0.16em] text-muted-foreground">

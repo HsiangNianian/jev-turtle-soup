@@ -61,7 +61,7 @@ export function PuzzlePanel({
     <div className="flex min-h-full flex-col px-6 py-7 lg:px-8">
       <div className="flex items-start justify-between gap-4">
         <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-          案卷 NO.{caseNo}
+          {t('案卷 NO.{no}', { no: caseNo })}
         </div>
         <div className="flex items-center gap-2">
           {solved ? (
@@ -88,7 +88,7 @@ export function PuzzlePanel({
       <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{session.surface}</p>
 
       <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-t border-dashed border-foreground/25 pt-4">
-        <Field label={t('等级')} value={session.difficulty} />
+        <Field label={t('等级')} value={t(session.difficulty)} />
         <Field
           label={t('来源')}
           value={
@@ -99,7 +99,7 @@ export function PuzzlePanel({
                 : t('经典存档')
           }
         />
-        <Field label={t('已问')} value={`${turnCount} 轮`} />
+        <Field label={t('已问')} value={t('{turns} 轮', { turns: turnCount })} />
         {progress !== null ? <Field label={t('接近度')} value={`${progress}%`} /> : null}
       </div>
 

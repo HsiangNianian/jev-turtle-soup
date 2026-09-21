@@ -40,7 +40,12 @@ export function ExternalLink({
   className?: string
   children: ReactNode
 }) {
-  if (isInternalUrl(href)) return <Link to={href} className={className}>{children}</Link>
+  if (isInternalUrl(href))
+    return (
+      <Link to={href} className={className}>
+        {children}
+      </Link>
+    )
 
   const to = externalHref(href)
   return (

@@ -489,7 +489,10 @@ export default function App() {
           <section className="flex min-h-0 flex-1 flex-col">
             <CaseDrawer
               title={session.title}
-              meta={`等级 ${session.difficulty} · 已问 ${turnCount} 轮`}
+              meta={t('等级 {level} · 已问 {turns} 轮', {
+                level: session.difficulty,
+                turns: turnCount,
+              })}
               open={drawerOpen}
               onOpenChange={setDrawerOpen}
             >
@@ -623,7 +626,7 @@ export default function App() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-20 shrink-0 bg-bar text-bar-foreground">
-        <div className="mx-auto flex h-12 w-full items-center gap-3 px-4 sm:px-6">
+        <div className="mx-auto flex h-12 w-full min-w-0 items-center gap-2 px-4 sm:gap-3 sm:px-6">
           {path !== '/' ? (
             <button
               type="button"
@@ -634,14 +637,17 @@ export default function App() {
               <ArrowLeft className="size-4" />
             </button>
           ) : null}
-          <Link to="/" className="shrink-0 font-mono text-[12px] font-bold tracking-[0.24em]">
+          <Link
+            to="/"
+            className="min-w-0 truncate font-mono text-[11px] font-bold tracking-[0.18em] sm:text-[12px] sm:tracking-[0.24em]"
+          >
             {t('海龟汤调查局')}
           </Link>
           <span className="hidden font-mono text-[10px] tracking-[0.24em] opacity-55 sm:inline">
             / TURTLE SOUP BUREAU
           </span>
 
-          <div className="ml-auto flex shrink-0 items-center gap-3 font-mono text-[10px] tracking-[0.2em] sm:gap-4">
+          <div className="ml-auto flex shrink-0 items-center gap-2 font-mono text-[10px] tracking-[0.16em] sm:gap-4 sm:tracking-[0.2em]">
             <Link
               to="/library"
               className={cn(
@@ -663,7 +669,7 @@ export default function App() {
                 ) : (
                   <RotateCcw className="size-3.5" />
                 )}
-                {t('重新立案')}
+                <span className="hidden sm:inline">{t('重新立案')}</span>
               </button>
             ) : null}
             <ThemeToggle />
@@ -672,7 +678,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => navigate('/me')}
-                className="max-w-[7rem] truncate tracking-[0.16em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem]"
+                className="max-w-[4.5rem] truncate tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:tracking-[0.16em]"
               >
                 {user.name || user.email}
               </button>
@@ -697,7 +703,7 @@ export default function App() {
           <TriangleAlert className="size-3.5 shrink-0" />
           <span className="min-w-0">
             {typesafeMissing ? (
-              <>未检测到主持人密钥（TYPESAFE_API_KEY），砚无法工作。请配置后重启。</>
+              <>{t('未检测到主持人密钥（TYPESAFE_API_KEY），砚无法工作。请配置后重启。')}</>
             ) : (
               <>
                 未配置 LLM API Key（DEEPSEEK_API_KEY /

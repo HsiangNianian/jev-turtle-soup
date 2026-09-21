@@ -31,8 +31,7 @@ export function renderInline(source: string): ReactNode[] {
   const patterns: Array<{ re: RegExp; render: (m: RegExpExecArray) => ReactNode }> = [
     {
       re: /\[([^\]]+)\]\(\s*([^)\s]+)\s*\)/,
-      render: (m) =>
-        isSafeUrl(m[2]) ? linkNode(`l${key++}`, m[2], m[1]) : m[0],
+      render: (m) => (isSafeUrl(m[2]) ? linkNode(`l${key++}`, m[2], m[1]) : m[0]),
     },
     { re: /\*\*([^*]+)\*\*/, render: (m) => createElement('strong', { key: `b${key++}` }, m[1]) },
     { re: /~~([^~]+)~~/, render: (m) => createElement('del', { key: `s${key++}` }, m[1]) },
@@ -47,8 +46,11 @@ export function renderInline(source: string): ReactNode[] {
   ]
 
   while (rest) {
-    let earliest: { index: number; match: RegExpExecArray; pattern: (typeof patterns)[number] } | null =
-      null
+    let earliest: {
+      index: number
+      match: RegExpExecArray
+      pattern: (typeof patterns)[number]
+    } | null = null
     for (const pattern of patterns) {
       const match = pattern.re.exec(rest)
       if (match && (earliest === null || (match.index ?? 0) < earliest.index)) {

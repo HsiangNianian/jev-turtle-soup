@@ -17,7 +17,9 @@ export function MePage({ handle, onLogout }: { handle: string; onLogout: () => v
   useEffect(() => {
     listMyPuzzles()
       .then(setItems)
-      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('加载失败')))
+      .catch((caught: unknown) =>
+        setError(caught instanceof Error ? caught.message : t('加载失败')),
+      )
   }, [t])
 
   async function toggle(puzzle: OwnPuzzle) {
@@ -36,7 +38,7 @@ export function MePage({ handle, onLogout }: { handle: string; onLogout: () => v
   }
 
   async function remove(puzzle: OwnPuzzle) {
-    if (!window.confirm(`删除《${puzzle.title}》？删除后无法恢复。`)) return
+    if (!window.confirm(t('删除《{title}》？删除后无法恢复。', { title: puzzle.title }))) return
     setBusyId(puzzle.id)
     try {
       await deletePuzzle(puzzle.id)
@@ -57,7 +59,7 @@ export function MePage({ handle, onLogout }: { handle: string; onLogout: () => v
           to={`/u/${handle}`}
           className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
         >
-          查看我的主页 →
+          {t('查看我的主页 →')}
         </Link>
       }
     >

@@ -36,6 +36,7 @@ const STAMP_TONE: Record<GameStatus, string> = {
 }
 
 function StatusStamp({ status }: { status: GameStatus }) {
+  const { t } = useI18n()
   return (
     <span
       className={cn(
@@ -43,7 +44,7 @@ function StatusStamp({ status }: { status: GameStatus }) {
         STAMP_TONE[status],
       )}
     >
-      {STATUS_LABEL[status]}
+      {t(STATUS_LABEL[status])}
     </span>
   )
 }
@@ -149,9 +150,9 @@ export function Landing({
               <div className="px-4 py-5 sm:px-5">
                 <h2 className="font-serif text-2xl leading-snug font-semibold">{game.title}</h2>
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-                  <span>等级 {game.difficulty}</span>
-                  <span>已问 {game.turnCount} 轮</span>
-                  <span>更新 {formatWhen(game.updatedAt)}</span>
+                  <span>{t('等级 {level}', { level: t(game.difficulty) })}</span>
+                  <span>{t('已问 {turns} 轮', { turns: game.turnCount })}</span>
+                  <span>{t('更新 {when}', { when: formatWhen(game.updatedAt) })}</span>
                 </div>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
                   <button
@@ -195,9 +196,9 @@ export function Landing({
                   )}
                 >
                   <div className="font-mono text-[10px] tracking-[0.2em] opacity-60">
-                    等级 0{index + 1}
+                    {t('等级 0{n}', { n: index + 1 })}
                   </div>
-                  <div className="mt-1.5 font-serif text-base">{item.value}</div>
+                  <div className="mt-1.5 font-serif text-base">{t(item.value)}</div>
                   <div className="mt-0.5 font-mono text-[10px] opacity-55">{t(item.hint)}</div>
                 </button>
               ))}
@@ -308,7 +309,7 @@ export function Landing({
               {t('档案室 / ARCHIVE')}
             </span>
             <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/70">
-              {String(archives.length).padStart(2, '0')} 卷
+              {t('{count} 卷', { count: String(archives.length).padStart(2, '0') })}
               {archives.length > 5 ? t(' · 可上下滑动') : ''}
             </span>
           </div>
@@ -320,7 +321,7 @@ export function Landing({
                 {confirmingId === game.id ? (
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-2">
                     <span className="font-serif text-[13px] text-muted-foreground">
-                      删除《{game.title}》？删除后无法恢复。
+                      {t('删除《{title}》？删除后无法恢复。', { title: game.title })}
                     </span>
                     <button
                       type="button"
@@ -357,14 +358,17 @@ export function Landing({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-serif text-[15px]">{game.title}</span>
                         <span className="mt-0.5 block font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-                          {formatWhen(game.updatedAt)} · 已问 {game.turnCount} 轮
+                          {t('{when} · 已问 {turns} 轮', {
+                            when: formatWhen(game.updatedAt),
+                            turns: game.turnCount,
+                          })}
                         </span>
                       </span>
                       <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
                     </button>
                     <button
                       type="button"
-                      aria-label={`删除《${game.title}》`}
+                      aria-label={t('删除《{title}》', { title: game.title })}
                       onClick={() => requestDelete(game.id)}
                       className="flex size-8 shrink-0 items-center justify-center border border-transparent text-muted-foreground/50 transition-colors hover:border-stamp hover:text-stamp"
                     >

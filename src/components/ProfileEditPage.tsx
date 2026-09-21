@@ -28,7 +28,9 @@ export function ProfileEditPage() {
         setBio(next.bio)
         setProfilePublic(next.profilePublic)
       })
-      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('加载失败')))
+      .catch((caught: unknown) =>
+        setError(caught instanceof Error ? caught.message : t('加载失败')),
+      )
   }, [t])
 
   async function save() {
@@ -89,7 +91,9 @@ export function ProfileEditPage() {
             className={`${inputClass} resize-none leading-7`}
           />
           <span className="mt-2 block font-mono text-[10px] leading-5 tracking-[0.12em] text-muted-foreground">
-            {t('支持 **加粗**、*斜体*、~~删除线~~、[文字](链接)，链接和网址会自动变成可点的站外链接。')}
+            {t(
+              '支持 **加粗**、*斜体*、~~删除线~~、[文字](链接)，链接和网址会自动变成可点的站外链接。',
+            )}
           </span>
           {bio.trim() ? (
             <span className="mt-2 block border-l-2 border-foreground/25 bg-card px-3 py-2 font-serif text-[14px] leading-7 text-foreground/80">
@@ -114,7 +118,9 @@ export function ProfileEditPage() {
           <span className="min-w-0">
             <span className="block font-serif text-[14px]">{t('公开我的主页')}</span>
             <span className="mt-0.5 block font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-              关闭后别人打不开 /u/{handle || '…'}，你的公开题也不会列出来
+              {t('关闭后别人打不开 /u/{handle}，你的公开题也不会列出来', {
+                handle: handle || '…',
+              })}
             </span>
           </span>
         </button>
@@ -125,7 +131,7 @@ export function ProfileEditPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => void save()} disabled={busy}>
             {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            保存
+            {t('保存')}
           </Button>
           <Button variant="ghost" onClick={() => navigate('/me')}>
             {t('返回我的题库')}

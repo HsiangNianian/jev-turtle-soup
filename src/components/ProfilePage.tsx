@@ -9,7 +9,7 @@ import { Link } from '@/components/Link'
 import { useI18n } from '@/lib/i18n'
 
 export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolean }) {
-  const { t } = useI18n()
+  const { t, formatDate } = useI18n()
   const [profile, setProfile] = useState<PublicProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -65,7 +65,7 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
       ) : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-        <span>加入于 {new Date(profile.createdAt).toLocaleDateString('zh-CN')}</span>
+        <span>{t('加入于 {date}', { date: formatDate(profile.createdAt) })}</span>
         {isSelf ? (
           <Link to="/me/profile" className="transition-colors hover:text-foreground">
             {t('编辑资料')}
@@ -97,7 +97,7 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
                   className="rule-dashed flex items-center gap-3 py-3.5 transition-colors hover:bg-foreground/[0.03]"
                 >
                   <span className="shrink-0 border border-foreground/25 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                    {puzzle.difficulty}
+                    {t(puzzle.difficulty)}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-serif text-[15px]">{puzzle.title}</span>

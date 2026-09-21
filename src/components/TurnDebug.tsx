@@ -86,17 +86,21 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
     <details className="group mt-2.5">
       <summary className="flex w-fit cursor-pointer list-none items-center gap-1 py-0.5 font-mono text-[10px] tracking-[0.14em] text-muted-foreground/55 transition-colors hover:text-muted-foreground">
         <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
-        判读明细 · {intent} · {tag}
+        {t('判读明细 · {intent} · {tag}', { intent, tag })}
       </summary>
       <div className="mt-2.5 space-y-3.5 border-l border-dashed border-foreground/15 pl-3.5">
-        <Section title={`意图 INTENT · 置信度 ${debug.intent.confidence.toFixed(2)}`}>
+        <Section
+          title={t('意图 INTENT · 置信度 {value}', { value: debug.intent.confidence.toFixed(2) })}
+        >
           <Bars
             probabilities={debug.intent.probabilities}
             labels={INTENT_LABEL}
             highlight={debug.intent.choice}
           />
         </Section>
-        <Section title={`回答 VERDICT · 置信度 ${debug.verdict.confidence.toFixed(2)}`}>
+        <Section
+          title={t('回答 VERDICT · 置信度 {value}', { value: debug.verdict.confidence.toFixed(2) })}
+        >
           <Bars
             probabilities={debug.verdict.probabilities}
             labels={VERDICT_LABEL}

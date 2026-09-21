@@ -290,7 +290,7 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
       >
         <span
           ref={probeRef}
-          className="invisible block font-serif font-black whitespace-nowrap tracking-[-0.02em] tabular-nums"
+          className="invisible block w-max font-serif font-black whitespace-nowrap tracking-[-0.02em] tabular-nums"
           style={{ fontSize: `${PROBE_PX}px` }}
         >
           {toText}
@@ -328,6 +328,12 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
           ref={sizeRef}
           className="relative inline-block h-[1.3em] overflow-hidden text-center whitespace-nowrap align-bottom font-serif text-[2rem] leading-none font-black tracking-[-0.02em] tabular-nums"
         >
+          {/*
+            在流里的量宽层：所有真正的字都是绝对定位的，没有一个在流里的话
+            这个 inline-block 会塌成 0 宽，字全被 overflow-hidden 裁掉。
+            宽度随后由 useFitText 钉死，所以它不会把盒子撑大。
+          */}
+          <span className="invisible block">{toText}</span>
           {fromText ? (
             <span
               key={`out-${frame.id}`}

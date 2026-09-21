@@ -362,6 +362,7 @@ export function Landing({
         >
           <Link
             to="/library"
+            prefetchOnView
             className="flex items-center gap-2.5 border border-foreground px-5 py-3 font-mono text-[11px] font-bold tracking-[0.2em] transition-colors hover:bg-foreground hover:text-background"
           >
             {t('去题库挑一碗')} <ArrowRight className="size-3.5" />

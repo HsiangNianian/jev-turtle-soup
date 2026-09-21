@@ -14,7 +14,6 @@ export const en: Record<string, string> = {
   '不需要密码。填邮箱收一封 6 位验证码，验证后就能上传自己的海龟汤、管理题库和作者主页。':
     'No password. Enter your email, we send a six-digit code, and then you can publish puzzles and manage your library and author page.',
   '个人简介': 'Bio',
-  中: 'solved',
   中止本案: 'Abandon',
   '中止本案？记录会留在档案室，但不能再继续讯问。':
     'Abandon this case? It stays in the archive, but you cannot keep questioning.',
@@ -56,7 +55,6 @@ export const en: Record<string, string> = {
   别人熬的汤: 'Bowls brewed by others',
   '题库里的汤': 'From the library',
   加载失败: 'Could not load',
-  半: 'partly',
   去题库挑一碗: 'Pick one from the library',
   反馈: 'Report',
   '反馈已收到，谢谢。': 'Report received — thank you.',

@@ -47,7 +47,7 @@ import {
   getPublicPuzzle,
   listOwnPuzzles,
   listPublicPuzzles,
-  listTags,
+  searchPublicPuzzles,
   revealLibraryPuzzle,
   scoreUnscoredPuzzles,
   updateProfile,
@@ -381,7 +381,7 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
     const body = await readJson(request)
     const email = normaliseEmail(body.email)
     if (!email) throw new ApiError(400, '请输入有效的邮箱地址')
-    const result = await requestCode(deps, email)
+    const result = await requestCode(deps, email, body.locale)
     return json({ ok: true, sent: result.sent, code: result.code })
   }
 
@@ -423,7 +423,6 @@ async function routeLibrary(
         limit: Number(url.searchParams.get('limit') ?? 20),
         offset: Number(url.searchParams.get('offset') ?? 0),
         query: url.searchParams.get('q') ?? '',
-        tag: url.searchParams.get('tag') ?? '',
         genre: Number.isFinite(genre) ? genre : undefined,
       })
       return json({ items })
@@ -435,6 +434,23 @@ async function routeLibrary(
       return json(await createPuzzle(env, db, current.uid, body))
     }
     return json({ error: '方法不被允许' }, 405)
+  }
+
+  // 语义重排：关键字检索已经在 GET 里返回过了，这里再让 Jev 把候选重新排一次。
+  // 单独一个 POST 是为了不把模型调用塞进「边打字边搜」的那条路上。
+  if (pathname === '/api/library/search/rerank') {
+    if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+    const body = await readJson(request)
+    const query = typeof body.q === 'string' ? body.q : ''
+    if (!query.trim()) return json({ items: [] })
+    const rawGenre = body.genre
+    const genre = typeof rawGenre === 'number' && Number.isFinite(rawGenre) ? rawGenre : undefined
+    const items = await searchPublicPuzzles(env, db, {
+      sort: typeof body.sort === 'string' ? body.sort : 'new',
+      query,
+      genre,
+    })
+    return json({ items })
   }
 
   if (!pathname.startsWith('/api/library/puzzles/')) return null
@@ -672,11 +688,6 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
         locale: typeof body.locale === 'string' ? body.locale : '',
       }),
     )
-  }
-
-  if (pathname === '/api/library/tags') {
-    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
-    return json({ items: await listTags(requireDb(env)) })
   }
 
   const library = await routeLibrary(request, env, pathname, url)

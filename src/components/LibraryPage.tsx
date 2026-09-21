@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Loader2, Search } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Loader2, Search } from 'lucide-react'
 
 import { Empty, PageShell, inputClass } from '@/components/Bits'
 
-import { SUPERNATURAL_TAG, listPuzzles, listTags, type LibraryPuzzle } from '@/lib/library-client'
+import { listPuzzles, rerankPuzzles, type LibraryPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
 import { useI18n } from '@/lib/i18n'
 
-/** 「怪力乱神」常驻第一个，加上数量最高的九个，一共十格。 */
-const TAG_SLOTS = 10
-
 /** 滑块的默认位置：居中 = 不挑题材，列表还是按 最新 / 最热 排。 */
 const GENRE_NEUTRAL = 50
+
+/** 打完字停多久才让 Jev 重排。重排是一次模型调用，不能跟着每一次按键跑。 */
+const RERANK_DELAY_MS = 700
 
 function genreLabel(score: number | null, t: (key: string) => string): string | null {
   if (typeof score !== 'number') return null
@@ -51,56 +51,64 @@ export function LibraryPage() {
   const [items, setItems] = useState<LibraryPuzzle[] | null>(null)
   const [sort, setSort] = useState<'new' | 'hot'>('new')
   const [query, setQuery] = useState('')
-  const [tag, setTag] = useState<string | null>(null)
-  const [tags, setTags] = useState<{ tag: string; count: number }[]>([])
-  const [tagsOpen, setTagsOpen] = useState(false)
   const [genre, setGenre] = useState(GENRE_NEUTRAL)
   const [error, setError] = useState<string | null>(null)
+  // 语义重排是异步补上的：先给关键字结果，重排回来再换一次顺序
+  const [reranking, setReranking] = useState(false)
+  const [reranked, setReranked] = useState(false)
+  const rerankToken = useRef(0)
 
   // 居中 = 不挑题材；一旦拖动就让服务端按「离这个位置多近」排序
   const genreFilter = genre === GENRE_NEUTRAL ? undefined : genre
 
-  useEffect(() => {
-    listTags()
-      .then(setTags)
-      .catch(() => setTags([]))
-  }, [])
+  const search = useCallback(
+    async (text: string, signal: { alive: boolean }) => {
+      const trimmed = text.trim()
+      let keywords: LibraryPuzzle[] = []
+      try {
+        keywords = await listPuzzles({ sort, q: trimmed, genre: genreFilter })
+        if (!signal.alive) return
+        setItems(keywords)
+        setError(null)
+      } catch (caught) {
+        if (signal.alive) setError(caught instanceof Error ? caught.message : t('加载失败'))
+        return
+      }
+      if (signal.alive) {
+        setReranked(false)
+        setReranking(false)
+      }
+
+      // 关键字结果先上屏；停手之后再让 Jev 把这一批候选重排
+      if (trimmed.length < 2 || keywords.length < 2) return
+      const token = (rerankToken.current += 1)
+      window.setTimeout(async () => {
+        if (!signal.alive || token !== rerankToken.current) return
+        setReranking(true)
+        try {
+          const ranked = await rerankPuzzles({ sort, q: trimmed, genre: genreFilter })
+          if (!signal.alive || token !== rerankToken.current) return
+          setItems(ranked)
+          setReranked(true)
+        } catch {
+          /* 重排失败就保持关键字顺序，不打扰用户 */
+        } finally {
+          if (signal.alive && token === rerankToken.current) setReranking(false)
+        }
+      }, RERANK_DELAY_MS)
+    },
+    [sort, genreFilter, t],
+  )
 
   useEffect(() => {
-    let alive = true
-    // 拖动时每一帧都发请求太浪费，压到 120ms：手感上还是「实时」
-    const timer = setTimeout(
-      () => {
-        listPuzzles({ sort, q: query.trim(), tag: tag ?? undefined, genre: genreFilter })
-          .then((next) => {
-            if (alive) {
-              setItems(next)
-              setError(null)
-            }
-          })
-          .catch((caught: unknown) => {
-            if (alive) setError(caught instanceof Error ? caught.message : t('加载失败'))
-          })
-      },
-      query ? 250 : genreFilter === undefined ? 0 : 120,
-    )
+    const signal = { alive: true }
+    // 打字时每一帧都发请求太浪费，压到 220ms
+    const timer = setTimeout(() => void search(query, signal), query ? 220 : 0)
     return () => {
-      alive = false
+      signal.alive = false
       clearTimeout(timer)
     }
-  }, [sort, query, tag, genreFilter, t])
-
-  const chipTags = useMemo(
-    () => [
-      {
-        tag: SUPERNATURAL_TAG,
-        count: tags.find((item) => item.tag === SUPERNATURAL_TAG)?.count ?? 0,
-      },
-      // 怪力乱神固定占一个位置，其余按使用数取前九个
-      ...tags.filter((item) => item.tag !== SUPERNATURAL_TAG).slice(0, TAG_SLOTS - 1),
-    ],
-    [tags],
-  )
+  }, [query, search])
 
   return (
     <PageShell
@@ -131,8 +139,12 @@ export function LibraryPage() {
           <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
             {t('题材坐标')}
           </span>
-          <span className="font-mono text-[11px] tracking-[0.14em] tabular-nums text-stamp">
-            {genreFilter === undefined ? t('居中 · 不限') : genreLabel(genre, t)}
+          <span className="font-mono text-[11px] tracking-[0.16em] tabular-nums">
+            {genreFilter === undefined ? (
+              <span className="text-muted-foreground">{t('居中 · 不限')}</span>
+            ) : (
+              genreLabel(genre, t)
+            )}
           </span>
         </div>
 
@@ -144,7 +156,8 @@ export function LibraryPage() {
           value={genre}
           aria-label={t('题材坐标')}
           onChange={(event) => setGenre(Number(event.target.value))}
-          className="genre-range mt-3"
+          style={{ '--fill': `${genre}%` } as React.CSSProperties}
+          className="genre-range mt-4"
         />
 
         <div className="flex items-start justify-between gap-4 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
@@ -157,51 +170,19 @@ export function LibraryPage() {
         <Search className="size-4 shrink-0 text-muted-foreground" />
         <input
           value={query}
-          placeholder={t('按标题搜索……')}
+          placeholder={t('搜索标题、汤面、标签或作者……')}
           onChange={(event) => setQuery(event.target.value)}
           className={inputClass}
         />
-      </div>
-
-      <div className="mt-3">
-        <button
-          type="button"
-          onClick={() => setTagsOpen((open) => !open)}
-          className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronDown className={cn('size-3.5 transition-transform', tagsOpen && 'rotate-180')} />
-          {tagsOpen ? t('收起标签') : t('按标签筛选')}
-          {tag ? <span className="text-stamp">· {tag}</span> : null}
-        </button>
-
-        {tagsOpen ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {chipTags.map((item) => (
-              <button
-                key={item.tag}
-                type="button"
-                onClick={() => setTag((current) => (current === item.tag ? null : item.tag))}
-                className={cn(
-                  'border px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] transition-colors',
-                  tag === item.tag
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-foreground/30 text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {item.tag}
-                {item.count ? <span className="ml-1.5 opacity-60">{item.count}</span> : null}
-              </button>
-            ))}
-            {tag ? (
-              <button
-                type="button"
-                onClick={() => setTag(null)}
-                className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {t('清除筛选')}
-              </button>
-            ) : null}
-          </div>
+        {reranking ? (
+          <span className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            {t('语义重排中…')}
+          </span>
+        ) : reranked ? (
+          <span className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+            {t('已按语义重排')}
+          </span>
         ) : null}
       </div>
 
@@ -213,8 +194,8 @@ export function LibraryPage() {
       ) : null}
       {items && !items.length ? (
         <Empty>
-          {tag
-            ? t('还没有带「{tag}」标签的汤。', { tag })
+          {query.trim()
+            ? t('没有找到相关的汤，换个说法试试。')
             : t('还没有人公开过海龟汤，你可以第一个。')}
         </Empty>
       ) : null}

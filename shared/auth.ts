@@ -239,20 +239,67 @@ function rateKey(email: string): string {
   return `otp:rate:${email}`
 }
 
-async function sendCodeEmail(deps: AuthDeps, email: string, code: string): Promise<boolean> {
+/** 登录邮件按界面语言发：中文用户收到中文，英文用户收到英文。 */
+type MailLocale = 'zh-CN' | 'en' | 'ja'
+
+interface MailCopy {
+  name: string
+  subject: (code: string) => string
+  text: (code: string) => string
+  intro: string
+  valid: string
+}
+
+export const MAIL_COPY: Record<MailLocale, MailCopy> = {
+  'zh-CN': {
+    name: '海龟汤调查局',
+    subject: (code) => `【海龟汤调查局】登录验证码 ${code}`,
+    text: (code) => `你的登录验证码是 ${code}，10 分钟内有效。如果不是你本人操作，请忽略这封邮件。`,
+    intro: '你的登录验证码是：',
+    valid: '10 分钟内有效。如果不是你本人操作，请忽略这封邮件。',
+  },
+  en: {
+    name: 'Turtle Soup Bureau',
+    subject: (code) => `[Turtle Soup Bureau] Your sign-in code ${code}`,
+    text: (code) =>
+      `Your sign-in code is ${code}. It is valid for 10 minutes. If this was not you, just ignore this email.`,
+    intro: 'Your sign-in code is:',
+    valid: 'It is valid for 10 minutes. If this was not you, just ignore this email.',
+  },
+  ja: {
+    name: '海亀スープ調査局',
+    subject: (code) => `【海亀スープ調査局】ログイン認証コード ${code}`,
+    text: (code) =>
+      `ログイン認証コードは ${code} です。10 分間有効です。心当たりがなければ、このメールは無視してください。`,
+    intro: 'ログイン認証コードはこちらです：',
+    valid: '10 分間有効です。心当たりがなければ、このメールは無視してください。',
+  },
+}
+
+function mailLocale(value: unknown): MailLocale {
+  return value === 'en' || value === 'ja' ? value : 'zh-CN'
+}
+
+async function sendCodeEmail(
+  deps: AuthDeps,
+  email: string,
+  code: string,
+  locale: MailLocale,
+): Promise<boolean> {
   if (!deps.email) return false
-  const fromName = deps.fromName ?? '海龟汤调查局'
-  const text = `你的登录验证码是 ${code}，10 分钟内有效。如果不是你本人操作，请忽略这封邮件。`
+  const copy = MAIL_COPY[locale]
+  const fromName = deps.fromName ?? copy.name
+  const text = copy.text(code)
   try {
     await deps.email.send({
       to: email,
       from: { email: deps.fromEmail, name: fromName },
-      subject: `【海龟汤调查局】登录验证码 ${code}`,
+      subject: copy.subject(code),
       text,
       html: `<div style="font-family:ui-monospace,Menlo,monospace;line-height:1.9;color:#17150f">
-      <p>你的登录验证码是：</p>
+      <p>${copy.intro}</p>
       <p style="font-size:28px;font-weight:700;letter-spacing:.3em">${code}</p>
-      <p style="color:#8c8677">10 分钟内有效。如果不是你本人操作，请忽略这封邮件。</p>
+      <p style="color:#8c8677">${copy.valid}</p>
     </div>`,
     })
     return true
@@ -267,6 +314,7 @@ async function sendCodeEmail(deps: AuthDeps, email: string, code: string): Promi
 export async function requestCode(
   deps: AuthDeps,
   email: string,
+  locale: unknown = 'zh-CN',
 ): Promise<{ ok: true; sent: boolean; code?: string }> {
   const attempts = Number((await deps.kv.get(rateKey(email))) ?? '0')
   if (attempts >= OTP_MAX_REQUESTS) {
@@ -280,7 +328,7 @@ export async function requestCode(
   })
   await deps.kv.put(rateKey(email), String(attempts + 1), { expirationTtl: OTP_TTL_SECONDS })
 
-  const sent = await sendCodeEmail(deps, email, code)
+  const sent = await sendCodeEmail(deps, email, code, mailLocale(locale))
   if (!sent && !deps.exposeCode) {
     throw new ApiError(503, '邮件服务尚未配置，请联系管理员')
   }

@@ -106,7 +106,6 @@ export const en: Record<string, string> = {
   '找不到这一卷。': 'This case does not exist.',
   找不到这个作者: 'Author not found',
   拆封汤底: 'Unseal the truth',
-  '按标题搜索……': 'Search by title…',
   '挑一个难度，再想想这碗汤要不要沾点鬼神，AI 就会写出一则完整的海龟汤。它分成两半：摆在你面前的怪事叫「汤面」，藏起来的真相叫「汤底」。':
     'Pick a difficulty, decide whether ghosts are allowed, and the AI writes a whole puzzle. It has two halves: the odd line you see is the surface, and the hidden answer is the truth.',
   接近度: 'Closeness',
@@ -164,7 +163,6 @@ export const en: Record<string, string> = {
     'Turtle soup is a guessing game: you get one strange line and may only ask yes-or-no questions until the story behind it comes out. No human hosts here — the AI writes the puzzle and judges your questions.',
   海龟汤调查局: 'Turtle Soup Bureau',
   深色: 'dark',
-  清除筛选: 'Clear filter',
   游戏请求: 'meta request',
   烤死线: 'DDL Roast',
   '玩家求提示时主持人会说这句。': 'The host says this when a player asks for a hint.',
@@ -201,7 +199,6 @@ export const en: Record<string, string> = {
   '还没有上传过。点「上传新汤」写一个吧。': 'Nothing uploaded yet — add your first puzzle.',
   '还没有人公开过海龟汤，你可以第一个。': 'Nobody has published a puzzle yet. Be the first.',
   '还没有公开的海龟汤。': 'No public puzzles yet.',
-  '还没有带「{tag}」标签的汤。': 'No puzzles tagged “{tag}” yet.',
   '还没有开案。': 'No case open yet.',
   '这个游戏怎么玩？': 'How do I play this?',
   '这位作者把主页设为私密了。': 'This author keeps their profile private.',
@@ -313,8 +310,6 @@ export const en: Record<string, string> = {
   '居中 · 不限': 'Centred · any',
   '本格度': 'Orthodox',
   '变格度': 'Weird',
-  '按标签筛选': 'Filter by tag',
-  '收起标签': 'Hide tags',
   '每 30 天可改一次 · 下次可改 {date}': 'Changeable once every 30 days · next on {date}',
   '每年可改一次 · 下次可改 {date}': 'Changeable once a year · next on {date}',
   '昵称和简介 30 天可以改一次，主页地址一年可以改一次；没改过的不受限。':
@@ -325,4 +320,8 @@ export const en: Record<string, string> = {
   '本格·逻辑推理': 'Orthodox · deduction',
   '变格·怪力乱神': 'Weird · supernatural',
   '{count}/300': '{count}/300',
+  '搜索标题、汤面、标签或作者……': 'Search titles, surfaces, tags or authors…',
+  '语义重排中…': 'Re-ranking…',
+  '已按语义重排': 'Re-ranked by meaning',
+  '没有找到相关的汤，换个说法试试。': 'Nothing matched — try different words.',
 }

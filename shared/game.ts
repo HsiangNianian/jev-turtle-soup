@@ -1132,6 +1132,79 @@ function getClient(env: GameEnv) {
   return new TypeSafeClient(apiKey ? { apiKey } : {})
 }
 
+export interface RerankCandidate {
+  id: string
+  title: string
+  surface: string
+  tags: string[]
+  author: string
+}
+
+/**
+ * 检索后重排：拿关键字检索出来的候选，逐个问一个 Noul「这道汤有没有可能就是
+ * `query` 在找的那道」，用 0–1 的分数重新排序。
+ *
+ * 这正是 TypeSafe cookbook 的 rerank 场景：快检索负责「从一堆里捞出候选」，
+ * 模型只负责「把候选择出正确的顺序」。所有候选打包在**一次**请求里，问题之间
+ * 互不可见、并行判定，所以每次搜索只花一次调用。
+ * 没有密钥或判定失败时返回 null，调用方保留原来的关键字顺序。
+ */
+export async function rerankCandidates(
+  env: GameEnv,
+  query: string,
+  candidates: RerankCandidate[],
+): Promise<Map<string, number> | null> {
+  if (!env.TYPESAFE_API_KEY?.trim()) return null
+  if (candidates.length < 2) return null
+
+  try {
+    const state = {
+      query,
+      candidates: candidates.map((candidate) => ({
+        title: candidate.title,
+        surface: candidate.surface,
+        tags: candidate.tags,
+        author: candidate.author,
+      })),
+    }
+    const questions: Record<string, ReturnType<typeof noul>> = {}
+    candidates.forEach((_, index) => {
+      questions[`c${index}`] = noul(
+        {
+          question: `Could \`candidates[${index}]\` be the turtle-soup puzzle the searcher is looking for, given \`query\`?`,
+          compare: [
+            'query',
+            `candidates[${index}].title`,
+            `candidates[${index}].surface`,
+            `candidates[${index}].tags`,
+            `candidates[${index}].author`,
+          ],
+          focus:
+            'Judge the topic the searcher is after: would someone read this puzzle and say "yes, this is the kind of thing I searched for"? A shared common word, or a much broader subject, is not a match. The query may name a motif (病因、密室、雨夜), an author, or describe a plot; compare against whichever part of the candidate answers it.',
+        },
+        {
+          true: 'The title, surface, tags or author is what the query describes.',
+          false: 'Only a word in common, or a noticeably broader subject.',
+        },
+      )
+    })
+
+    const { answers } = await getClient(env).systemOne({
+      state: state as unknown as EntryType,
+      questions,
+    })
+    const scores = new Map<string, number>()
+    candidates.forEach((candidate, index) => {
+      const answer = (answers as Record<string, { noul?: number } | undefined>)[`c${index}`]
+      scores.set(candidate.id, typeof answer?.noul === 'number' ? answer.noul : 0)
+    })
+    return scores
+  } catch (error) {
+    console.warn('[turtle-soup] 语义重排失败：', error)
+    return null
+  }
+}
+
 export function health(env: GameEnv) {
   const llm = resolveLlm(env)
   return {

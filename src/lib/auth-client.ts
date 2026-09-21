@@ -25,10 +25,10 @@ export async function fetchMe(): Promise<AuthUser | null> {
   return data.user
 }
 
-export function requestLoginCode(email: string) {
+export function requestLoginCode(email: string, locale: string) {
   return request<{ ok: boolean; sent: boolean; code?: string }>('/api/auth/request', {
     method: 'POST',
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, locale }),
   })
 }
 

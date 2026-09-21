@@ -1,6 +1,6 @@
 import type { AskContext, HostTurn } from '@/lib/api'
 
-/** 怪力乱神：既是出题题材，也是一个可筛选的标签。 */
+/** 怪力乱神：出题时的一个预设标签（题库不再按标签筛选，搜索框直接搜标签）。 */
 export const SUPERNATURAL_TAG = '怪力乱神'
 
 export interface OwnerInfo {
@@ -97,24 +97,30 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T
 }
 
-export function listTags() {
-  return request<{ items: { tag: string; count: number }[] }>('/api/library/tags').then(
-    (data) => data.items,
-  )
-}
-
-export function listPuzzles(
-  options: { sort?: 'new' | 'hot'; q?: string; tag?: string; genre?: number } = {},
-) {
+export function listPuzzles(options: { sort?: 'new' | 'hot'; q?: string; genre?: number } = {}) {
   const params = new URLSearchParams()
   if (options.sort) params.set('sort', options.sort)
   if (options.q) params.set('q', options.q)
-  if (options.tag) params.set('tag', options.tag)
   if (typeof options.genre === 'number') params.set('genre', String(Math.round(options.genre)))
   const suffix = params.toString()
   return request<{ items: LibraryPuzzle[] }>(
     `/api/library/puzzles${suffix ? `?${suffix}` : ''}`,
   ).then((data) => data.items)
+}
+
+/**
+ * 语义重排：关键字检索的结果先照常显示，这一步再让 Jev 把候选按「是不是要找的那道」重排。
+ * 单独一次请求（一次模型调用），失败就保持关键字顺序。
+ */
+export function rerankPuzzles(options: { sort?: 'new' | 'hot'; q: string; genre?: number }) {
+  return request<{ items: LibraryPuzzle[] }>('/api/library/search/rerank', {
+    method: 'POST',
+    body: JSON.stringify({
+      sort: options.sort,
+      q: options.q,
+      genre: typeof options.genre === 'number' ? Math.round(options.genre) : undefined,
+    }),
+  }).then((data) => data.items)
 }
 
 export function getPuzzle(id: string) {

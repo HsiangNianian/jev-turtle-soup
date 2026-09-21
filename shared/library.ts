@@ -1,6 +1,6 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
-import { askError, judge, readLocale, scoreGenre, type GameEnv } from './game.ts'
+import { askError, judge, readLocale, rerankCandidates, scoreGenre, type GameEnv } from './game.ts'
 import { logTurn } from './logs.ts'
 
 export type Visibility = 'public' | 'private'
@@ -144,6 +144,10 @@ function safeTags(raw: string): string[] {
 const OWNER_SELECT = `SELECT p.*, u.handle AS owner_handle, u.display_name AS owner_name
   FROM puzzles p JOIN users u ON u.id = p.owner_id`
 
+/**
+ * 关键字检索：标题、汤面、标签、作者名与主页地址一次全搜。
+ * 汤底**不参与**——它不该通过搜索结果泄露出去。
+ */
 export async function listPublicPuzzles(
   db: D1Like,
   options: {
@@ -151,7 +155,6 @@ export async function listPublicPuzzles(
     limit: number
     offset: number
     query: string
-    tag?: string
     /** 0–100 的题材目标：给了就按「离这个位置有多近」排序，最近的排前面 */
     genre?: number
   },
@@ -159,7 +162,6 @@ export async function listPublicPuzzles(
   const limit = Math.min(Math.max(options.limit || 20, 1), 50)
   const offset = Math.max(options.offset || 0, 0)
   const query = options.query.trim()
-  const tag = (options.tag ?? '').trim().slice(0, 12)
   const secondary = options.sort === 'hot' ? 'p.plays DESC, p.created_at DESC' : 'p.created_at DESC'
   const genre = Number.isFinite(options.genre)
     ? Math.min(Math.max(options.genre ?? 0, 0), 100)
@@ -168,13 +170,12 @@ export async function listPublicPuzzles(
   const filters = [`p.visibility = 'public'`]
   const bindings: unknown[] = []
   if (query) {
-    filters.push('p.title LIKE ?')
-    bindings.push(`%${query}%`)
-  }
-  if (tag) {
-    // tags are a JSON array string; match the quoted value so prefixes don't leak
-    filters.push('p.tags LIKE ?')
-    bindings.push(`%"${tag}"%`)
+    const like = likePattern(query)
+    filters.push(
+      `(p.title LIKE ? ESCAPE '\\' OR p.surface LIKE ? ESCAPE '\\' OR p.tags LIKE ? ESCAPE '\\'
+        OR u.display_name LIKE ? ESCAPE '\\' OR u.handle LIKE ? ESCAPE '\\')`,
+    )
+    bindings.push(like, like, like, like, like)
   }
   // 没打过分的按中间值算，免得刚上传的题因为 NULL 被甩到最后
   const order =
@@ -189,18 +190,46 @@ export async function listPublicPuzzles(
   return (results ?? []).map(toPublic)
 }
 
-/** Tag counts across public puzzles, most used first. */
-export async function listTags(db: D1Like): Promise<{ tag: string; count: number }[]> {
-  const { results } = await db
-    .prepare(`SELECT tags FROM puzzles WHERE visibility = 'public' LIMIT 500`)
-    .all<{ tags: string }>()
-  const counts = new Map<string, number>()
-  for (const row of results ?? []) {
-    for (const tag of safeTags(row.tags)) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-  }
-  return [...counts.entries()]
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+/** `%` `_` `\` 在 LIKE 里有特殊含义，搜索词里出现时按字面匹配。 */
+function likePattern(query: string): string {
+  return `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`
+}
+
+/**
+ * 搜索 = 快检索 + 语义重排。
+ * SQL 先按关键字捞出候选（标题 / 汤面 / 标签 / 作者），再让 Jev 逐条判
+ * 「这是不是要找的那道」，按分数重排；重排失败就退回关键字顺序，搜索照常可用。
+ */
+export async function searchPublicPuzzles(
+  env: GameEnv,
+  db: D1Like,
+  options: { sort: string; query: string; genre?: number; limit?: number },
+): Promise<PublicPuzzle[]> {
+  const items = await listPublicPuzzles(db, {
+    sort: options.sort,
+    limit: options.limit ?? 20,
+    offset: 0,
+    query: options.query,
+    genre: options.genre,
+  })
+  const query = options.query.trim()
+  if (!query || items.length < 2) return items
+
+  const scores = await rerankCandidates(
+    env,
+    query,
+    items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      surface: item.surface,
+      tags: item.tags,
+      author: item.owner.displayName,
+    })),
+  )
+  if (!scores) return items
+
+  // 分数只是相对次序；同分时靠稳定排序保留关键字检索给出的顺序
+  return [...items].sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0))
 }
 
 export async function getPublicPuzzle(

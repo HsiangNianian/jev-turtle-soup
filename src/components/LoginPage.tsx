@@ -6,7 +6,7 @@ import { requestLoginCode, verifyLoginCode, type AuthUser } from '@/lib/auth-cli
 import { useI18n } from '@/lib/i18n'
 
 export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
@@ -18,7 +18,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
     setBusy(true)
     setError(null)
     try {
-      const result = await requestLoginCode(email.trim())
+      const result = await requestLoginCode(email.trim(), locale)
       setSent(true)
       setDevCode(result.code ?? null)
     } catch (caught) {

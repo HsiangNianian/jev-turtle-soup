@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { externalHref, isInternalUrl } from '@/lib/external'
-import { prefetchRoute } from '@/lib/prefetch'
+import { cancelPrefetch, prefetchRoute } from '@/lib/prefetch'
 import { navigate } from '@/lib/router'
 
 export function Link({
@@ -15,17 +15,16 @@ export function Link({
   children: ReactNode
   onNavigate?: () => void
 }) {
-  // 手指按下去 / 鼠标移上来就把目标页的数据预热好；
-  // 到真正点击之间通常还有几百毫秒，够一个来回。
-  const warm = () => prefetchRoute(to)
-
+  // 悬停要停一下才预热（鼠标扫过一排链接不该逐个发请求）；
+  // 按下或聚焦就直接预热——那已经是明确的意图了。
   return (
     <a
       href={to}
       className={className}
-      onPointerEnter={warm}
-      onPointerDown={warm}
-      onFocus={warm}
+      onPointerEnter={() => prefetchRoute(to)}
+      onPointerLeave={() => cancelPrefetch(to)}
+      onPointerDown={() => prefetchRoute(to, { immediate: true })}
+      onFocus={() => prefetchRoute(to, { immediate: true })}
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
         event.preventDefault()

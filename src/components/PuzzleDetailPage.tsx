@@ -21,7 +21,15 @@ export function PuzzleDetailPage({
 
   useEffect(() => {
     let alive = true
-    getPuzzle(id)
+    getPuzzle(id, {
+      // 列表里已经有这道题了：先把已知的字段渲染出来，只等作者简介
+      onStale: (known) => {
+        if (alive) {
+          setPuzzle(known)
+          setError(null)
+        }
+      },
+    })
       .then((next) => {
         if (alive) {
           setPuzzle(next)

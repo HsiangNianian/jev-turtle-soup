@@ -16,7 +16,14 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
 
   useEffect(() => {
     let alive = true
-    getPublicProfile(handle)
+    getPublicProfile(handle, {
+      onStale: (known) => {
+        if (alive) {
+          setProfile(known)
+          setError(null)
+        }
+      },
+    })
       .then((next) => {
         if (alive) {
           setProfile(next)

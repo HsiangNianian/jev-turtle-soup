@@ -101,6 +101,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 /** 题库列表缓存 10 分钟；同一组筛选条件再进来就直接先渲染上次那份。 */
 const PUZZLE_TTL_MS = 10 * 60 * 1000
 
+/**
+ * 列表里已经拿到的题，按 id 记一份。
+ * 详情页要的字段（标题/汤面/难度/标签/游玩数/作者）列表里全都有，只差作者简介，
+ * 所以点进详情不该先白屏等一次接口——直接把已知的那份摆上去，再补简介。
+ */
+const knownPuzzles = new Map<string, LibraryPuzzle>()
+
+function rememberPuzzles(items: LibraryPuzzle[]): void {
+  for (const item of items) knownPuzzles.set(item.id, item)
+}
+
 function puzzleCacheKey(options: { sort?: string; q?: string; genre?: number }): string {
   return `puzzles:${options.sort ?? 'new'}:${options.q ?? ''}:${
     typeof options.genre === 'number' ? Math.round(options.genre) : ''
@@ -120,9 +131,12 @@ export function listPuzzles(
     puzzleCacheKey(options),
     PUZZLE_TTL_MS,
     () =>
-      request<{ items: LibraryPuzzle[] }>(
-        `/api/library/puzzles${suffix ? `?${suffix}` : ''}`,
-      ).then((data) => data.items),
+      request<{ items: LibraryPuzzle[] }>(`/api/library/puzzles${suffix ? `?${suffix}` : ''}`).then(
+        (data) => {
+          rememberPuzzles(data.items)
+          return data.items
+        },
+      ),
     hooks,
   )
 }
@@ -156,8 +170,18 @@ function rerankRequest(options: { sort?: 'new' | 'hot'; q: string; genre?: numbe
   }).then((data) => data.items)
 }
 
-export function getPuzzle(id: string) {
-  return request<LibraryPuzzleDetail>(`/api/library/puzzles/${encodeURIComponent(id)}`)
+export function getPuzzle(
+  id: string,
+  hooks: { onStale?: (value: LibraryPuzzleDetail) => void } = {},
+) {
+  const known = knownPuzzles.get(id)
+  if (known) hooks.onStale?.({ ...known, ownerBio: '' })
+  return request<LibraryPuzzleDetail>(`/api/library/puzzles/${encodeURIComponent(id)}`).then(
+    (detail) => {
+      rememberPuzzles([detail])
+      return detail
+    },
+  )
 }
 
 export function askLibraryPuzzle(
@@ -216,8 +240,18 @@ export function updateMyProfile(
   }).then((data) => data.profile)
 }
 
-export function getPublicProfile(handle: string) {
-  return request<{ profile: PublicProfile }>(`/api/u/${encodeURIComponent(handle)}`).then(
-    (data) => data.profile,
+/** 作者主页缓存 10 分钟：从别人的主页退回来、或者同一个人出现两次，都不该重新拉。 */
+export function getPublicProfile(
+  handle: string,
+  hooks: { onStale?: (value: PublicProfile) => void } = {},
+) {
+  return staleWhileRevalidate<PublicProfile>(
+    `profile:${handle.toLowerCase()}`,
+    PUZZLE_TTL_MS,
+    () =>
+      request<{ profile: PublicProfile }>(`/api/u/${encodeURIComponent(handle)}`).then(
+        (data) => data.profile,
+      ),
+    hooks,
   )
 }

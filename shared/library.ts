@@ -1,6 +1,6 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
-import { judge, type GameEnv } from './game.ts'
+import { askError, judge, readLocale, type GameEnv } from './game.ts'
 import { logTurn } from './logs.ts'
 
 export type Visibility = 'public' | 'private'
@@ -165,11 +165,16 @@ export async function getPublicPuzzle(
   return { ...toPublic(row), ownerBio: owner?.bio ?? '' }
 }
 
-async function loadPlayable(db: D1Like, id: string, uid: string | null): Promise<PuzzleRow> {
+async function loadPlayable(
+  db: D1Like,
+  id: string,
+  uid: string | null,
+  locale: 'zh-CN' | 'en' | 'ja',
+): Promise<PuzzleRow> {
   const row = await db.prepare('SELECT * FROM puzzles WHERE id = ?').bind(id).first<PuzzleRow>()
-  if (!row) throw new ApiError(404, '这道汤不存在')
+  if (!row) throw askError(locale, 'notFound')
   if (row.visibility !== 'public' && row.owner_id !== uid) {
-    throw new ApiError(403, '这道汤没有公开')
+    throw askError(locale, 'notPublic')
   }
   return row
 }
@@ -182,7 +187,7 @@ export async function askLibraryPuzzle(
   id: string,
   body: Record<string, unknown>,
 ) {
-  const row = await loadPlayable(db, id, uid)
+  const row = await loadPlayable(db, id, uid, readLocale(body.locale))
   const turn = await judge(
     env,
     { title: row.title, surface: row.surface, truth: row.truth, hint: row.hint },
@@ -235,8 +240,13 @@ export async function askLibraryPuzzle(
   return turn
 }
 
-export async function revealLibraryPuzzle(db: D1Like, id: string, uid: string | null) {
-  const row = await loadPlayable(db, id, uid)
+export async function revealLibraryPuzzle(
+  db: D1Like,
+  id: string,
+  uid: string | null,
+  locale: 'zh-CN' | 'en' | 'ja' = 'zh-CN',
+) {
+  const row = await loadPlayable(db, id, uid, locale)
   return { title: row.title, truth: row.truth, hint: row.hint }
 }
 

@@ -141,6 +141,41 @@ const GENRE_STYLE: Record<Genre, string> = {
 
 export type Locale = 'zh-CN' | 'en' | 'ja'
 
+/** 玩家会在对话里看到的报错，必须跟着界面语言走。 */
+const ASK_ERRORS: Record<
+  Locale,
+  Record<'missing' | 'empty' | 'tooLong' | 'notFound' | 'notPublic', string>
+> = {
+  'zh-CN': {
+    missing: '这一局已经过期了，请重新生成一碗海龟汤',
+    empty: '请输入内容',
+    tooLong: '内容太长了，缩短一点再问吧',
+    notFound: '这道汤不存在',
+    notPublic: '这道汤没有公开',
+  },
+  en: {
+    missing: 'This case has expired — start a new one',
+    empty: 'Type something first',
+    tooLong: 'That is too long, please shorten it',
+    notFound: 'This puzzle does not exist',
+    notPublic: 'This puzzle is not public',
+  },
+  ja: {
+    missing: 'この一件は期限切れです。新しい一杯を作ってください',
+    empty: '内容を入力してください',
+    tooLong: '長すぎます。もう少し短くしてください',
+    notFound: 'このお題は存在しません',
+    notPublic: 'このお題は公開されていません',
+  },
+}
+
+export function askError(locale: Locale, key: keyof (typeof ASK_ERRORS)['zh-CN']): ApiError {
+  return new ApiError(
+    key === 'missing' || key === 'notFound' ? 404 : key === 'notPublic' ? 403 : 400,
+    ASK_ERRORS[locale][key],
+  )
+}
+
 export function readLocale(value: unknown): Locale {
   return value === 'en' || value === 'ja' ? value : 'zh-CN'
 }
@@ -1196,22 +1231,23 @@ export function readPuzzle(value: unknown): Puzzle {
 export async function askHost(env: GameEnv, store: PuzzleStore, body: Record<string, unknown>) {
   const puzzleId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
   const puzzle = puzzleId ? await store.get(puzzleId) : null
-  if (!puzzle) throw new ApiError(404, '这一局已经过期了，请重新生成一碗海龟汤')
+  if (!puzzle) throw askError(readLocale(body.locale), 'missing')
   return judge(env, puzzle, body)
 }
 
 export async function revealGame(store: PuzzleStore, body: Record<string, unknown>) {
   const puzzleId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
   const puzzle = puzzleId ? await store.get(puzzleId) : null
-  if (!puzzle) throw new ApiError(404, '这一局已经过期了，请重新生成一碗海龟汤')
+  if (!puzzle) throw askError(readLocale(body.locale), 'missing')
   return { title: puzzle.title, truth: puzzle.truth, hint: puzzle.hint }
 }
 
 /** Judge a single player message against a puzzle whose truth we already hold. */
 export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, unknown>) {
+  const locale = readLocale(body.locale)
   const message = typeof body.message === 'string' ? body.message.trim() : ''
-  if (!message) throw new ApiError(400, '请输入内容')
-  if (message.length > MAX_MESSAGE_CHARS) throw new ApiError(400, '内容太长了，缩短一点再问吧')
+  if (!message) throw askError(locale, 'empty')
+  if (message.length > MAX_MESSAGE_CHARS) throw askError(locale, 'tooLong')
 
   const history = Array.isArray(body.history) ? body.history : []
   const recentConversation = history
@@ -1246,14 +1282,7 @@ export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, u
     questions: hostQuestions(candidates),
   })
 
-  const turn = composeTurn(
-    puzzle,
-    answers,
-    readLuck(body.luck),
-    readLocale(body.locale),
-    established,
-    candidates,
-  )
+  const turn = composeTurn(puzzle, answers, readLuck(body.luck), locale, established, candidates)
   return {
     ...turn,
     model,

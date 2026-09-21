@@ -9,6 +9,7 @@ import {
   type PuzzleStore,
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
+import { readLocale } from '../shared/game.ts'
 import { applyMeta, pickMetaLocale, type MetaOverride } from '../shared/meta.ts'
 import {
   clearedCookie,
@@ -282,7 +283,8 @@ async function routeLibrary(
   if (action === 'reveal') {
     if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
     const current = await viewer(request, env)
-    return json(await revealLibraryPuzzle(db, id, current.uid))
+    const body = await readJson(request)
+    return json(await revealLibraryPuzzle(db, id, current.uid, readLocale(body.locale)))
   }
 
   return null

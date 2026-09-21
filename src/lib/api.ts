@@ -178,8 +178,8 @@ export function askHost(
   })
 }
 
-export function revealGame(sessionId: string) {
-  return postJson<RevealResult>('/api/game/reveal', { puzzleId: sessionId })
+export function revealGame(sessionId: string, locale: string) {
+  return postJson<RevealResult>('/api/game/reveal', { puzzleId: sessionId, locale })
 }
 
 export interface ChatMessage {

@@ -110,10 +110,10 @@ export function askLibraryPuzzle(
   })
 }
 
-export function revealLibraryPuzzle(id: string) {
+export function revealLibraryPuzzle(id: string, locale: string) {
   return request<{ title: string; truth: string; hint: string }>(
     `/api/library/puzzles/${encodeURIComponent(id)}/reveal`,
-    { method: 'POST' },
+    { method: 'POST', body: JSON.stringify({ locale }) },
   )
 }
 

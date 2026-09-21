@@ -10,6 +10,8 @@ export interface ArchivedGame {
   source: 'llm' | 'builtin' | 'library'
   hostGreeting: string
   hint: string
+  /** 题库题才有：原题 id（否则恢复存档后会走错接口） */
+  libraryId?: string
   createdAt: number
   updatedAt: number
   messages: ChatMessage[]
@@ -77,6 +79,7 @@ export function toSession(game: ArchivedGame): GameSession {
     difficulty: game.difficulty,
     source: game.source,
     hostGreeting: game.hostGreeting,
+    libraryId: game.libraryId,
   }
 }
 

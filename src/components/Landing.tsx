@@ -141,7 +141,9 @@ export function Landing({
             <div key={game.id} className="border border-foreground bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
                 <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-                  {game.source === 'library' ? t('别人的汤 / PLAYING') : t('在办案件 / OPEN CASE')}
+                  {game.source === 'library'
+                    ? t('题库里的汤 / PLAYING')
+                    : t('在办案件 / OPEN CASE')}
                 </span>
                 <span className="stamp px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
                   {t('机密')}

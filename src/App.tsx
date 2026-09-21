@@ -39,6 +39,7 @@ import { fetchMe, logout as logoutRequest, type AuthUser } from '@/lib/auth-clie
 import { submitReport } from '@/lib/report-client'
 import {
   askLibraryPuzzle,
+  listPuzzles,
   revealLibraryPuzzle,
   type LibraryPuzzleDetail,
 } from '@/lib/library-client'
@@ -122,6 +123,7 @@ export default function App() {
         source: session.source,
         hostGreeting: session.hostGreeting,
         hint: '',
+        libraryId: session.libraryId,
         createdAt: startedAt,
         updatedAt: Date.now(),
         messages,
@@ -171,11 +173,11 @@ export default function App() {
   const fetchTruth = useCallback(async () => {
     if (!session) return null
     const result = session.libraryId
-      ? await revealLibraryPuzzle(session.libraryId)
-      : await revealGame(session.sessionId)
+      ? await revealLibraryPuzzle(session.libraryId, locale)
+      : await revealGame(session.sessionId, locale)
     setTruth(result.truth)
     return result.truth
-  }, [session])
+  }, [session, locale])
 
   const handleNew = useCallback(async () => {
     if (!canGenerate) {
@@ -355,15 +357,33 @@ export default function App() {
     [handleReveal, handleSend, t],
   )
 
+  /** 早期存档没存题库题号，恢复后会一直「过期」——按标题回查一次补上。 */
+  const repairLibraryId = useCallback(async (game: ArchivedGame) => {
+    try {
+      const items = await listPuzzles({ q: game.title })
+      const hits = items.filter((item) => item.title === game.title)
+      if (hits.length !== 1) return null
+      const libraryId = hits[0].id
+      setGames((prev) =>
+        persist(prev.map((item) => (item.id === game.id ? { ...item, libraryId } : item))),
+      )
+      setSession((prev) => (prev && prev.sessionId === game.id ? { ...prev, libraryId } : prev))
+      return libraryId
+    } catch {
+      return null
+    }
+  }, [])
+
   const handleContinue = useCallback(
     (id: string) => {
       const game = allGames.find((item) => item.id === id)
       if (!game) return
+      if (game.source === 'library' && !game.libraryId) void repairLibraryId(game)
       if (session?.sessionId !== id) hydrate(game)
       setDrawerOpen(true)
       navigate('/play')
     },
-    [allGames, hydrate, session],
+    [allGames, hydrate, session, repairLibraryId],
   )
 
   const handleAbandon = useCallback(

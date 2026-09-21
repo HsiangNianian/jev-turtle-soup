@@ -57,7 +57,7 @@ export const en: Record<string, string> = {
   '删除《{title}》？删除后无法恢复。': 'Delete “{title}”? This cannot be undone.',
   删除失败: 'Could not delete',
   别人熬的汤: 'Bowls brewed by others',
-  '别人的汤 / PLAYING': "Someone else's bowl",
+  '题库里的汤 / PLAYING': 'From the library',
   加载失败: 'Could not load',
   '医院、密室、雨夜、老房子、凶杀、伦理、感情……':
     'Hospital, locked room, rainy night, old house, murder, ethics, feelings…',

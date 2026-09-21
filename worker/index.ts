@@ -2,12 +2,13 @@ import {
   ApiError,
   askHost,
   health,
+  normaliseSurface,
   revealGame,
   startGame,
   type GameEnv,
   type PuzzleStore,
 } from '../shared/game.ts'
-import { logTurn, submitReport } from '../shared/logs.ts'
+import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
 import {
   clearedCookie,
   destroySession,
@@ -111,7 +112,13 @@ function puzzleStore(db: D1Like): PuzzleStore {
            WHERE id = ? AND visibility = ?`,
         )
         .bind(id, SESSION_VISIBILITY)
-        .first<{ title: string; surface: string; truth: string; hint: string; difficulty: string }>()
+        .first<{
+          title: string
+          surface: string
+          truth: string
+          hint: string
+          difficulty: string
+        }>()
       return row ?? null
     },
     async sweep(olderThan) {
@@ -119,6 +126,16 @@ function puzzleStore(db: D1Like): PuzzleStore {
         .prepare('DELETE FROM puzzles WHERE visibility = ? AND created_at < ?')
         .bind(SESSION_VISIBILITY, olderThan)
         .run()
+      await purgeOldLogs(db)
+    },
+    async recentSurfaces(limit) {
+      const { results } = await db
+        .prepare(
+          'SELECT surface FROM puzzles WHERE visibility = ? ORDER BY created_at DESC LIMIT ?',
+        )
+        .bind(SESSION_VISIBILITY, Math.max(1, Math.min(limit, 100)))
+        .all<{ surface: string }>()
+      return (results ?? []).map((row) => normaliseSurface(row.surface))
     },
   }
 }
@@ -164,7 +181,12 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
     if (!current.uid) return json({ user: null }, 401)
     const profile = await getMyProfile(env.DB!, current.uid)
     return json({
-      user: { email: current.email, uid: current.uid, name: profile.displayName, handle: profile.handle },
+      user: {
+        email: current.email,
+        uid: current.uid,
+        name: profile.displayName,
+        handle: profile.handle,
+      },
     })
   }
 
@@ -196,11 +218,9 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
       .bind(defaultDisplayName(email), user.id)
       .run()
     await ensureHandle(env.DB!, user.id)
-    return json(
-      { user: { email: user.email, uid: user.id, name: user.displayName } },
-      200,
-      { 'set-cookie': sessionCookie(token) },
-    )
+    return json({ user: { email: user.email, uid: user.id, name: user.displayName } }, 200, {
+      'set-cookie': sessionCookie(token),
+    })
   }
 
   return null
@@ -243,7 +263,8 @@ async function routeLibrary(
   if (!action) {
     if (request.method === 'GET') return json(await getPublicPuzzle(db, id))
     const current = await requireUser(request, env)
-    if (request.method === 'PATCH') return json(await updatePuzzle(db, current.uid, id, await readJson(request)))
+    if (request.method === 'PATCH')
+      return json(await updatePuzzle(db, current.uid, id, await readJson(request)))
     if (request.method === 'DELETE') return json(await deletePuzzle(db, current.uid, id))
     return json({ error: '方法不被允许' }, 405)
   }
@@ -287,12 +308,56 @@ async function routeMe(request: Request, env: Env, pathname: string): Promise<Re
   return null
 }
 
-async function routeProfile(request: Request, env: Env, pathname: string): Promise<Response | null> {
+async function routeProfile(
+  request: Request,
+  env: Env,
+  pathname: string,
+): Promise<Response | null> {
   if (!pathname.startsWith('/api/u/')) return null
   if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
   const handle = decodeURIComponent(pathname.slice('/api/u/'.length)).toLowerCase()
   if (!handle) return null
   return json({ profile: await getPublicProfile(requireDb(env), handle) })
+}
+
+const SSE_HEADERS = {
+  'content-type': 'text/event-stream; charset=utf-8',
+  'cache-control': 'no-cache, no-transform',
+  connection: 'keep-alive',
+}
+
+/**
+ * 出题要花几十秒到几分钟。普通请求在这段时间里一个字节都不发，
+ * 长静默连接会被边缘掐掉；改成 SSE 边思考边回报，连接一直是活的。
+ */
+function gameStream(env: Env, store: PuzzleStore, body: Record<string, unknown>): Response {
+  const encoder = new TextEncoder()
+  let closed = false
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        if (closed) return
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+      }
+      const ping = setInterval(() => {
+        if (!closed) controller.enqueue(encoder.encode(': ping\n\n'))
+      }, 8000)
+      try {
+        const result = await startGame(env, store, body, (progress) => send('progress', progress))
+        send('done', result)
+      } catch (error) {
+        send('error', { error: error instanceof Error ? error.message : '生成失败' })
+      } finally {
+        clearInterval(ping)
+        closed = true
+        controller.close()
+      }
+    },
+    cancel() {
+      closed = true
+    },
+  })
+  return new Response(stream, { headers: SSE_HEADERS })
 }
 
 const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask', '/api/game/reveal'])
@@ -314,8 +379,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
         kind: typeof body.kind === 'string' ? body.kind : '',
         note: typeof body.note === 'string' ? body.note : '',
         snapshot: body.snapshot,
-        playerKey:
-          current.uid ?? (typeof body.playerKey === 'string' ? body.playerKey : 'anon'),
+        playerKey: current.uid ?? (typeof body.playerKey === 'string' ? body.playerKey : 'anon'),
         locale: typeof body.locale === 'string' ? body.locale : '',
       }),
     )
@@ -343,7 +407,10 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const db = requireDb(env)
   const store = puzzleStore(db)
   const body = await readJson(request)
-  if (pathname === '/api/game/new') return json(await startGame(env, store, body))
+  if (pathname === '/api/game/new') {
+    const wantsStream = request.headers.get('accept')?.includes('text/event-stream')
+    return wantsStream ? gameStream(env, store, body) : json(await startGame(env, store, body))
+  }
   if (pathname === '/api/game/reveal') return json(await revealGame(store, body))
 
   const turn = await askHost(env, store, body)

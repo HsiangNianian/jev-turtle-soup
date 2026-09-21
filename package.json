@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "deploy": "npm run build && wrangler deploy",
     "lint": "oxlint",
-    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"" ,
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"shared/**/*.ts\" \"worker/**/*.ts\" \"server/**/*.ts\" \"*.{json,md}\"",
     "preview": "vite preview",
     "db:local": "wrangler d1 execute jev-turtle-soup --local --file=./db/schema.sql"
   },
@@ -22,6 +22,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.47.0",
+    "openai": "^7.20.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwind-merge": "^3.7.0",

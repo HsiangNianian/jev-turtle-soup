@@ -78,6 +78,7 @@ export default function App() {
   const [solved, setSolved] = useState(false)
   const [closeness, setCloseness] = useState<number | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [progress, setProgress] = useState<string>('')
   const [asking, setAsking] = useState(false)
   const [turnCount, setTurnCount] = useState(0)
   const [startedAt, setStartedAt] = useState<number>(() => Date.now())
@@ -172,6 +173,7 @@ export default function App() {
       return
     }
     setGenerating(true)
+    setProgress('')
     setLandingError(null)
     if (liveEntry) {
       const merged = upsertGame(games, liveEntry)
@@ -179,7 +181,14 @@ export default function App() {
       saveGames(merged)
     }
     try {
-      const created = await createGame(difficulty, theme, genre)
+      const created = await createGame(difficulty, theme, genre, (update) => {
+        const chars = new Intl.NumberFormat(locale).format(update.chars)
+        setProgress(
+          update.stage === 'writing'
+            ? t('正在组织汤面……')
+            : t('正在推演汤底……已思考 {chars} 字', { chars }),
+        )
+      })
       setSession(created)
       setMessages([{ id: crypto.randomUUID(), role: 'host', text: created.hostGreeting }])
       setRevealed(false)
@@ -194,35 +203,39 @@ export default function App() {
       setLandingError(error instanceof Error ? error.message : t('生成失败，请重试'))
     } finally {
       setGenerating(false)
+      setProgress('')
     }
-  }, [canGenerate, difficulty, theme, genre, games, liveEntry, t])
+  }, [canGenerate, difficulty, theme, genre, games, liveEntry, locale, t])
 
-  const startLibraryGame = useCallback((puzzle: LibraryPuzzleDetail) => {
-    setSession({
-      sessionId: crypto.randomUUID(),
-      title: puzzle.title,
-      surface: puzzle.surface,
-      difficulty: puzzle.difficulty,
-      source: 'library',
-      hostGreeting: t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。'),
-      libraryId: puzzle.id,
-    })
-    setMessages([
-      {
-        id: crypto.randomUUID(),
-        role: 'host',
-        text: t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。'),
-      },
-    ])
-    setRevealed(false)
-    setTruth(null)
-    setSolved(false)
-    setCloseness(null)
-    setTurnCount(0)
-    setStartedAt(Date.now())
-    setDrawerOpen(true)
-    navigate('/play')
-  }, [t,])
+  const startLibraryGame = useCallback(
+    (puzzle: LibraryPuzzleDetail) => {
+      setSession({
+        sessionId: crypto.randomUUID(),
+        title: puzzle.title,
+        surface: puzzle.surface,
+        difficulty: puzzle.difficulty,
+        source: 'library',
+        hostGreeting: t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。'),
+        libraryId: puzzle.id,
+      })
+      setMessages([
+        {
+          id: crypto.randomUUID(),
+          role: 'host',
+          text: t('汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。'),
+        },
+      ])
+      setRevealed(false)
+      setTruth(null)
+      setSolved(false)
+      setCloseness(null)
+      setTurnCount(0)
+      setStartedAt(Date.now())
+      setDrawerOpen(true)
+      navigate('/play')
+    },
+    [t],
+  )
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -532,14 +545,22 @@ export default function App() {
     if (path === '/upload') {
       return (
         <ScrollArea>
-          {user ? <UploadPage /> : <Missing label={t('上传 / NEW PUZZLE')} message={t('请先登录。')} />}
+          {user ? (
+            <UploadPage />
+          ) : (
+            <Missing label={t('上传 / NEW PUZZLE')} message={t('请先登录。')} />
+          )}
         </ScrollArea>
       )
     }
     if (path === '/me/profile') {
       return (
         <ScrollArea>
-          {user ? <ProfileEditPage /> : <Missing label={t('编辑资料 / PROFILE')} message={t('请先登录。')} />}
+          {user ? (
+            <ProfileEditPage />
+          ) : (
+            <Missing label={t('编辑资料 / PROFILE')} message={t('请先登录。')} />
+          )}
         </ScrollArea>
       )
     }
@@ -581,6 +602,7 @@ export default function App() {
           genre={genre}
           theme={theme}
           generating={generating}
+          progress={progress}
           error={landingError}
           activeGames={activeGames}
           canGenerate={canGenerate}

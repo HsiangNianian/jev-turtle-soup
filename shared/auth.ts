@@ -4,7 +4,6 @@
  */
 import { ApiError } from './errors.ts'
 
-
 export interface D1PreparedStatementLike {
   bind(...values: unknown[]): D1PreparedStatementLike
   first<T = unknown>(): Promise<T | null>
@@ -171,7 +170,8 @@ export function readCookie(header: string | null, name: string): string | null {
   for (const part of header.split(';')) {
     const index = part.indexOf('=')
     if (index === -1) continue
-    if (part.slice(0, index).trim() === name) return decodeURIComponent(part.slice(index + 1).trim())
+    if (part.slice(0, index).trim() === name)
+      return decodeURIComponent(part.slice(index + 1).trim())
   }
   return null
 }
@@ -308,11 +308,9 @@ export async function verifyCode(
 
   const expected = await hmac(deps.secret, `${email}:${code}`)
   if (!safeEqual(record.h, expected)) {
-    await deps.kv.put(
-      otpKey(email),
-      JSON.stringify({ h: record.h, tries: record.tries + 1 }),
-      { expirationTtl: OTP_TTL_SECONDS },
-    )
+    await deps.kv.put(otpKey(email), JSON.stringify({ h: record.h, tries: record.tries + 1 }), {
+      expirationTtl: OTP_TTL_SECONDS,
+    })
     throw new ApiError(400, '验证码不正确')
   }
 

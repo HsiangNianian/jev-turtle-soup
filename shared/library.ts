@@ -72,7 +72,9 @@ function visibility(value: unknown, fallback: Visibility = 'public'): Visibility
   return value === 'private' || value === 'public' ? value : fallback
 }
 
-function toPublic(row: OwnedRow | PuzzleRow & { owner_handle?: string | null; owner_name?: string | null }): PublicPuzzle {
+function toPublic(
+  row: OwnedRow | (PuzzleRow & { owner_handle?: string | null; owner_name?: string | null }),
+): PublicPuzzle {
   return {
     id: row.id,
     title: row.title,
@@ -92,7 +94,9 @@ function toPublic(row: OwnedRow | PuzzleRow & { owner_handle?: string | null; ow
 function safeTags(raw: string): string[] {
   try {
     const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed) ? parsed.filter((tag): tag is string => typeof tag === 'string') : []
+    return Array.isArray(parsed)
+      ? parsed.filter((tag): tag is string => typeof tag === 'string')
+      : []
   } catch {
     return []
   }
@@ -145,7 +149,10 @@ export async function listTags(db: D1Like): Promise<{ tag: string; count: number
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
 }
 
-export async function getPublicPuzzle(db: D1Like, id: string): Promise<PublicPuzzle & { ownerBio: string }> {
+export async function getPublicPuzzle(
+  db: D1Like,
+  id: string,
+): Promise<PublicPuzzle & { ownerBio: string }> {
   const row = await db
     .prepare(`${OWNER_SELECT} WHERE p.id = ? AND p.visibility = 'public'`)
     .bind(id)
@@ -271,7 +278,10 @@ export async function updatePuzzle(
   id: string,
   body: Record<string, unknown>,
 ) {
-  const row = await db.prepare('SELECT owner_id FROM puzzles WHERE id = ?').bind(id).first<{ owner_id: string }>()
+  const row = await db
+    .prepare('SELECT owner_id FROM puzzles WHERE id = ?')
+    .bind(id)
+    .first<{ owner_id: string }>()
   if (!row) throw new ApiError(404, '这道汤不存在')
   if (row.owner_id !== uid) throw new ApiError(403, '只能修改自己上传的汤')
 
@@ -300,7 +310,10 @@ export async function updatePuzzle(
 }
 
 export async function deletePuzzle(db: D1Like, uid: string, id: string) {
-  const row = await db.prepare('SELECT owner_id FROM puzzles WHERE id = ?').bind(id).first<{ owner_id: string }>()
+  const row = await db
+    .prepare('SELECT owner_id FROM puzzles WHERE id = ?')
+    .bind(id)
+    .first<{ owner_id: string }>()
   if (!row) throw new ApiError(404, '这道汤不存在')
   if (row.owner_id !== uid) throw new ApiError(403, '只能删除自己上传的汤')
   await db.prepare('DELETE FROM attempts WHERE puzzle_id = ?').bind(id).run()
@@ -349,10 +362,16 @@ export function defaultDisplayName(email: string): string {
 
 /** Every user gets a handle on first use, so profile URLs always resolve. */
 export async function ensureHandle(db: D1Like, uid: string): Promise<string> {
-  const row = await db.prepare('SELECT handle FROM users WHERE id = ?').bind(uid).first<{ handle: string | null }>()
+  const row = await db
+    .prepare('SELECT handle FROM users WHERE id = ?')
+    .bind(uid)
+    .first<{ handle: string | null }>()
   if (row?.handle) return row.handle
   const handle = defaultHandle()
-  await db.prepare('UPDATE users SET handle = ?, updated_at = ? WHERE id = ?').bind(handle, Date.now(), uid).run()
+  await db
+    .prepare('UPDATE users SET handle = ?, updated_at = ? WHERE id = ?')
+    .bind(handle, Date.now(), uid)
+    .run()
   return handle
 }
 
@@ -421,7 +440,10 @@ export async function updateProfile(db: D1Like, uid: string, body: Record<string
   if (!fields.length) throw new ApiError(400, '没有要修改的内容')
   set('updated_at', Date.now())
   values.push(uid)
-  await db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).bind(...values).run()
+  await db
+    .prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`)
+    .bind(...values)
+    .run()
   return getMyProfile(db, uid)
 }
 

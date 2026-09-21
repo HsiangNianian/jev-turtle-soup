@@ -53,6 +53,7 @@ interface LandingProps {
   genre: 'realistic' | 'supernatural'
   theme: string
   generating: boolean
+  progress: string
   error: string | null
   activeGames: ArchivedGame[]
   canGenerate: boolean
@@ -72,6 +73,7 @@ export function Landing({
   genre,
   theme,
   generating,
+  progress,
   error,
   activeGames,
   canGenerate,
@@ -127,7 +129,9 @@ export function Landing({
       </div>
       <div className="mt-6 h-px w-full bg-foreground/80" />
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-        {t('每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。')}
+        {t(
+          '每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。',
+        )}
       </p>
 
       {activeGames.length ? (
@@ -263,7 +267,9 @@ export function Landing({
         </>
       ) : (
         <div className="mt-9 border-l-2 border-stamp bg-card px-4 py-3 font-mono text-[11px] leading-6 text-stamp">
-          {t('自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。')}
+          {t(
+            '自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。',
+          )}
         </div>
       )}
 
@@ -277,7 +283,7 @@ export function Landing({
           >
             {generating ? (
               <>
-                <Loader2 className="size-4 animate-spin" /> {t('正在熬制……')}
+                <Loader2 className="size-4 animate-spin" /> {progress || t('正在熬制……')}
               </>
             ) : (
               <>

@@ -74,6 +74,25 @@ export async function logTurn(db: D1Like, entry: TurnLogEntry): Promise<void> {
   }
 }
 
+/** 日志保留期：判读流水 90 天，玩家反馈 1 年。 */
+export const TURN_LOG_RETENTION_MS = 1000 * 60 * 60 * 24 * 90
+export const REPORT_RETENTION_MS = 1000 * 60 * 60 * 24 * 365
+
+export async function purgeOldLogs(db: D1Like, now = Date.now()): Promise<void> {
+  try {
+    await db
+      .prepare('DELETE FROM turn_logs WHERE created_at < ?')
+      .bind(now - TURN_LOG_RETENTION_MS)
+      .run()
+    await db
+      .prepare('DELETE FROM reports WHERE created_at < ?')
+      .bind(now - REPORT_RETENTION_MS)
+      .run()
+  } catch (error) {
+    console.warn('[turtle-soup] 清理旧日志失败：', error)
+  }
+}
+
 export interface ReportInput {
   puzzleId: string
   kind: string

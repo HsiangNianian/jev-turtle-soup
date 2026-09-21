@@ -5,6 +5,7 @@ import {
   ApiError,
   askHost,
   health,
+  normaliseSurface,
   revealGame,
   startGame,
   type GameEnv,
@@ -29,6 +30,12 @@ function memoryStore(): PuzzleStore {
       for (const [id, puzzle] of puzzles) {
         if (puzzle.createdAt < olderThan) puzzles.delete(id)
       }
+    },
+    async recentSurfaces(limit) {
+      return [...puzzles.values()]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, limit)
+        .map((puzzle) => normaliseSurface(puzzle.surface))
     },
   }
 }
@@ -65,7 +72,8 @@ async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
   if (path.startsWith('/api/auth/')) {
     // Auth needs KV + D1 + the email binding, which only exist in the Worker runtime.
     sendJson(res, 501, {
-      error: '登录接口需要 Workers 运行时（KV / D1 / 邮件绑定）。本地全栈调试请用 npm run dev:worker',
+      error:
+        '登录接口需要 Workers 运行时（KV / D1 / 邮件绑定）。本地全栈调试请用 npm run dev:worker',
     })
     return
   }

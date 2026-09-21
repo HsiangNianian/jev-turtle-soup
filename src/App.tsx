@@ -167,6 +167,16 @@ export default function App() {
     setLandingError(null)
   }, [])
 
+  /** 从服务端取回汤底（会话题与题库题走同一个出口）。 */
+  const fetchTruth = useCallback(async () => {
+    if (!session) return null
+    const result = session.libraryId
+      ? await revealLibraryPuzzle(session.libraryId)
+      : await revealGame(session.sessionId)
+    setTruth(result.truth)
+    return result.truth
+  }, [session])
+
   const handleNew = useCallback(async () => {
     if (!canGenerate) {
       setLandingError(t('还有一桩在办案件，先结案才能立案新的。'))
@@ -184,8 +194,10 @@ export default function App() {
       const created = await createGame(difficulty, theme, genre, locale, (update) => {
         const chars = new Intl.NumberFormat(locale).format(update.chars)
         setProgress(
-          update.stage === 'writing'
-            ? t('正在组织汤面……')
+          update.stage === 'writing' || !update.chars
+            ? update.stage === 'writing'
+              ? t('正在组织汤面……')
+              : ''
             : t('正在推演汤底……已思考 {chars} 字', { chars }),
         )
       })
@@ -275,6 +287,7 @@ export default function App() {
         if (typeof turn.closeness === 'number') {
           setCloseness((prev) => Math.max(prev ?? 0, turn.closeness ?? 0))
         }
+        if (turn.revealed && turn.truth) setTruth(turn.truth)
         if (turn.solved) {
           setSolved(true)
           setRevealed(true)
@@ -282,6 +295,8 @@ export default function App() {
         } else if (turn.revealed) {
           setRevealed(true)
           setDrawerOpen(true)
+          // 老服务端或题库题可能没带汤底，兜底再取一次
+          if (!turn.truth) void fetchTruth()
         }
       } catch (error) {
         setMessages((prev) => [
@@ -297,16 +312,13 @@ export default function App() {
         setAsking(false)
       }
     },
-    [messages, session, todayLuck, locale, turnCount, t],
+    [messages, session, todayLuck, locale, turnCount, fetchTruth, t],
   )
 
   const handleReveal = useCallback(async () => {
     if (!session || revealed) return
     try {
-      const result = session.libraryId
-        ? await revealLibraryPuzzle(session.libraryId)
-        : await revealGame(session.sessionId)
-      setTruth(result.truth)
+      await fetchTruth()
       setRevealed(true)
       setDrawerOpen(true)
       setMessages((prev) => [
@@ -328,7 +340,7 @@ export default function App() {
         },
       ])
     }
-  }, [revealed, session, t])
+  }, [revealed, session, fetchTruth, t])
 
   const handleQuick = useCallback(
     (kind: 'hint' | 'reveal' | 'how_to_play') => {
@@ -490,7 +502,7 @@ export default function App() {
             <CaseDrawer
               title={session.title}
               meta={t('等级 {level} · 已问 {turns} 轮', {
-                level: session.difficulty,
+                level: t(session.difficulty),
                 turns: turnCount,
               })}
               open={drawerOpen}

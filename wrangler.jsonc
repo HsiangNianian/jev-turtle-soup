@@ -8,7 +8,9 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    // 所有请求先过 Worker：这样分享卡片的 meta 才能按语言改写，
+    // 静态文件依然由 env.ASSETS 提供（带缓存）。
+    "run_worker_first": true
   },
   "kv_namespaces": [{ "binding": "AUTH_KV", "id": "9b14573349f24bcaa7a7688957406e3c" }],
   "d1_databases": [

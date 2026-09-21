@@ -9,6 +9,7 @@ import {
   type PuzzleStore,
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
+import { applyMeta, pickMetaLocale, type MetaOverride } from '../shared/meta.ts'
 import {
   clearedCookie,
   destroySession,
@@ -434,6 +435,71 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   return json(turn)
 }
 
+/**
+ * 分享卡片：爬虫不跑 JS，所以在这里按 Accept-Language 改写 HTML 里的 meta。
+ * 作者页与题目页用真实内容，其它页面用站点文案。
+ */
+async function pageOverride(env: Env, pathname: string): Promise<MetaOverride> {
+  const db = env.DB
+  if (!db) return {}
+
+  const handle = /^\/u\/([^/]+)$/.exec(pathname)?.[1]
+  if (handle) {
+    const row = await db
+      .prepare('SELECT display_name, handle, bio, profile_public FROM users WHERE handle = ?')
+      .bind(decodeURIComponent(handle).toLowerCase())
+      .first<{
+        display_name: string | null
+        handle: string | null
+        bio: string
+        profile_public: number
+      }>()
+    if (row) {
+      return {
+        title: row.display_name ?? row.handle ?? undefined,
+        description: row.profile_public === 0 ? undefined : row.bio || undefined,
+      }
+    }
+  }
+
+  const id = /^\/library\/([^/]+)$/.exec(pathname)?.[1]
+  if (id) {
+    const row = await db
+      .prepare("SELECT title, surface FROM puzzles WHERE id = ? AND visibility = 'public'")
+      .bind(decodeURIComponent(id))
+      .first<{ title: string; surface: string }>()
+    // 汤面可以给爬虫看，汤底永远不给
+    if (row) return { title: row.title, description: row.surface }
+  }
+
+  return {}
+}
+
+async function serveHtml(
+  request: Request,
+  env: Env,
+  url: URL,
+  response: Response,
+): Promise<Response> {
+  const html = await response.text()
+  const locale = pickMetaLocale(request.headers.get('accept-language'))
+  let override: MetaOverride = {}
+  try {
+    override = await pageOverride(env, url.pathname)
+  } catch (error) {
+    console.warn('[turtle-soup] 读取分享卡片内容失败：', error)
+  }
+  return new Response(applyMeta(html, locale, url.toString(), override), {
+    status: response.status,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      // 别让边缘把某一语言的 HTML 缓存给所有人
+      'cache-control': 'no-cache',
+      vary: 'accept-language',
+    },
+  })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -447,7 +513,14 @@ export default {
         return json({ error: message }, status)
       }
     }
-    if (env.ASSETS) return env.ASSETS.fetch(request)
+    if (env.ASSETS) {
+      const response = await env.ASSETS.fetch(request)
+      const type = response.headers.get('content-type') ?? ''
+      if (request.method === 'GET' && type.includes('text/html')) {
+        return serveHtml(request, env, url, response)
+      }
+      return response
+    }
     return new Response('Not Found', { status: 404 })
   },
 }

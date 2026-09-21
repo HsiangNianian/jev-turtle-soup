@@ -250,10 +250,10 @@ function extractJson(text: string): unknown {
 type Effort = 'max' | 'high' | 'low'
 
 /**
- * 思考模式总开关。先关掉换速度与稳定性（开着时单次要几十秒到几分钟）。
- * 想开回来只要改成 true，effort 阶梯依然有效。
+ * 思考模式总开关。开着单次会慢（low 大约十几到几十秒），换来更稳的判断与出题。
+ * 关掉走非思考模式，几秒出题。
  */
-const THINKING_ENABLED = false
+const THINKING_ENABLED = true
 type ChatTurn = { role: 'system' | 'user' | 'assistant'; content: string }
 
 /**
@@ -380,14 +380,18 @@ async function callChat(
       if (choice.finish_reason) finishReason = choice.finish_reason
       const delta = choice.delta as
         { content?: string | null; reasoning_content?: string | null } | undefined
-      if (delta?.reasoning_content) reasoningChars += delta.reasoning_content.length
-      if (delta?.content) content += delta.content
-      if (onProgress && (reasoningChars + content.length) % 200 < 40) {
-        onProgress(
-          delta?.content
-            ? { stage: 'writing', chars: content.length }
-            : { stage: 'thinking', chars: reasoningChars },
-        )
+      // 只在真有思维链时才报「已思考 N 字」；关掉思考后这些事件根本不该出现
+      if (delta?.reasoning_content) {
+        reasoningChars += delta.reasoning_content.length
+        if (onProgress && reasoningChars % 200 < 40) {
+          onProgress({ stage: 'thinking', chars: reasoningChars })
+        }
+      }
+      if (delta?.content) {
+        content += delta.content
+        if (onProgress && content.length % 400 < 40) {
+          onProgress({ stage: 'writing', chars: content.length })
+        }
       }
     }
 
@@ -1103,5 +1107,11 @@ export async function judge(env: GameEnv, puzzle: Puzzle, body: Record<string, u
   })
 
   const turn = composeTurn(puzzle, answers, readLuck(body.luck), readLocale(body.locale))
-  return { ...turn, model, debug: buildDebug(answers) }
+  return {
+    ...turn,
+    model,
+    debug: buildDebug(answers),
+    // 只有「这一次真的揭晓了」才把汤底一起带回去，其余一律不给
+    ...(turn.revealed ? { truth: puzzle.truth } : {}),
+  }
 }

@@ -44,6 +44,8 @@ export interface HostTurn {
   verdict: string
   solved: boolean
   revealed: boolean
+  /** 仅在本次揭晓时返回（服务端不主动给答案）。 */
+  truth?: string
   closeness: number | null
   confidence: number | null
   reply: string

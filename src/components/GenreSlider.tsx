@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
 /**
@@ -22,7 +21,7 @@ const POLE = 4
 
 /** 采样点数：够平滑，又不至于每帧算太多。 */
 const SAMPLES = 128
-const VIEW_HEIGHT = 64
+const VIEW_HEIGHT = 120
 const BASELINE = VIEW_HEIGHT / 2
 
 /** 翻字动画时长，以及两次翻字之间的最小间隔。 */
@@ -30,7 +29,7 @@ const FLIP_MS = 150
 const FLIP_GAP_MS = 120
 
 function waveY(x: number, value: number, phase: number): number {
-  const amp = 4 + (value / 100) * 20
+  const amp = 3 + (value / 100) * 12
   const spikes = value / 100
   const wave = Math.sin((x * 6 + phase) * 1.6) * 0.45 + Math.sin((x * 14 + phase * 2) * 1.3) * 0.2
   const burst = Math.exp(-Math.pow((x - 0.78) * 5, 2)) * spikes * 1.6
@@ -142,7 +141,7 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
   }
 
   return (
-    <div ref={boxRef} className="relative mt-6 h-36 select-none sm:h-44">
+    <div ref={boxRef} className="relative mt-6 h-40 select-none sm:h-52">
       <input
         ref={inputRef}
         type="range"
@@ -166,15 +165,16 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
         className="pointer-events-none absolute inset-0 flex items-center justify-center"
         aria-hidden
       >
-        <span className="relative inline-block h-[1.25em] overflow-hidden whitespace-nowrap align-bottom font-mono text-[2rem] leading-none tracking-tight tabular-nums sm:text-[3rem]">
-          <span className="invisible block">{fromText ?? toText}</span>
+        <span className="relative inline-block h-[1.3em] overflow-hidden whitespace-nowrap align-bottom font-serif text-[3.25rem] leading-none font-black tracking-[-0.02em] tabular-nums sm:text-[5rem]">
+          {/* 量宽用：描边那层往右下错开一点，这里留出余量，免得被裁掉 */}
+          <span className="invisible block pr-[0.1em]">{fromText ?? toText}</span>
           {fromText !== null && fromText !== toText ? (
-            <span className="invisible block">{toText}</span>
+            <span className="invisible block pr-[0.1em]">{toText}</span>
           ) : null}
           {fromText ? (
             <span
               key={`out-${frame.id}`}
-              className="absolute inset-x-0 top-0 text-muted-foreground/40"
+              className="absolute inset-x-0 top-0 text-muted-foreground/35"
               style={{
                 animation: `genre-flip-out ${FLIP_MS}ms cubic-bezier(0.3,0.8,0.3,1) forwards`,
               }}
@@ -184,20 +184,28 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
           ) : null}
           <span
             key={`in-${frame.id}`}
-            className={cn('absolute inset-x-0 top-0', frame.id === 0 && 'text-foreground')}
+            className="absolute inset-x-0 top-0"
             style={
               frame.id === 0
                 ? undefined
                 : { animation: `genre-flip-in ${FLIP_MS}ms cubic-bezier(0.3,0.8,0.3,1)` }
             }
           >
-            {toText}
+            {/* 错位的描边层：像套印没对准的那一下 */}
+            <span
+              aria-hidden
+              className="absolute inset-0 translate-x-[0.045em] translate-y-[0.03em] text-transparent"
+              style={{ WebkitTextStroke: '0.03em var(--foreground)' }}
+            >
+              {toText}
+            </span>
+            <span className="relative">{toText}</span>
           </span>
         </span>
       </div>
 
       <svg
-        className="pointer-events-none absolute inset-0 h-full w-full text-foreground/70"
+        className="pointer-events-none absolute inset-0 h-full w-full text-foreground/60"
         viewBox={`0 0 100 ${VIEW_HEIGHT}`}
         preserveAspectRatio="none"
         aria-hidden

@@ -65,7 +65,17 @@ export function LibraryPage() {
       const trimmed = text.trim()
       let keywords: LibraryPuzzle[] = []
       try {
-        keywords = await listPuzzles({ sort, q: trimmed, genre: genreFilter })
+        // 本地优先：上次同一组筛选条件的结果先上屏，网络回来再替换
+        keywords = await listPuzzles(
+          { sort, q: trimmed, genre: genreFilter },
+          {
+            onStale: (cached) => {
+              if (!signal.alive) return
+              setItems(cached)
+              setError(null)
+            },
+          },
+        )
         if (!signal.alive) return
         setItems(keywords)
         setError(null)
@@ -85,7 +95,16 @@ export function LibraryPage() {
         if (!signal.alive || token !== rerankToken.current) return
         setReranking(true)
         try {
-          const ranked = await rerankPuzzles({ sort, q: trimmed, genre: genreFilter })
+          const ranked = await rerankPuzzles(
+            { sort, q: trimmed, genre: genreFilter },
+            {
+              onStale: (cached) => {
+                if (!signal.alive || token !== rerankToken.current) return
+                setItems(cached)
+                setReranked(true)
+              },
+            },
+          )
           if (!signal.alive || token !== rerankToken.current) return
           setItems(ranked)
           setReranked(true)

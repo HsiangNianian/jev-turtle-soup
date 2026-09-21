@@ -1,7 +1,14 @@
+import { staleWhileRevalidate } from '@/lib/cache'
+
 /** 官方每日汤：每天 UTC 零点换新，当天的汤不许提前揭晓。 */
 
 /** 每日汤原生用什么语言写的；读者界面语言可能是另一种。 */
 export type DailyLocale = 'zh-CN' | 'en' | 'ja'
+
+export interface DailyIndex {
+  today: DailyDetail | null
+  history: DailySummary[]
+}
 
 export interface DailySummary {
   date: string
@@ -24,10 +31,12 @@ export interface DailyDetail extends DailySummary {
 }
 
 /**
- * 今天的汤一整天都是同一碗，历史也不会变，所以这次会话里记住就行——
- * 否则每次回到首页都要为同一份数据再打一次接口。
- * 键里带上 UTC 日期：跨过午夜自动失效，不会把「今天」缓存成昨天。
+ * 今天的汤一整天都是同一碗，历史也不会变。除了进程内记住，还写进 localStorage：
+ * 刷新页面之后也能直接渲染，不用再等一次接口。
+ * 键里带上 UTC 日期：跨过午夜自动失效，不会把「今天」当成昨天。
  */
+const DAILY_TTL_MS = 12 * 60 * 60 * 1000
+
 let indexCache: {
   key: string
   value: { today: DailyDetail | null; history: DailySummary[] }
@@ -41,25 +50,33 @@ async function request<T>(path: string): Promise<T> {
   return data as T
 }
 
-export function listDailies() {
+export function listDailies(hooks: { onStale?: (value: DailyIndex) => void } = {}) {
   const key = utcToday()
   if (indexCache?.key === key) return Promise.resolve(indexCache.value)
-  return request<{ today: DailyDetail | null; history: DailySummary[] }>('/api/daily').then(
-    (value) => {
-      indexCache = { key, value }
-      return value
-    },
-  )
+  return staleWhileRevalidate<DailyIndex>(`daily:${key}`, DAILY_TTL_MS, () =>
+    request<DailyIndex>('/api/daily'),
+    hooks,
+  ).then((value) => {
+    indexCache = { key, value }
+    return value
+  })
 }
 
-export function getDaily(date: string) {
-  // 只有过去的日期能放心缓存：今天这一页在午夜之后会变成「已解锁」
-  const cached = date === utcToday() ? undefined : dailyCache.get(date)
-  if (cached) return Promise.resolve(cached)
-  return request<{ daily: DailyDetail }>(`/api/daily/${encodeURIComponent(date)}`).then((data) => {
-    if (date !== utcToday()) dailyCache.set(date, data.daily)
-    return data.daily
-  })
+export function getDaily(date: string, hooks: { onStale?: (value: DailyDetail) => void } = {}) {
+  // 今天这一页在午夜之后会从「锁定」变成「已解锁」，所以今天的不跨会话缓存
+  if (date === utcToday()) {
+    const hot = dailyCache.get(date)
+    if (hot) return Promise.resolve(hot)
+    return request<{ daily: DailyDetail }>(`/api/daily/${encodeURIComponent(date)}`).then(
+      (data) => data.daily,
+    )
+  }
+  return staleWhileRevalidate<DailyDetail>(`daily:${date}`, DAILY_TTL_MS, () =>
+    request<{ daily: DailyDetail }>(`/api/daily/${encodeURIComponent(date)}`).then(
+      (data) => data.daily,
+    ),
+    hooks,
+  )
 }
 
 /**

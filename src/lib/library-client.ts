@@ -1,4 +1,5 @@
 import type { AskContext, HostTurn } from '@/lib/api'
+import { staleWhileRevalidate } from '@/lib/cache'
 
 /** 怪力乱神：出题时的一个预设标签（题库不再按标签筛选，搜索框直接搜标签）。 */
 export const SUPERNATURAL_TAG = '怪力乱神'
@@ -97,22 +98,54 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T
 }
 
-export function listPuzzles(options: { sort?: 'new' | 'hot'; q?: string; genre?: number } = {}) {
+/** 题库列表缓存 10 分钟；同一组筛选条件再进来就直接先渲染上次那份。 */
+const PUZZLE_TTL_MS = 10 * 60 * 1000
+
+function puzzleCacheKey(options: { sort?: string; q?: string; genre?: number }): string {
+  return `puzzles:${options.sort ?? 'new'}:${options.q ?? ''}:${
+    typeof options.genre === 'number' ? Math.round(options.genre) : ''
+  }`
+}
+
+export function listPuzzles(
+  options: { sort?: 'new' | 'hot'; q?: string; genre?: number } = {},
+  hooks: { onStale?: (items: LibraryPuzzle[]) => void } = {},
+) {
   const params = new URLSearchParams()
   if (options.sort) params.set('sort', options.sort)
   if (options.q) params.set('q', options.q)
   if (typeof options.genre === 'number') params.set('genre', String(Math.round(options.genre)))
   const suffix = params.toString()
-  return request<{ items: LibraryPuzzle[] }>(
-    `/api/library/puzzles${suffix ? `?${suffix}` : ''}`,
-  ).then((data) => data.items)
+  return staleWhileRevalidate(
+    puzzleCacheKey(options),
+    PUZZLE_TTL_MS,
+    () =>
+      request<{ items: LibraryPuzzle[] }>(
+        `/api/library/puzzles${suffix ? `?${suffix}` : ''}`,
+      ).then((data) => data.items),
+    hooks,
+  )
 }
 
 /**
  * 语义重排：关键字检索的结果先照常显示，这一步再让 Jev 把候选按「是不是要找的那道」重排。
  * 单独一次请求（一次模型调用），失败就保持关键字顺序。
  */
-export function rerankPuzzles(options: { sort?: 'new' | 'hot'; q: string; genre?: number }) {
+/**
+ * 语义重排是整页最慢的一步（一次模型调用），所以结果也缓存 10 分钟：
+ * 反复改同一个搜索词不该反复花钱。
+ */
+export function rerankPuzzles(
+  options: { sort?: 'new' | 'hot'; q: string; genre?: number },
+  hooks: { onStale?: (items: LibraryPuzzle[]) => void } = {},
+) {
+  const key = `rerank:${options.sort ?? 'new'}:${options.q}:${
+    typeof options.genre === 'number' ? Math.round(options.genre) : ''
+  }`
+  return staleWhileRevalidate(key, 10 * 60 * 1000, () => rerankRequest(options), hooks)
+}
+
+function rerankRequest(options: { sort?: 'new' | 'hot'; q: string; genre?: number }) {
   return request<{ items: LibraryPuzzle[] }>('/api/library/search/rerank', {
     method: 'POST',
     body: JSON.stringify({

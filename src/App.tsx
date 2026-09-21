@@ -36,7 +36,14 @@ import {
   type ArchivedGame,
   type GameStatus,
 } from '@/lib/archive'
-import { fetchMe, logout as logoutRequest, type AuthUser } from '@/lib/auth-client'
+import {
+  cachedUser,
+  fetchMe,
+  forgetUser,
+  rememberUser,
+  logout as logoutRequest,
+  type AuthUser,
+} from '@/lib/auth-client'
 import { submitReport } from '@/lib/report-client'
 import {
   askLibraryPuzzle,
@@ -82,7 +89,8 @@ export default function App() {
   const path = usePath()
 
   const [health, setHealth] = useState<HealthInfo | null>(null)
-  const [user, setUser] = useState<AuthUser | null>(null)
+  // 先按上次记下的登录态渲染，首屏不用等 /api/auth/me
+  const [user, setUser] = useState<AuthUser | null>(() => cachedUser())
   const [games, setGames] = useState<ArchivedGame[]>(initialGames)
 
   const [session, setSession] = useState<GameSession | null>(() =>
@@ -509,12 +517,14 @@ export default function App() {
 
   const handleLogin = useCallback((next: AuthUser) => {
     setUser(next)
+    if (next) rememberUser(next)
     navigate('/', { replace: true })
   }, [])
 
   const handleLogout = useCallback(async () => {
     await logoutRequest().catch(() => undefined)
     setUser(null)
+    forgetUser()
     navigate('/')
   }, [])
 

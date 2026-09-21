@@ -70,6 +70,13 @@ interface Viewer {
   email: string | null
 }
 
+/**
+ * 半静态的读接口允许**浏览器**缓存（private）：重复打开同一个页面就不必再走一次网络。
+ * 一律 private —— 不让 Cloudflare 边缘缓存 JSON，省得再遇到「改了但边缘还是旧的」。
+ */
+const BROWSER_CACHE = { 'cache-control': 'private, max-age=300' }
+const SHORT_BROWSER_CACHE = { 'cache-control': 'private, max-age=60' }
+
 function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -431,7 +438,7 @@ async function routeLibrary(
         query: url.searchParams.get('q') ?? '',
         genre: Number.isFinite(genre) ? genre : undefined,
       })
-      return json({ items })
+      return json({ items }, 200, SHORT_BROWSER_CACHE)
     }
     if (request.method === 'POST') {
       const current = await requireUser(request, env)
@@ -652,24 +659,28 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
         'SELECT date, title, difficulty, tags, relaxed FROM dailies ORDER BY date DESC LIMIT 60',
       )
       .all<{ date: string; title: string; difficulty: string; tags: string; relaxed: number }>()
-    return json({
-      today: today ? dailyPayload(today, true) : null,
-      history: (results ?? []).map((row) => {
-        let tags: string[] = []
-        try {
-          tags = JSON.parse(row.tags) as string[]
-        } catch {
-          tags = []
-        }
-        return {
-          date: row.date,
-          title: row.title,
-          difficulty: row.difficulty,
-          tags,
-          relaxed: row.relaxed === 1,
-        }
-      }),
-    })
+    return json(
+      {
+        today: today ? dailyPayload(today, true) : null,
+        history: (results ?? []).map((row) => {
+          let tags: string[] = []
+          try {
+            tags = JSON.parse(row.tags) as string[]
+          } catch {
+            tags = []
+          }
+          return {
+            date: row.date,
+            title: row.title,
+            difficulty: row.difficulty,
+            tags,
+            relaxed: row.relaxed === 1,
+          }
+        }),
+      },
+      200,
+      BROWSER_CACHE,
+    )
   }
 
   const dailyMatch = /^\/api\/daily\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)
@@ -677,7 +688,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
     const row = await dailyByDate(requireDb(env), dailyMatch[1])
     if (!row) throw new ApiError(404, '没有这一天的官方汤')
-    return json({ daily: dailyPayload(row, row.date === utcDateKey()) })
+    return json({ daily: dailyPayload(row, row.date === utcDateKey()) }, 200, BROWSER_CACHE)
   }
 
   if (pathname === '/api/reports') {
@@ -707,7 +718,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
 
   if (pathname === '/api/health') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
-    return json(health(env))
+    return json(health(env), 200, SHORT_BROWSER_CACHE)
   }
   if (!POST_ROUTES.has(pathname)) return json({ error: '未知接口' }, 404)
   if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)

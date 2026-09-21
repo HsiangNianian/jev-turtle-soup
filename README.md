@@ -55,6 +55,32 @@ src/              ← React 前端；汤面与汤底随请求一起发送，无�
 | `POST /api/game/reveal` | 揭晓这一局的汤底 |
 | `/api/library/puzzles[...]` | 公开题库：列表、详情、判读、上传、改可见性、删除 |
 | `/api/auth/*`、`/api/me/*`、`/api/u/:handle` | 邮箱验证码登录、我的题库、作者主页 |
+| `GET /api/daily`、`GET /api/daily/:date` | 官方每日汤：今天的一碗与往期（当天不下发汤底） |
+| `POST /api/daily/generate` | 手动生成当天官方汤（SSE，需 `x-admin-token`） |
+| `GET /api/audit/flags` | 判读巡检结果：复核后改判的条目（需 `x-admin-token`） |
+| `POST /api/audit/run` | 手动跑一次维护：清理过期日志 + 巡检（需 `x-admin-token`） |
+
+管理接口的口令取自 `DAILY_ADMIN_TOKEN`，没配时退回 `AUTH_SECRET`：
+
+```bash
+npx wrangler secret put DAILY_ADMIN_TOKEN
+curl -X POST -H "x-admin-token: $DAILY_ADMIN_TOKEN" \
+  https://hgt.mmstudio.games/api/daily/generate
+```
+
+## 定时任务
+
+`wrangler.jsonc` 里配了三条 Cron，处理入口都在 `worker/index.ts` 的 `scheduled`，按 `event.cron` 分流：
+
+| Cron（UTC） | 做什么 |
+| --- | --- |
+| `0 0 * * *`、`0 */6 * * *` | 生成当天官方汤；每 6 小时补一次，避免当天缺题 |
+| `0 4 * * *` | 维护：清理过期日志（判读流水 90 天、反馈 1 年）+ 巡检可疑判读 |
+
+**判读巡检**（`shared/audit.ts`）抽查最近 7 天里判成「无关 / 是，也不是」的记录，让 Jev
+**盲判**一次（不告诉它原判读，避免迁就），只把「漏掉真线索」和「前后矛盾」这一类改判写进
+`judge_flags`；`无关 → 不是` 这种两说都成立的差异不计，免得淹没信号。一次巡检只花一次
+LLM 调用。
 
 **汤底永远留在服务端**：生成的会话写进 D1（`visibility = 'session'`，默认保留 90 天），
 题库的题也写进 D1。浏览器只会收到汤面，提问时只发会话号，因此 F12 看不到答案；
@@ -85,6 +111,14 @@ npx wrangler secret put DEEPSEEK_API_KEY
 ```bash
 npm run build
 npx wrangler deploy
+```
+
+**数据库**：`db/schema.sql` 是全量建表，`db/migrations/` 里是增量变更。
+新建 D1 时先跑全量，之后的变更按序执行：
+
+```bash
+npx wrangler d1 execute jev-turtle-soup --remote --file=./db/schema.sql
+npx wrangler d1 execute jev-turtle-soup --remote --file=./db/migrations/004-judge-flags.sql
 ```
 
 ## 命令

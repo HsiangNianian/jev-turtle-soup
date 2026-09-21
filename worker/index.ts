@@ -10,6 +10,7 @@ import {
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
 import { composeDaily, utcDateKey } from '../shared/daily.ts'
+import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
 import { askError, readLocale } from '../shared/game.ts'
 import { applyMeta, pickMetaLocale, type MetaOverride } from '../shared/meta.ts'
 import {
@@ -86,6 +87,9 @@ function sessionToken(request: Request): string | null {
 }
 
 const SESSION_VISIBILITY = 'session'
+
+/** 每天 04:00 UTC 跑维护（清理日志 + 巡检判读），跟出题的 Cron 分开。 */
+const MAINTENANCE_CRON = '0 4 * * *'
 
 interface DailyRow {
   date: string
@@ -195,6 +199,53 @@ async function generateTodayDaily(
   )
 }
 
+/** 管理接口统一走一个口令：DAILY_ADMIN_TOKEN，没配就退回 AUTH_SECRET。 */
+function requireAdmin(request: Request, env: Env): void {
+  const token = env.DAILY_ADMIN_TOKEN ?? env.AUTH_SECRET
+  if (!token || request.headers.get('x-admin-token') !== token) {
+    throw new ApiError(403, '无权操作')
+  }
+}
+
+/**
+ * 定时维护：清理过期日志 + 巡检可疑判读。
+ * 两项失败互不影响——日志清理不该因为巡检没钱了就跟着停。
+ */
+async function runMaintenance(
+  env: Env,
+  options: {
+    audit?: boolean
+    limit?: number
+    days?: number
+    onProgress?: (chars: number) => void
+  } = {},
+): Promise<{ purged: boolean; audit: AuditResult | null }> {
+  const db = requireDb(env)
+  let purged = false
+  let audit: AuditResult | null = null
+
+  try {
+    await purgeOldLogs(db)
+    purged = true
+  } catch (error) {
+    console.warn('[maintenance] 清理旧日志失败：', error)
+  }
+
+  if (options.audit !== false) {
+    try {
+      audit = await inspectJudgments(env, db, {
+        limit: options.limit,
+        days: options.days,
+        onProgress: options.onProgress,
+      })
+    } catch (error) {
+      console.warn('[maintenance] 判读巡检失败：', error)
+    }
+  }
+
+  return { purged, audit }
+}
+
 function puzzleStore(db: D1Like): PuzzleStore {
   return {
     async create(puzzle, meta) {
@@ -239,7 +290,6 @@ function puzzleStore(db: D1Like): PuzzleStore {
         .prepare('DELETE FROM puzzles WHERE visibility = ? AND created_at < ?')
         .bind(SESSION_VISIBILITY, olderThan)
         .run()
-      await purgeOldLogs(db)
     },
     async recentSurfaces(limit) {
       const { results } = await db
@@ -659,12 +709,32 @@ async function serveHtml(
 }
 
 export default {
-  /** Cron：00:00 UTC 生成当天官方汤；每 6 小时补一次，防止当天缺题。 */
+  /**
+   * Cron 分两条线：
+   * - 00:00 / 每 6 小时：生成当天官方汤（缺题时补）
+   * - 04:00：清理过期日志，并巡检最近的可疑判读
+   */
   async scheduled(
-    _event: { scheduledTime: number },
+    event: { scheduledTime: number; cron?: string },
     env: Env,
     ctx: { waitUntil(promise: Promise<unknown>): void },
   ): Promise<void> {
+    if (event.cron === MAINTENANCE_CRON) {
+      ctx.waitUntil(
+        runMaintenance(env)
+          .then((result) =>
+            console.log(
+              `[maintenance] 清理完成=${result.purged}｜巡检=${
+                result.audit
+                  ? `${result.audit.checked} 条，改判 ${result.audit.flagged} 条`
+                  : '跳过'
+              }`,
+            ),
+          )
+          .catch((error) => console.error('[maintenance] 失败：', error)),
+      )
+      return
+    }
     ctx.waitUntil(
       generateTodayDaily(env).catch((error) => {
         console.error('[daily] 生成失败：', error)
@@ -679,14 +749,43 @@ export default {
   ): Promise<Response> {
     const url = new URL(request.url)
 
+    // 巡检结果：给管理用的只读出口，方便回看改判了哪些
+    if (url.pathname === '/api/audit/flags' || url.pathname === '/api/audit/run') {
+      const runPath = url.pathname.endsWith('/run')
+      if (request.method !== (runPath ? 'POST' : 'GET')) {
+        return json({ error: '方法不被允许' }, 405)
+      }
+      try {
+        requireAdmin(request, env)
+        if (runPath) {
+          let body: Record<string, unknown> = {}
+          try {
+            body = await readJson(request)
+          } catch {
+            /* 允许空 body */
+          }
+          const limit = typeof body.limit === 'number' ? body.limit : undefined
+          const days = typeof body.days === 'number' ? body.days : undefined
+          return json(await runMaintenance(env, { limit, days }))
+        }
+        const limit = Number(url.searchParams.get('limit') ?? '50')
+        return json({ items: await listJudgeFlags(requireDb(env), limit) })
+      } catch (error) {
+        const status = error instanceof ApiError ? error.status : 500
+        if (status >= 500) console.error('[audit]', error)
+        return json({ error: error instanceof Error ? error.message : '服务器内部错误' }, status)
+      }
+    }
+
     // 管理触发：和出题一样走 SSE，边跑边回报进度。
     // 注意不能用 waitUntil 后台跑——HTTP 请求的 waitUntil 只续命约 30 秒，
     // 而这个流水线要几分钟，会被掐掉（Cron 才有 15 分钟额度）。
     if (url.pathname === '/api/daily/generate') {
       if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
-      const adminToken = env.DAILY_ADMIN_TOKEN ?? env.AUTH_SECRET
-      if (!adminToken || request.headers.get('x-admin-token') !== adminToken) {
-        return json({ error: '无权操作' }, 403)
+      try {
+        requireAdmin(request, env)
+      } catch (error) {
+        return json({ error: error instanceof Error ? error.message : '无权操作' }, 403)
       }
       let replace = false
       try {

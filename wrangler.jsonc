@@ -25,8 +25,9 @@
     "MAIL_FROM": "noreply@hgt.mmstudio.games"
   },
   // 00:00 UTC 生成当天官方汤；每 6 小时补一次，避免当天缺题
+  // 04:00 UTC 跑维护：清理过期日志 + 巡检可疑判读
   "triggers": {
-    "crons": ["0 0 * * *", "0 */6 * * *"]
+    "crons": ["0 0 * * *", "0 */6 * * *", "0 4 * * *"]
   },
   "observability": {
     "enabled": true

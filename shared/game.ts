@@ -679,7 +679,7 @@ const HOST_QUESTIONS = {
         'If `latest_player_message` is a yes/no question or a narrow factual claim about the story, how should the host answer it given only `puzzle.truth`?',
       compare: ['latest_player_message', 'puzzle.truth'],
       focus:
-        'Before answering, check whether a word in the question has more than one legitimate referent in the truth — a time, a place, a person, an object or an action. If the claim comes out true for one referent and false for another, choose partly: the player has asked an ambiguous question and neither yes nor no would be honest. Then check the other half-right shapes (right outcome but wrong reason; one half of a bundled question). Only when the claim is cleanly true or cleanly ruled out, choose yes or no. If the message is not a yes/no question about the story, choose cannot_answer.',
+        'Work through this in order. (1) Search the truth for the fact the question is about. If it is there at all, even incidentally, the answer must be yes, no or partly — never irrelevant. (2) If the question has a word with more than one legitimate referent in the truth — a time, a place, a person, an object or an action — and the claim is true for one referent and false for another, choose partly; likewise when the outcome is right but the reason is wrong, or when the question bundles two things that are not both so. (3) Only if the truth genuinely says nothing about this fact, choose irrelevant. (4) If the message is not a yes/no question about the story, choose cannot_answer.',
     },
     {
       yes: 'The truth confirms the claim or answers the question YES.',
@@ -695,8 +695,17 @@ const HOST_QUESTIONS = {
           'The question: "does the body exist?" when there is a body, but not where the player thinks.',
         ],
       },
-      irrelevant:
-        'The question asks about a detail the truth never addresses and that does not affect the story; it is neither true nor false.',
+      irrelevant: {
+        what: 'The truth genuinely says nothing about this. The fact the player asks about is neither present nor ruled out anywhere in the truth.',
+        not_for:
+          'Do not choose irrelevant because the detail looks unimportant or only minor, and do not choose it when the truth mentions the fact only in passing. If the truth contains the fact at all, answer yes or no.',
+        examples: [
+          'Not irrelevant — answer yes instead: "was he carrying anything?" for a truth that says he was holding a bag of rice on the scale. The truth contains it, so unrelated would be a dodge.',
+          'Not irrelevant — answer yes or no instead: "was it kitchen-related?" when the truth says he was on his way to the kitchen to cook.',
+          'Genuinely irrelevant: "was it raining that day?" for a truth that never mentions weather and does not depend on it.',
+          'Genuinely irrelevant: "does he have siblings?" for a truth that never mentions anyone but him and his wife.',
+        ],
+      },
       cannot_answer: 'The message is not a yes/no question about the story.',
     },
   ),

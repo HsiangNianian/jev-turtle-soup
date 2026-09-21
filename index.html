@@ -13,7 +13,10 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="海龟汤调查局" />
     <meta property="og:title" content="海龟汤调查局 · 情境推理" />
-    <meta property="og:description" content="向主持人砚（Ellis）提出是非问题，一步步还原被隐去的真相。" />
+    <meta
+      property="og:description"
+      content="向主持人砚（Ellis）提出是非问题，一步步还原被隐去的真相。"
+    />
     <meta property="og:image" content="/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="/og.png" />
@@ -25,6 +28,34 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // 页面可能是缓存的旧 HTML，引用的 JS 已被新部署替换掉：
+      // 模块会 404（被 SPA 兜底当成 HTML 返回）→ 整页空白。
+      // 这里检测到就强制重载一次拿新哈希，最多一次，避免死循环。
+      ;(function () {
+        var KEY = 'ts-asset-recovery'
+        function recover() {
+          try {
+            if (sessionStorage.getItem(KEY) === '1') return
+            sessionStorage.setItem(KEY, '1')
+          } catch (error) {
+            /* 隐私模式：仍然重载一次 */
+          }
+          location.reload()
+        }
+        window.addEventListener(
+          'error',
+          function (event) {
+            var el = event.target
+            if (el && (el.tagName === 'SCRIPT' || el.tagName === 'LINK')) recover()
+          },
+          true,
+        )
+        window.setTimeout(function () {
+          if (!window.__tsBooted) recover()
+        }, 8000)
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

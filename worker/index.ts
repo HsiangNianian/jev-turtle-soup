@@ -495,8 +495,8 @@ async function serveHtml(
     status: response.status,
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      // 别让边缘把某一语言的 HTML 缓存给所有人
-      'cache-control': 'no-cache',
+      // HTML 绝不能被缓存：否则引用的 bundle 哈希会在下次部署后失效
+      'cache-control': 'no-store, must-revalidate',
       vary: 'accept-language',
     },
   })
@@ -518,6 +518,11 @@ export default {
     if (env.ASSETS) {
       const response = await env.ASSETS.fetch(request)
       const type = response.headers.get('content-type') ?? ''
+      // 缺失的构建产物要返回真 404：SPA 兜底会把 HTML 当 JS 返回，
+      // 浏览器拿到一坨 HTML 解析失败，页面就是一片空白。
+      if (url.pathname.startsWith('/assets/') && type.includes('text/html')) {
+        return new Response('Not Found', { status: 404, headers: { 'cache-control': 'no-store' } })
+      }
       if (request.method === 'GET' && type.includes('text/html')) {
         return serveHtml(request, env, url, response)
       }

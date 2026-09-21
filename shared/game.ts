@@ -1,6 +1,5 @@
 import { TypeSafeClient, choice, noul, type EntryType } from '@typesafe-ai/sdk'
 import OpenAI from 'openai'
-import { z } from 'zod'
 
 import { ApiError } from './errors.ts'
 
@@ -37,50 +36,6 @@ export interface Puzzle {
   hint: string
 }
 
-export const PuzzleSchema = z.object({
-  title: z.string().min(1),
-  surface: z.string().min(1),
-  truth: z.string().min(1),
-  hint: z.string().min(1),
-  difficulty: z.string().min(1).optional(),
-  tags: z.array(z.string()).optional(),
-})
-
-export type GeneratedPuzzle = z.infer<typeof PuzzleSchema>
-
-export const BUILTIN_PUZZLES: GeneratedPuzzle[] = [
-  {
-    title: '海边的小屋',
-    difficulty: '中等',
-    surface:
-      '一名男子独自住在海边的小屋里。某天他收到一个没有寄件人的包裹，打开后里面是一根羽毛。他笑了笑，把羽毛放进口袋，然后出门走向大海，再也没有回来。',
-    truth:
-      '男子曾是远洋客轮的乘务员。多年前客轮失事，他负责分发救生衣，却在慌乱中把一件破损的救生衣给了一个年轻乘客，对方因此溺亡，而他活了下来。此后他一直被愧疚折磨，与死者家人保持通信却从未见面。这根羽毛来自死者生前养的鹦鹉——老人临终托人把鹦鹉的一根羽毛寄给他，并附言"他早就不怪你了"。他等这句话等了太久，终于放下，走向大海自尽。',
-    hint: '注意他为什么在读完包裹后笑了，而不是哭了。',
-    tags: ['救赎', '海边'],
-  },
-  {
-    title: '电梯里的男人',
-    difficulty: '简单',
-    surface:
-      '一个男人每天早上都坐电梯到 10 楼，再走楼梯到 12 楼上班。下雨天他却会直接坐到 12 楼，然后一整天心情都很好。',
-    truth:
-      '男人是个侏儒，身高只够按到电梯上 10 楼的按钮，再高的按钮需要借助他的雨伞去够。下雨天他会带伞，就能直接按到 12 楼。心情好是因为下雨天有伞，不用爬楼，而不是因为天气。',
-    hint: '想想他按下按钮时用的是什么工具。',
-    tags: ['经典', '生活'],
-  },
-  {
-    title: '深夜的探照灯',
-    difficulty: '困难',
-    surface:
-      '深夜，一个女人独自开车行驶在乡间公路上。她打开车灯，却在一处弯道突然急刹车，随后弃车逃进路边的树林，直到第二天早上才敢出来。她没有遇到任何人或动物。',
-    truth:
-      '她的车灯照射到前方路边的树林里，反射出一双反光的眼睛。她想起当地流传的传说，以为遇到了怪物，吓得弃车逃跑。实际上那只是一只停在低矮树桩上的猫头鹰。她白天回来时，看到树桩上的猫头鹰，才明白是自己吓自己。',
-    hint: '夜里在树林里反光的东西，往往有很普通的解释。',
-    tags: ['误会', '夜晚'],
-  },
-]
-
 export function resolveLlm(env: GameEnv) {
   const genericKey = env.LLM_API_KEY?.trim()
   if (genericKey) {
@@ -113,31 +68,6 @@ export function resolveLlm(env: GameEnv) {
 }
 
 type LlmConfig = NonNullable<ReturnType<typeof resolveLlm>>
-
-export type Genre = 'realistic' | 'supernatural'
-
-export const GENRES: Genre[] = ['realistic', 'supernatural']
-
-/** 怪力乱神题材：允许超自然设定，但仍要求线索可推理、规则自洽。 */
-const TRUTH_RULE: Record<Genre, string> = {
-  realistic:
-    '把汤面那件反常的事解释清楚，逻辑自洽，在现实或合理设定中成立；不要魔法、超自然、鬼怪或"其实只是一场梦"。',
-  supernatural:
-    '把汤面那件反常的事解释清楚，逻辑自洽。允许出现鬼神、怨灵、诅咒、因果报应、民间禁忌、诡物等超自然设定；但超自然的规则必须前后一致，而且能在汤面里找到线索。不要用"其实是一场梦""一切都是幻觉"收尾，也不要靠血腥和 jump scare 吓人。',
-}
-
-/** 汤面与汤底必须一一对应，且汤底要短。 */
-const LINK_RULES = `汤底写作要求（很重要）：
-- 只回答汤面里那一个反常之处，不要写成小作文，不要交代与汤面无关的人物生平、支线剧情或抒情结尾。
-- 长度控制在 3 到 5 句、150 字以内，信息密度要高，每句都要有用。
-- 汤面里出现的每个细节（人、物、动作、时间、数量）都必须在汤底里得到解释；解释不了的就不要写进汤面。
-- 汤底里不要再引入汤面完全没有暗示过的新角色或新事件。
-- 读完汤底，玩家应该能立刻回头对照汤面说"原来每一处都对上了"。`
-
-const GENRE_STYLE: Record<Genre, string> = {
-  realistic: '本格现实向：所有反常都必须有现实的、可解释的成因。',
-  supernatural: '怪力乱神：可以有鬼神与因果，但要克制、有规矩，读起来像一则民间怪谈而非血浆片。',
-}
 
 export type Locale = 'zh-CN' | 'en' | 'ja'
 
@@ -186,98 +116,6 @@ export function readLocale(value: unknown): Locale {
   return value === 'en' || value === 'ja' ? value : 'zh-CN'
 }
 
-/** 出题正文必须用请求者当前的语言，否则英文站会端上一碗中文汤。 */
-const LANGUAGE_RULE: Record<Locale, string> = {
-  'zh-CN':
-    'Story language: Simplified Chinese only. Write the title, surface, truth, hint and tags in Chinese.',
-  en: 'Story language: English only. Write the title, surface, truth, hint and tags in natural, idiomatic English; never leave Chinese in the output.',
-  ja: 'Story language: Japanese only. Write the title, surface, truth, hint and tags in natural Japanese; never leave Chinese in the output.',
-}
-
-const STYLE_RULE: Record<Locale, string> = {
-  'zh-CN':
-    '不要血腥、色情、恐怖 jump scare 或违法内容；正文里不要出现「汤面」「汤底」「答案」这类出题术语。',
-  en: 'No gore, sexual content, jump scares or anything illegal, and never use the words "surface", "truth" or "answer" inside the prose itself.',
-  ja: '残虐・性的表現・ジャンプスケア・違法な内容は避け、本文中に「湯面」「真相」「答え」といった出題用語を書かないこと。',
-}
-
-function systemPrompt(genre: Genre, locale: Locale = 'zh-CN') {
-  return `你是一位顶级海龟汤（情境推理游戏）出题人。海龟汤由两部分组成：汤面是呈现给玩家的一段诡异、简短、只描述现象的情境；汤底是隐藏的完整真相。
-
-请创作一则原创、公平、逻辑自洽的海龟汤，并且只输出一个 JSON 对象。
-
-要求：
-1. surface（汤面）：**只写一句话**，不超过 40 个字。这一句必须最能引起遐想——只呈现一个反常的现象、动作或对白，让人看完立刻想问"为什么会这样"。不要解释原因，不要点破真相，不要铺陈背景，不要写成两句话或罗列多个细节。
-2. truth（汤底）：${TRUTH_RULE[genre]}
-3. 反转：汤底要有一个出人意料、但回溯汤面又完全合理的转折；关键线索必须已经埋在汤面里，玩家可以靠是非提问推理出来（fair play）。
-${LINK_RULES}
-4. hint（提示）：一句话，不直接揭晓答案，但能推动推理方向。
-5. difficulty：只能是"简单""中等""困难"之一。
-6. tags：2 到 3 个中文短标签。
-
-题材风格：${GENRE_STYLE[genre]}
-
-风格约束：${STYLE_RULE[locale]}
-${LANGUAGE_RULE[locale]}
-${genre === 'supernatural' ? 'tags 里必须包含「怪力乱神」这个标签。' : ''}
-
-输出格式（严格 JSON，不要 markdown 代码块）：
-{"title": "标题", "surface": "汤面", "truth": "汤底", "hint": "提示", "difficulty": "中等", "tags": ["标签1", "标签2"]}`
-}
-
-export function readGenre(value: unknown): Genre {
-  return value === 'supernatural' ? 'supernatural' : 'realistic'
-}
-
-function buildUserPrompt(
-  difficulty: string,
-  theme: string,
-  avoid: string[] = [],
-  locale: Locale = 'zh-CN',
-) {
-  const openers: Record<Locale, string> = {
-    'zh-CN': `请创作一则难度为「${difficulty}」的海龟汤。`,
-    en: `Write one turtle-soup puzzle at ${difficultyEn(difficulty)} difficulty.`,
-    ja: `海亀スープのお題を一つ、難易度「${difficultyJa(difficulty)}」で書いてください。`,
-  }
-  const themeLabels: Record<Locale, string> = {
-    'zh-CN': '主题或背景偏好',
-    en: 'Theme or setting preference',
-    ja: '題材・舞台の希望',
-  }
-  const avoidIntro: Record<Locale, string> = {
-    'zh-CN':
-      '最近已经出过下面这些题，请换一个完全不同的场景、物件和转折，不要与之相似，也不要同题：',
-    en: 'These puzzles were generated recently. Pick a completely different setting, object and twist — do not repeat or closely echo any of them:',
-    ja: '最近出したお題は以下です。舞台・小道具・どんでん返しを大きく変え、類似や同一は避けてください：',
-  }
-  const outro: Record<Locale, string> = {
-    'zh-CN': '以 json 格式输出，只输出 json。',
-    en: 'Answer with json only, no commentary.',
-    ja: 'json のみで出力すること。',
-  }
-  const parts = [openers[locale]]
-  if (theme.trim()) parts.push(`${themeLabels[locale]}：${theme.trim()}。`)
-  if (avoid.length) {
-    parts.push(
-      `${avoidIntro[locale]}\n${avoid
-        .slice(0, 12)
-        .map((item) => `- ${item}`)
-        .join('\n')}`,
-    )
-  }
-  parts.push(outro[locale])
-  return parts.join('')
-}
-
-function difficultyEn(value: string): string {
-  return value === '简单' ? 'easy' : value === '困难' ? 'hard' : 'normal'
-}
-
-function difficultyJa(value: string): string {
-  return value === '简单' ? 'やさしい' : value === '困难' ? 'むずかしい' : 'ふつう'
-}
-
 function extractJson(text: string): unknown {
   const trimmed = text.trim()
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
@@ -310,31 +148,6 @@ const MAX_ROUNDS = 3
  * 输出兜底校验：结构以外的硬性要求。不通过就把具体问题连同原始要求回给模型，
  * 让它自己改，而不是直接放弃去用内置题。
  */
-function validatePuzzle(puzzle: GeneratedPuzzle): string[] {
-  const issues: string[] = []
-  const surface = puzzle.surface.trim()
-  const truth = puzzle.truth.trim()
-
-  const surfaceStops = (surface.match(/[。！？!?…]/g) ?? []).length
-  if (surface.length > 60) issues.push(`汤面太长（${surface.length} 字，要求 40 字以内）`)
-  if (surfaceStops > 1) issues.push(`汤面必须只有一句话，现在有 ${surfaceStops} 句`)
-
-  const truthStops = (truth.match(/[。！？!?…]/g) ?? []).length
-  if (truth.length < 20) issues.push('汤底太短，没有把真相讲清楚')
-  if (truth.length > 220) issues.push(`汤底太长（${truth.length} 字，要求 150 字以内）`)
-  if (truthStops > 6) issues.push(`汤底句数太多（${truthStops} 句，要求 3-5 句`)
-
-  if (!puzzle.title.trim()) issues.push('title 不能为空')
-  if (puzzle.title.trim().length > 20) issues.push('title 太长，控制在 20 字以内')
-  if (!['简单', '中等', '困难'].includes(puzzle.difficulty ?? '')) {
-    issues.push('difficulty 只能是「简单」「中等」「困难」之一')
-  }
-  if (puzzle.hint && puzzle.hint.trim().length > 80) {
-    issues.push(`hint 太长（${puzzle.hint.length} 字），一句话即可`)
-  }
-  return issues
-}
-
 /**
  * 只相信自己的超时：SDK 的 abort 不保证会打断 for-await，
  * 所以这里用「空闲 deadline」直接和迭代竞速，超时就抛。
@@ -506,56 +319,6 @@ export async function generateJson<T>(
   }
 
   throw new Error(`模型连续 ${rounds} 次都没给出合格输出：${lastIssues.join('；')}`)
-}
-
-async function generateWithLlm(
-  cfg: LlmConfig,
-  difficulty: string,
-  theme: string,
-  genre: Genre,
-  effort: Effort = 'low',
-  avoid: string[] = [],
-  locale: Locale = 'zh-CN',
-  onProgress?: (progress: GenerateProgress) => void,
-): Promise<GeneratedPuzzle> {
-  return generateJson<GeneratedPuzzle>(cfg, {
-    system: systemPrompt(genre, locale),
-    user: buildUserPrompt(difficulty, theme, avoid, locale),
-    effort,
-    onProgress,
-    check: (raw) => {
-      const parsed = PuzzleSchema.safeParse(raw)
-      if (!parsed.success) {
-        return { issues: [`json 结构不合法：${parsed.error.message.slice(0, 200)}`] }
-      }
-      const issues = validatePuzzle(parsed.data)
-      return issues.length ? { issues } : { value: parsed.data, issues: [] }
-    },
-  })
-}
-
-/** 归一化汤面，用来判断两则题是不是同一则。 */
-export function normaliseSurface(surface: string): string {
-  return surface.replace(/\s+/g, '').slice(0, 60)
-}
-
-export function pickBuiltin(
-  difficulty: string,
-  theme: string,
-  avoid: string[] = [],
-): GeneratedPuzzle {
-  const usable = BUILTIN_PUZZLES.filter(
-    (puzzle) => !avoid.includes(normaliseSurface(puzzle.surface)),
-  )
-  if (theme.trim()) {
-    const hit = usable.find(
-      (puzzle) => puzzle.tags?.some((tag) => theme.includes(tag)) || theme.includes(puzzle.title),
-    )
-    if (hit) return hit
-  }
-  const pool = usable.filter((puzzle) => !puzzle.difficulty || puzzle.difficulty === difficulty)
-  const list = pool.length ? pool : usable.length ? usable : BUILTIN_PUZZLES
-  return list[Math.floor(Math.random() * list.length)]
 }
 
 export interface EstablishedFact {
@@ -877,8 +640,6 @@ interface HostCopy {
   unclear: string
   luckMissing: string
   luck: (luck: LuckInfo) => string
-  greeting: string
-  greetingFallback: string
 }
 
 function luckMoodZh(score: number) {
@@ -917,8 +678,6 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       `主持人翻开手边的册子念了一句：「${luck.date}，人品 ${luck.score}，${luck.tier}——${luckMoodZh(
         luck.score,
       )}。宜${luck.good}，忌${luck.bad}。」他把册子合上，「信不信随你，汤底我是不会提前给你的。」`,
-    greeting: '汤面已经端上来了。开始提问吧，我只会回答「是」「不是」「无关」或者「是，也不是」。',
-    greetingFallback: '（这次出题没成功，先用一则经典汤顶上。）汤面已经端上来了，开始提问吧。',
   },
   en: {
     verdict: {
@@ -946,9 +705,6 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       `The host reads from a notebook: “${luck.date}, luck ${luck.score}, ${luck.tier}. Good for: ${
         luck.good
       }. Bad for: ${luck.bad}.” He shuts it. “Believe it or not, I still will not hand you the truth early.”`,
-    greeting: 'The surface is served. Ask away — I only answer yes, no, or unrelated.',
-    greetingFallback:
-      '(Generation did not work out, so a classic bowl stands in.) The surface is served — ask away.',
   },
   ja: {
     verdict: {
@@ -976,10 +732,6 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       `司会が帳面を読み上げる。「${luck.date}、運勢 ${luck.score}、${luck.tier}。向くこと：${
         luck.good
       }。避けること：${luck.bad}。」帳面を閉じて、「信じるかは自由ですが、真相は先に渡しませんよ。」`,
-    greeting:
-      '湯面をどうぞ。質問を始めてください。答えるのは「はい」「いいえ」「無関係」だけです。',
-    greetingFallback:
-      '（今回はうまく作れなかったので、定番の一杯で失礼します。）湯面をどうぞ、質問を始めてください。',
   },
 }
 
@@ -1267,7 +1019,6 @@ export function health(env: GameEnv) {
     ok: true,
     typesafeConfigured: Boolean(env.TYPESAFE_API_KEY?.trim()),
     llm: llm ? { provider: llm.label, model: llm.model } : null,
-    fallbackPuzzles: BUILTIN_PUZZLES.length,
   }
 }
 
@@ -1289,88 +1040,10 @@ export interface PuzzleStore {
   ): Promise<string>
   get(id: string): Promise<(Puzzle & { difficulty: string; visibility: string }) | null>
   sweep(olderThan: number): Promise<void>
-  /** 最近生成过的汤面（已归一化），用来避免重复出题 */
-  recentSurfaces(limit: number): Promise<string[]>
 }
 
-const SESSION_RETENTION_MS = 1000 * 60 * 60 * 24 * 90
-
-export async function startGame(
-  env: GameEnv,
-  store: PuzzleStore,
-  body: Record<string, unknown>,
-  onProgress?: (progress: GenerateProgress) => void,
-) {
-  const difficulty =
-    typeof body.difficulty === 'string' && body.difficulty.trim() ? body.difficulty.trim() : '中等'
-  const theme = typeof body.theme === 'string' ? body.theme : ''
-  const genre = readGenre(body.genre)
-  const locale = readLocale(body.locale)
-  const llm = resolveLlm(env)
-
-  const avoid = await store.recentSurfaces(30)
-  let puzzle: GeneratedPuzzle | null = null
-  let source: 'llm' | 'builtin' = 'builtin'
-  let lastError: unknown = null
-
-  if (llm) {
-    // max 档偶尔会因为思维链过长而失败；low, high 更快更稳，失败再上 max
-    for (const effort of ['low', 'high', 'max'] as const) {
-      try {
-        const candidate = await generateWithLlm(
-          llm,
-          difficulty,
-          theme,
-          genre,
-          effort,
-          avoid,
-          locale,
-          onProgress,
-        )
-        if (avoid.includes(normaliseSurface(candidate.surface))) {
-          throw new Error('和最近出过的题重复了')
-        }
-        puzzle = candidate
-        source = 'llm'
-        break
-      } catch (error) {
-        lastError = error
-        console.warn(
-          `[turtle-soup] 出题失败（effort=${effort}）：`,
-          error instanceof Error ? error.message : error,
-        )
-      }
-    }
-  }
-
-  if (!puzzle) {
-    // 排查出题失败时把真实错误抛出去（LLM_DEBUG=1）
-    if (env.LLM_DEBUG === '1' && lastError) throw lastError
-    puzzle = pickBuiltin(difficulty, theme, avoid)
-    source = 'builtin'
-  }
-
-  await store.sweep(Date.now() - SESSION_RETENTION_MS)
-  const sessionId = await store.create(
-    {
-      title: puzzle.title,
-      surface: puzzle.surface,
-      truth: puzzle.truth,
-      hint: puzzle.hint,
-    },
-    { difficulty: puzzle.difficulty ?? difficulty, createdAt: Date.now() },
-  )
-
-  return {
-    sessionId,
-    title: puzzle.title,
-    surface: puzzle.surface,
-    difficulty: puzzle.difficulty ?? difficulty,
-    source,
-    hostGreeting:
-      source === 'builtin' ? HOST_COPY[locale].greetingFallback : HOST_COPY[locale].greeting,
-  }
-}
+/** 临时对局（自己开的那碗）保留 90 天，由定时维护清理。 */
+export const SESSION_RETENTION_MS = 1000 * 60 * 60 * 24 * 90
 
 export function readPuzzle(value: unknown): Puzzle {
   if (!value || typeof value !== 'object') throw new ApiError(400, '缺少汤面与汤底')

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Loader2, RotateCcw, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, TriangleAlert } from 'lucide-react'
 
 import { AboutPage } from '@/components/AboutPage'
 import { ArchiveView } from '@/components/ArchiveView'
@@ -20,7 +20,6 @@ import { PuzzlePanel } from '@/components/PuzzlePanel'
 import { UploadPage } from '@/components/UploadPage'
 import {
   askHost,
-  createGame,
   fetchHealth,
   revealGame,
   type HostTurn,
@@ -94,15 +93,9 @@ export default function App() {
   const [truth, setTruth] = useState<string | null>(() => bootGame?.truth ?? null)
   const [solved, setSolved] = useState(() => bootGame?.solved ?? false)
   const [closeness, setCloseness] = useState<number | null>(() => bootGame?.closeness ?? null)
-  const [generating, setGenerating] = useState(false)
-  const [progress, setProgress] = useState<string>('')
   const [asking, setAsking] = useState(false)
   const [turnCount, setTurnCount] = useState(() => bootGame?.turnCount ?? 0)
   const [startedAt, setStartedAt] = useState<number>(() => bootGame?.createdAt ?? Date.now())
-  const [difficulty, setDifficulty] = useState(t('中等'))
-  const [genre, setGenre] = useState<'realistic' | 'supernatural'>('realistic')
-  const [theme, setTheme] = useState('')
-  const [landingError, setLandingError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -169,9 +162,6 @@ export default function App() {
     [allGames],
   )
   const archives = useMemo(() => allGames.filter((game) => game.status !== 'active'), [allGames])
-  const canGenerate = !activeGames.some(
-    (game) => game.source !== 'library' && game.source !== 'daily',
-  )
   const ledger = useMemo(() => buildLedger(messages), [messages])
 
   useEffect(() => {
@@ -187,7 +177,6 @@ export default function App() {
     setCloseness(game.closeness)
     setTurnCount(game.turnCount)
     setStartedAt(game.createdAt)
-    setLandingError(null)
   }, [])
 
   /** 从服务端取回汤底（会话题与题库题走同一个出口）。 */
@@ -199,48 +188,6 @@ export default function App() {
     setTruth(result.truth)
     return result.truth
   }, [session, locale])
-
-  const handleNew = useCallback(async () => {
-    if (!canGenerate) {
-      setLandingError(t('还有一桩在办案件，先结案才能立案新的。'))
-      return
-    }
-    setGenerating(true)
-    setProgress('')
-    setLandingError(null)
-    if (liveEntry) {
-      const merged = upsertGame(games, liveEntry)
-      setGames(merged)
-      saveGames(merged)
-    }
-    try {
-      const created = await createGame(difficulty, theme, genre, locale, (update) => {
-        const chars = new Intl.NumberFormat(locale).format(update.chars)
-        setProgress(
-          update.stage === 'writing' || !update.chars
-            ? update.stage === 'writing'
-              ? t('正在组织汤面……')
-              : ''
-            : t('正在推演汤底……已思考 {chars} 字', { chars }),
-        )
-      })
-      setSession(created)
-      setMessages([{ id: crypto.randomUUID(), role: 'host', text: created.hostGreeting }])
-      setRevealed(false)
-      setTruth(null)
-      setSolved(false)
-      setCloseness(null)
-      setTurnCount(0)
-      setStartedAt(Date.now())
-      setDrawerOpen(true)
-      navigate('/play')
-    } catch (error) {
-      setLandingError(error instanceof Error ? error.message : t('生成失败，请重试'))
-    } finally {
-      setGenerating(false)
-      setProgress('')
-    }
-  }, [canGenerate, difficulty, theme, genre, games, liveEntry, locale, t])
 
   const startLibraryGame = useCallback(
     (puzzle: LibraryPuzzleDetail) => {
@@ -571,7 +518,6 @@ export default function App() {
     navigate('/')
   }, [])
 
-  const llmMissing = health !== null && health.llm === null
   const typesafeMissing = health !== null && !health.typesafeConfigured
 
   const renderCase = (onStart?: () => void) =>
@@ -757,19 +703,8 @@ export default function App() {
     return (
       <ScrollArea>
         <Landing
-          difficulty={difficulty}
-          genre={genre}
-          theme={theme}
-          generating={generating}
-          progress={progress}
-          error={landingError}
           activeGames={activeGames}
-          canGenerate={canGenerate}
           archives={archives}
-          onDifficultyChange={setDifficulty}
-          onGenreChange={setGenre}
-          onThemeChange={setTheme}
-          onGenerate={handleNew}
           onStartDaily={startDailyGame}
           onContinue={handleContinue}
           onView={(id) => navigate(`/archive/${id}`)}
@@ -823,21 +758,6 @@ export default function App() {
             >
               {t('题库')}
             </Link>
-            {path === '/play' && gameOver ? (
-              <button
-                type="button"
-                onClick={() => void handleNew()}
-                disabled={generating}
-                className="flex items-center gap-1.5 tracking-[0.2em] transition-opacity hover:opacity-60 disabled:opacity-40"
-              >
-                {generating ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <RotateCcw className="size-3.5" />
-                )}
-                <span className="hidden sm:inline">{t('重新立案')}</span>
-              </button>
-            ) : null}
             <ThemeToggle />
             <LocaleMenu />
             {user ? (
@@ -857,25 +777,11 @@ export default function App() {
         </div>
       </header>
 
-      {typesafeMissing || llmMissing ? (
-        <div
-          className={cn(
-            'flex shrink-0 items-center gap-2 border-b-2 bg-card px-4 py-2 font-mono text-[11px] tracking-wide sm:px-6',
-            typesafeMissing
-              ? 'border-l-2 border-l-stamp text-stamp'
-              : 'border-l-2 border-l-[var(--v-partly)] text-[var(--v-partly)]',
-          )}
-        >
+      {typesafeMissing ? (
+        <div className="flex shrink-0 items-center gap-2 border-b-2 border-l-2 border-l-stamp bg-card px-4 py-2 font-mono text-[11px] tracking-wide text-stamp sm:px-6">
           <TriangleAlert className="size-3.5 shrink-0" />
           <span className="min-w-0">
-            {typesafeMissing ? (
-              <>{t('未检测到主持人密钥（TYPESAFE_API_KEY），砚无法工作。请配置后重启。')}</>
-            ) : (
-              <>
-                未配置 LLM API Key（DEEPSEEK_API_KEY /
-                OPENAI_API_KEY），当前使用内置题库。配置后可生成全新海龟汤。
-              </>
-            )}
+            {t('未检测到主持人密钥（TYPESAFE_API_KEY），砚无法工作。请配置后重启。')}
           </span>
         </div>
       ) : null}

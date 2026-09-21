@@ -2,9 +2,8 @@ import {
   ApiError,
   askHost,
   health,
-  normaliseSurface,
   revealGame,
-  startGame,
+  SESSION_RETENTION_MS,
   type GameEnv,
   type PuzzleStore,
 } from '../shared/game.ts'
@@ -217,8 +216,8 @@ function requireAdmin(request: Request, env: Env): void {
 }
 
 /**
- * 定时维护：清理过期日志 + 巡检可疑判读。
- * 两项失败互不影响——日志清理不该因为巡检没钱了就跟着停。
+ * 定时维护：清理过期日志与临时对局 + 巡检可疑判读。
+ * 每一项失败互不影响——日志清理不该因为巡检没钱了就跟着停。
  */
 async function runMaintenance(
   env: Env,
@@ -228,9 +227,10 @@ async function runMaintenance(
     days?: number
     onProgress?: (chars: number) => void
   } = {},
-): Promise<{ purged: boolean; audit: AuditResult | null }> {
+): Promise<{ purged: boolean; swept: boolean; audit: AuditResult | null }> {
   const db = requireDb(env)
   let purged = false
+  let swept = false
   let audit: AuditResult | null = null
 
   try {
@@ -238,6 +238,14 @@ async function runMaintenance(
     purged = true
   } catch (error) {
     console.warn('[maintenance] 清理旧日志失败：', error)
+  }
+
+  try {
+    // 临时对局以前是「出题时顺手清」，出题下线后改由这里定期清
+    await puzzleStore(db).sweep(Date.now() - SESSION_RETENTION_MS)
+    swept = true
+  } catch (error) {
+    console.warn('[maintenance] 清理过期对局失败：', error)
   }
 
   if (options.audit !== false) {
@@ -252,7 +260,7 @@ async function runMaintenance(
     }
   }
 
-  return { purged, audit }
+  return { purged, swept, audit }
 }
 
 function puzzleStore(db: D1Like): PuzzleStore {
@@ -299,15 +307,6 @@ function puzzleStore(db: D1Like): PuzzleStore {
         .prepare('DELETE FROM puzzles WHERE visibility = ? AND created_at < ?')
         .bind(SESSION_VISIBILITY, olderThan)
         .run()
-    },
-    async recentSurfaces(limit) {
-      const { results } = await db
-        .prepare(
-          'SELECT surface FROM puzzles WHERE visibility = ? ORDER BY created_at DESC LIMIT ?',
-        )
-        .bind(SESSION_VISIBILITY, Math.max(1, Math.min(limit, 100)))
-        .all<{ surface: string }>()
-      return (results ?? []).map((row) => normaliseSurface(row.surface))
     },
   }
 }
@@ -569,10 +568,10 @@ const SSE_HEADERS = {
 }
 
 /**
- * 出题要花几十秒到几分钟。普通请求在这段时间里一个字节都不发，
- * 长静默连接会被边缘掐掉；改成 SSE 边思考边回报，连接一直是活的。
+ * 生成类接口（出题、每日汤）都要跑几十秒到几分钟。普通请求在这段时间里
+ * 一个字节都不发，长静默连接会被边缘掐掉；改成 SSE 边思考边回报，连接一直是活的。
  */
-function gameStream(env: Env, store: PuzzleStore, body: Record<string, unknown>): Response {
+function sseStream(run: (send: (event: string, data: unknown) => void) => Promise<void>): Response {
   const encoder = new TextEncoder()
   let closed = false
   const stream = new ReadableStream({
@@ -585,8 +584,7 @@ function gameStream(env: Env, store: PuzzleStore, body: Record<string, unknown>)
         if (!closed) controller.enqueue(encoder.encode(': ping\n\n'))
       }, 8000)
       try {
-        const result = await startGame(env, store, body, (progress) => send('progress', progress))
-        send('done', result)
+        await run(send)
       } catch (error) {
         send('error', { error: error instanceof Error ? error.message : '生成失败' })
       } finally {
@@ -602,7 +600,7 @@ function gameStream(env: Env, store: PuzzleStore, body: Record<string, unknown>)
   return new Response(stream, { headers: SSE_HEADERS })
 }
 
-const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask', '/api/game/reveal'])
+const POST_ROUTES = new Set(['/api/game/ask', '/api/game/reveal'])
 
 async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const pathname = url.pathname
@@ -688,10 +686,6 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const db = requireDb(env)
   const store = puzzleStore(db)
   const body = await readJson(request)
-  if (pathname === '/api/game/new') {
-    const wantsStream = request.headers.get('accept')?.includes('text/event-stream')
-    return wantsStream ? gameStream(env, store, body) : json(await startGame(env, store, body))
-  }
   if (pathname === '/api/game/reveal') {
     const targetId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
     if (targetId && (await isLockedDaily(db, targetId))) {
@@ -804,7 +798,7 @@ export default {
         runMaintenance(env)
           .then((result) =>
             console.log(
-              `[maintenance] 清理完成=${result.purged}｜巡检=${
+              `[maintenance] 清日志=${result.purged}｜清对局=${result.swept}｜巡检=${
                 result.audit
                   ? `${result.audit.checked} 条，改判 ${result.audit.flagged} 条`
                   : '跳过'
@@ -875,40 +869,19 @@ export default {
         /* 允许空 body */
       }
 
-      const encoder = new TextEncoder()
-      const stream = new ReadableStream({
-        async start(controller) {
-          let closed = false
-          const send = (event: string, data: unknown) => {
-            if (closed) return
-            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+      return sseStream(async (send) => {
+        try {
+          const db = requireDb(env)
+          if (replace) {
+            await db.prepare('DELETE FROM dailies WHERE date = ?').bind(utcDateKey()).run()
           }
-          const ping = setInterval(() => {
-            if (!closed) controller.enqueue(encoder.encode(': ping\n\n'))
-          }, 8000)
-          try {
-            const db = requireDb(env)
-            if (replace) {
-              await db.prepare('DELETE FROM dailies WHERE date = ?').bind(utcDateKey()).run()
-            }
-            await generateTodayDaily(env, (progress) => send('progress', progress))
-            const row = await dailyByDate(db, utcDateKey())
-            send('done', { daily: row ? dailyPayload(row, true) : null })
-          } catch (error) {
-            console.error('[daily] 手动生成失败：', error)
-            send('error', { error: error instanceof Error ? error.message : '生成失败' })
-          } finally {
-            clearInterval(ping)
-            closed = true
-            controller.close()
-          }
-        },
-      })
-      return new Response(stream, {
-        headers: {
-          'content-type': 'text/event-stream; charset=utf-8',
-          'cache-control': 'no-store',
-        },
+          await generateTodayDaily(env, (progress) => send('progress', progress))
+          const row = await dailyByDate(db, utcDateKey())
+          send('done', { daily: row ? dailyPayload(row, true) : null })
+        } catch (error) {
+          console.error('[daily] 手动生成失败：', error)
+          throw error
+        }
       })
     }
 

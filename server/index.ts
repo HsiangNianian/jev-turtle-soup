@@ -5,9 +5,7 @@ import {
   ApiError,
   askHost,
   health,
-  normaliseSurface,
   revealGame,
-  startGame,
   type GameEnv,
   type Puzzle,
   type PuzzleStore,
@@ -36,12 +34,6 @@ function memoryStore(): PuzzleStore {
         if (puzzle.createdAt < olderThan) puzzles.delete(id)
       }
     },
-    async recentSurfaces(limit) {
-      return [...puzzles.values()]
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .slice(0, limit)
-        .map((puzzle) => normaliseSurface(puzzle.surface))
-    },
   }
 }
 
@@ -68,7 +60,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   }
 }
 
-const POST_ROUTES = new Set(['/api/game/new', '/api/game/ask', '/api/game/reveal'])
+const POST_ROUTES = new Set(['/api/game/ask', '/api/game/reveal'])
 
 async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
@@ -101,10 +93,6 @@ async function route(env: GameEnv, req: IncomingMessage, res: ServerResponse) {
   }
 
   const body = await readJson(req)
-  if (path === '/api/game/new') {
-    sendJson(res, 200, await startGame(env, store, body))
-    return
-  }
   if (path === '/api/game/reveal') {
     sendJson(res, 200, await revealGame(store, body))
     return

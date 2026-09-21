@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Loader2, Lock, Trash2 } from 'lucide-react'
+import { ArrowRight, Lock, Trash2 } from 'lucide-react'
 
 import { Link } from '@/components/Link'
 import { DailyLuck } from '@/components/DailyLuck'
@@ -17,17 +17,6 @@ function readSkipDeleteConfirm(): boolean {
     return false
   }
 }
-
-const GENRE_CHOICES = [
-  { value: 'realistic', label: '本格', hint: '现实向推理' },
-  { value: 'supernatural', label: '怪力乱神', hint: '鬼神 · 因果 · 禁忌' },
-] as const
-
-const DIFFICULTIES = [
-  { value: '简单', hint: '线索直给' },
-  { value: '中等', hint: '需要联想' },
-  { value: '困难', hint: '反转刁钻' },
-] as const
 
 const STAMP_TONE: Record<GameStatus, string> = {
   active: 'border-stamp text-stamp',
@@ -135,19 +124,8 @@ function DailyCard({
 }
 
 interface LandingProps {
-  difficulty: string
-  genre: 'realistic' | 'supernatural'
-  theme: string
-  generating: boolean
-  progress: string
-  error: string | null
   activeGames: ArchivedGame[]
-  canGenerate: boolean
   archives: ArchivedGame[]
-  onDifficultyChange: (value: string) => void
-  onGenreChange: (value: 'realistic' | 'supernatural') => void
-  onThemeChange: (value: string) => void
-  onGenerate: () => void
   onStartDaily: (daily: DailyDetail) => void
   onContinue: (id: string) => void
   onView: (id: string) => void
@@ -156,19 +134,8 @@ interface LandingProps {
 }
 
 export function Landing({
-  difficulty,
-  genre,
-  theme,
-  generating,
-  progress,
-  error,
   activeGames,
-  canGenerate,
   archives,
-  onDifficultyChange,
-  onGenreChange,
-  onThemeChange,
-  onGenerate,
   onStartDaily,
   onContinue,
   onView,
@@ -201,8 +168,6 @@ export function Landing({
     setConfirmingId(null)
     onDelete(id)
   }
-
-  const [focused, setFocused] = useState(false)
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center px-5 py-12 sm:px-6 sm:py-16">
@@ -269,129 +234,18 @@ export function Landing({
         </div>
       ) : null}
 
-      {canGenerate ? (
-        <>
-          <div className="mt-9">
-            <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              {t('等级 / LEVEL')}
-            </div>
-            <div className="mt-3 grid grid-cols-3 border border-foreground">
-              {DIFFICULTIES.map((item, index) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => onDifficultyChange(item.value)}
-                  className={cn(
-                    'border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r',
-                    difficulty === item.value
-                      ? 'bg-foreground text-background'
-                      : 'hover:bg-foreground/5',
-                  )}
-                >
-                  <div className="font-mono text-[10px] tracking-[0.2em] opacity-60">
-                    {t('等级 0{n}', { n: index + 1 })}
-                  </div>
-                  <div className="mt-1.5 font-serif text-base">{t(item.value)}</div>
-                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{t(item.hint)}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-7">
-            <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              {t('题材 / GENRE')}
-            </div>
-            <div className="mt-3 grid grid-cols-2 border border-foreground">
-              {GENRE_CHOICES.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => onGenreChange(item.value)}
-                  className={cn(
-                    'border-foreground px-3 py-3.5 text-left transition-colors sm:px-4 sm:py-4 [&:not(:last-child)]:border-r',
-                    genre === item.value
-                      ? 'bg-foreground text-background'
-                      : 'hover:bg-foreground/5',
-                  )}
-                >
-                  <div className="font-serif text-base">{t(item.label)}</div>
-                  <div className="mt-0.5 font-mono text-[10px] opacity-55">{t(item.hint)}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-7">
-            <label
-              htmlFor="theme"
-              className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground"
-            >
-              {t('口味 / THEME')} <span className="opacity-60">{t('（可选）')}</span>
-            </label>
-            <div
-              className={cn(
-                'mt-3 flex items-center gap-3 border bg-card px-4',
-                focused ? 'border-foreground' : 'border-foreground/30',
-              )}
-            >
-              <input
-                id="theme"
-                value={theme}
-                placeholder={t('医院、密室、雨夜、老房子、凶杀、伦理、感情……')}
-                onChange={(event) => onThemeChange(event.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !generating) onGenerate()
-                }}
-                className="h-12 flex-1 bg-transparent font-serif text-sm outline-none placeholder:text-muted-foreground/70"
-              />
-              <span aria-hidden className="font-mono text-[11px] text-muted-foreground">
-                ↵
-              </span>
-            </div>
-          </div>
-
-          {error ? (
-            <p className="mt-5 border-l-2 border-stamp bg-stamp/[0.06] px-4 py-3 font-mono text-[11px] text-stamp">
-              {error}
-            </p>
-          ) : null}
-        </>
-      ) : (
-        <div className="mt-9 border-l-2 border-stamp bg-card px-4 py-3 font-mono text-[11px] leading-6 text-stamp">
-          {t(
-            '自己那碗还没喝完——结案（猜中 / 揭晓 / 中止）之后才能立案新的。想先玩别人的汤，可以去题库。',
-          )}
-        </div>
-      )}
-
-      <div className="mt-8 flex flex-wrap items-center gap-3">
-        {canGenerate ? (
-          <button
-            type="button"
-            onClick={onGenerate}
-            disabled={generating}
-            className="flex w-fit items-center gap-3 bg-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] text-background transition-opacity hover:opacity-85 disabled:opacity-50"
-          >
-            {generating ? (
-              <>
-                <Loader2 className="size-4 animate-spin" /> {progress || t('正在熬制……')}
-              </>
-            ) : (
-              <>
-                {t('立案并熬一碗')} <ArrowRight className="size-4" />
-              </>
-            )}
-          </button>
-        ) : null}
-
+      <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
         <Link
           to="/library"
-          className="flex w-fit items-center gap-3 border border-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] transition-colors hover:bg-foreground hover:text-background"
+          className="flex items-center gap-3 bg-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] text-background transition-opacity hover:opacity-85"
         >
           {t('去题库挑一碗')} <ArrowRight className="size-4" />
+        </Link>
+        <Link
+          to="/daily"
+          className="flex items-center gap-3 border border-foreground px-7 py-4 font-mono text-[12px] font-bold tracking-[0.24em] transition-colors hover:bg-foreground hover:text-background"
+        >
+          {t('玩今日官方汤')} <ArrowRight className="size-4" />
         </Link>
       </div>
 

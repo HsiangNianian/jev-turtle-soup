@@ -1,7 +1,7 @@
 import { TypeSafeClient, noul, score } from '@typesafe-ai/sdk'
 import { z } from 'zod'
 
-import { ApiError, generateJson, resolveLlm, type GameEnv, type GeneratedPuzzle } from './game.ts'
+import { ApiError, generateJson, resolveLlm, type GameEnv } from './game.ts'
 
 /** 每日官方汤按 UTC 换新。 */
 export function utcDateKey(now: Date = new Date()): string {
@@ -347,5 +347,3 @@ export async function composeDaily(
   console.warn('[daily] 连续未过审，发布分数最高的一版')
   return { ...best, relaxed: true }
 }
-
-export type { GeneratedPuzzle }

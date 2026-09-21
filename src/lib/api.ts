@@ -68,7 +68,6 @@ export interface HealthInfo {
   ok: boolean
   typesafeConfigured: boolean
   llm: { provider: string; model: string } | null
-  fallbackPuzzles: number
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
@@ -89,70 +88,6 @@ export function fetchHealth() {
     if (!response.ok) throw new Error('无法读取服务状态')
     return (await response.json()) as HealthInfo
   })
-}
-
-export type Genre = 'realistic' | 'supernatural'
-
-export interface GenerateProgress {
-  stage: 'thinking' | 'writing'
-  chars: number
-  round: number
-}
-
-/** 出题接口是 SSE：边生成边拿进度，避免长静默连接被掐断。 */
-export async function createGame(
-  difficulty: string,
-  theme: string,
-  genre: Genre,
-  locale: string,
-  onProgress?: (progress: GenerateProgress) => void,
-): Promise<GameSession> {
-  const response = await fetch('/api/game/new', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ difficulty, theme, genre, locale }),
-  })
-
-  const streamed = response.headers.get('content-type')?.includes('event-stream')
-  if (!streamed) {
-    // 本地 dev 中间件没有 SSE，退回一次性 JSON
-    const data = (await response.json().catch(() => ({}))) as { error?: string }
-    if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`)
-    return data as GameSession
-  }
-  if (!response.body) throw new Error('连接中断，请重试')
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let result: GameSession | null = null
-  let failure: string | null = null
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const frames = buffer.split('\n\n')
-    buffer = frames.pop() ?? ''
-    for (const frame of frames) {
-      const event = frame.match(/^event: (\w+)/m)?.[1]
-      const raw = frame.match(/^data: (.*)$/m)?.[1]
-      if (!event || !raw) continue
-      let payload: unknown
-      try {
-        payload = JSON.parse(raw)
-      } catch {
-        continue
-      }
-      if (event === 'progress') onProgress?.(payload as GenerateProgress)
-      if (event === 'done') result = payload as GameSession
-      if (event === 'error') failure = (payload as { error?: string }).error ?? '生成失败'
-    }
-  }
-
-  if (failure) throw new Error(failure)
-  if (!result) throw new Error('生成中断，请重试')
-  return result
 }
 
 export interface LuckPayload {

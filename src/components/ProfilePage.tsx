@@ -33,7 +33,7 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
 
   if (error) {
     return (
-      <PageShell label={t('作者 / AUTHOR')} title={t('找不到这个作者')}>
+      <PageShell label={t('作者')} title={t('找不到这个作者')}>
         <div className="mt-6">
           <Empty>{error}</Empty>
         </div>
@@ -51,7 +51,7 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
 
   return (
     <PageShell
-      label={t('作者 / AUTHOR')}
+      label={t('作者')}
       title={profile.displayName}
       meta={
         <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
@@ -88,7 +88,7 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
       {profile.puzzles.length ? (
         <>
           <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-            {t('公开的汤 / PUZZLES')}
+            {t('公开的汤')}
           </div>
           <ul className="mt-3 border-t border-foreground/20">
             {profile.puzzles.map((puzzle) => (

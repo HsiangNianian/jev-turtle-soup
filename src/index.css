@@ -199,6 +199,52 @@
     border: 2px solid var(--stamp);
   }
 
+  /* 题材坐标的滑动条：一条细轨 + 一个方形游标，和卷宗的方角风格一致 */
+  .genre-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 1.25rem;
+    background: transparent;
+    cursor: ew-resize;
+  }
+
+  .genre-range::-webkit-slider-runnable-track {
+    height: 2px;
+    background: var(--border);
+  }
+
+  .genre-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 0.625rem;
+    height: 1.125rem;
+    margin-top: -0.5rem;
+    background: var(--foreground);
+    border: 0;
+  }
+
+  .genre-range::-moz-range-track {
+    height: 2px;
+    background: var(--border);
+  }
+
+  .genre-range::-moz-range-thumb {
+    width: 0.625rem;
+    height: 1.125rem;
+    border: 0;
+    border-radius: 0;
+    background: var(--foreground);
+  }
+
+  .genre-range:focus-visible::-webkit-slider-thumb {
+    background: var(--stamp);
+  }
+
+  .genre-range:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
   .animate-rise-in {
     animation: rise-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   }

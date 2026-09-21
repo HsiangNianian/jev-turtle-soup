@@ -177,11 +177,11 @@ export function ChatPanel({
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground px-4 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
         <span className="font-mono text-[10px] font-bold tracking-[0.2em] sm:text-[11px] sm:tracking-[0.22em]">
-          {t('讯问记录 / TRANSCRIPT')}
+          {t('讯问记录')}
         </span>
         <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
           <span className="animate-soft-pulse size-1.5 rounded-full bg-[var(--v-yes)]" />
-          {t('砚 · Ellis')}
+          {t('砚')}
         </span>
       </div>
 
@@ -309,7 +309,7 @@ export function ChatPanel({
           </button>
         </div>
         <p className="mt-2 hidden font-mono text-[10px] tracking-[0.16em] text-muted-foreground/70 sm:block">
-          {t('回车提交 · SHIFT + 回车换行')}
+          {t('回车提交 · Shift + 回车换行')}
         </p>
       </div>
     </div>

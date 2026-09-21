@@ -90,12 +90,16 @@ export function fetchHealth() {
   })
 }
 
+/**
+ * 今日人品由前端算，但只把号码交给服务端：档位用 key、宜忌用槽位下标。
+ * 用词由服务端按**回复语言**决定，否则中文词会漏进英文或日文的回答。
+ */
 export interface LuckPayload {
   date: string
   score: number
-  tier: string
-  good: string
-  bad: string
+  tierKey: string
+  goodIndex: number
+  badIndex: number
 }
 
 export interface AskContext {

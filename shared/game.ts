@@ -1,4 +1,4 @@
-import { TypeSafeClient, choice, noul, type EntryType } from '@typesafe-ai/sdk'
+import { TypeSafeClient, choice, noul, score, type EntryType } from '@typesafe-ai/sdk'
 import OpenAI from 'openai'
 
 import { ApiError } from './errors.ts'
@@ -603,25 +603,33 @@ interface HostAnswers {
   meta_request: ChoiceAnswer
 }
 
+/**
+ * 今日人品由前端按「站点 + 日期 + 设备码」算出来（服务端没有设备码，重算不了），
+ * 所以只把结果里的**号码**带回来：档位用 key、宜忌用槽位下标，
+ * 具体用词一律由服务端按回复语言决定——否则中文词会漏进英文或日文的回答里。
+ */
 export interface LuckInfo {
   date: string
   score: number
-  tier: string
-  good: string
-  bad: string
+  tierKey: string
+  goodIndex: number
+  badIndex: number
 }
 
-/** 今日人品是前端按「站点 + 日期 + 设备码」算出来的，回答时原样带回来即可。 */
+function readInt(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
+}
+
 function readLuck(value: unknown): LuckInfo | null {
   if (!value || typeof value !== 'object') return null
   const luck = value as Partial<LuckInfo>
-  if (typeof luck.score !== 'number' || typeof luck.tier !== 'string') return null
+  if (typeof luck.score !== 'number' || typeof luck.tierKey !== 'string') return null
   return {
     date: typeof luck.date === 'string' ? luck.date.slice(0, 10) : '',
     score: Math.max(0, Math.min(100, Math.round(luck.score))),
-    tier: luck.tier.slice(0, 8),
-    good: typeof luck.good === 'string' ? luck.good.slice(0, 24) : '',
-    bad: typeof luck.bad === 'string' ? luck.bad.slice(0, 24) : '',
+    tierKey: luck.tierKey.slice(0, 12),
+    goodIndex: readInt(luck.goodIndex),
+    badIndex: readInt(luck.badIndex),
   }
 }
 
@@ -642,14 +650,134 @@ interface HostCopy {
   luck: (luck: LuckInfo) => string
 }
 
-function luckMoodZh(score: number) {
-  return score >= 85
-    ? '今天手气好得反常'
-    : score >= 60
-      ? '今天还算顺'
-      : score >= 35
-        ? '今天不好不坏'
-        : '今天最好别硬猜'
+/**
+ * 今日人品的用词全在这里：档位名、宜、忌各按语言写一份。
+ * 前端只回传档位 key 和宜忌的下标，所以这里的数组顺序就是「槽位」，
+ * 增删条目不会让旧客户端错位（下标取模兜底）。
+ */
+interface LuckWords {
+  tiers: Record<string, string>
+  good: string[]
+  bad: string[]
+  mood: (score: number) => string
+}
+
+const LUCK_WORDS: Record<Locale, LuckWords> = {
+  'zh-CN': {
+    tiers: { great: '大吉', good: '吉', plain: '中平', minor: '小凶', bad: '凶' },
+    good: [
+      '追问细节',
+      '大胆猜测',
+      '换个角度',
+      '重读汤面',
+      '记录时间线',
+      '相信直觉',
+      '检查反常之处',
+      '先问是不是',
+    ],
+    bad: [
+      '凭空臆断',
+      '连问三题',
+      '熬夜盘问',
+      '忽视细节',
+      '轻信第一直觉',
+      '半途而废',
+      '急着揭晓',
+      '自说自话',
+    ],
+    mood: (score) =>
+      score >= 85
+        ? '今天手气好得反常'
+        : score >= 60
+          ? '今天还算顺'
+          : score >= 35
+            ? '今天不好不坏'
+            : '今天最好别硬猜',
+  },
+  en: {
+    tiers: {
+      great: 'Great luck',
+      good: 'Good',
+      plain: 'Middling',
+      minor: 'Slightly off',
+      bad: 'Bad luck',
+    },
+    good: [
+      'asking for details',
+      'guessing boldly',
+      'changing your angle',
+      're-reading the surface',
+      'sketching a timeline',
+      'trusting your instinct',
+      'inspecting the odd detail',
+      'starting with yes/no questions',
+    ],
+    bad: [
+      'jumping to conclusions',
+      'asking three things at once',
+      'interrogating all night',
+      'skipping details',
+      'trusting first impressions',
+      'giving up halfway',
+      'revealing too soon',
+      'talking past the host',
+    ],
+    mood: (score) =>
+      score >= 85
+        ? 'your instincts are unusually sharp today'
+        : score >= 60
+          ? 'the day runs your way'
+          : score >= 35
+            ? 'neither good nor bad'
+            : 'better not to guess hard today',
+  },
+  ja: {
+    tiers: { great: '大吉', good: '吉', plain: '中平', minor: '小凶', bad: '凶' },
+    good: [
+      '細部まで訊くこと',
+      '大胆に推理すること',
+      '視点を変えること',
+      '湯面を読み返すこと',
+      '時系列を書き出すこと',
+      '直感を信じること',
+      '違和感を確かめること',
+      'まず可否で訊くこと',
+    ],
+    bad: [
+      '当てずっぽう',
+      '三つまとめて訊くこと',
+      '夜通し尋問すること',
+      '細部を軽視すること',
+      '最初の直感に飛びつくこと',
+      '途中で投げ出すこと',
+      'すぐ開封すること',
+      '独りよがり',
+    ],
+    mood: (score) =>
+      score >= 85
+        ? '今日は勘が異様に冴えています'
+        : score >= 60
+          ? '今日はまずまず流れが良い'
+          : score >= 35
+            ? '良くも悪くもありません'
+            : '今日は無理に当てにいかないほうがいい',
+  },
+}
+
+/** 把「前端算出来的号码」翻成回复语言里的一句话。 */
+function luckLine(locale: Locale, luck: LuckInfo): string {
+  const words = LUCK_WORDS[locale]
+  const tier = words.tiers[luck.tierKey] ?? luck.tierKey
+  const mood = words.mood(luck.score)
+  const good = words.good[luck.goodIndex % words.good.length]
+  const bad = words.bad[luck.badIndex % words.bad.length]
+  if (locale === 'en') {
+    return `The host reads from a notebook: “${luck.date}, luck ${luck.score}, ${tier} — ${mood}. Good for: ${good}. Bad for: ${bad}.” He shuts it. “Believe it or not, I still will not hand you the truth early.”`
+  }
+  if (locale === 'ja') {
+    return `司会が帳面を読み上げる。「${luck.date}、運勢 ${luck.score}、${tier}——${mood}。向くこと：${good}。避けること：${bad}。」帳面を閉じて、「信じるかは自由ですが、真相は先に渡しませんよ。」`
+  }
+  return `主持人翻开手边的册子念了一句：「${luck.date}，人品 ${luck.score}，${tier}——${mood}。宜${good}，忌${bad}。」他把册子合上，「信不信随你，汤底我是不会提前给你的。」`
 }
 
 const HOST_COPY: Record<Locale, HostCopy> = {
@@ -674,10 +802,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     unclear: '主持人没太听懂。你可以问一个是非题，或者直接说出你的推理。',
     luckMissing:
       '主持人翻了翻手边的册子，又合上了：「今日人品得在首页那格日历上看——你刷新一下再来问我。」',
-    luck: (luck) =>
-      `主持人翻开手边的册子念了一句：「${luck.date}，人品 ${luck.score}，${luck.tier}——${luckMoodZh(
-        luck.score,
-      )}。宜${luck.good}，忌${luck.bad}。」他把册子合上，「信不信随你，汤底我是不会提前给你的。」`,
+    luck: (luck) => luckLine('zh-CN', luck),
   },
   en: {
     verdict: {
@@ -701,10 +826,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     unclear: 'The host did not quite follow. Ask a yes-or-no question, or state your theory.',
     luckMissing:
       'The host leafs through a small notebook and closes it. “Today’s luck is on the calendar on the front page — refresh and ask me again.”',
-    luck: (luck) =>
-      `The host reads from a notebook: “${luck.date}, luck ${luck.score}, ${luck.tier}. Good for: ${
-        luck.good
-      }. Bad for: ${luck.bad}.” He shuts it. “Believe it or not, I still will not hand you the truth early.”`,
+    luck: (luck) => luckLine('en', luck),
   },
   ja: {
     verdict: {
@@ -728,10 +850,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     unclear: '司会にはよく伝わらなかったようです。はい／いいえの質問か、推理を述べてください。',
     luckMissing:
       '司会は手元の帳面をめくり、閉じた。「今日の運勢はホームの暦にあります。更新してもう一度訊いてください。」',
-    luck: (luck) =>
-      `司会が帳面を読み上げる。「${luck.date}、運勢 ${luck.score}、${luck.tier}。向くこと：${
-        luck.good
-      }。避けること：${luck.bad}。」帳面を閉じて、「信じるかは自由ですが、真相は先に渡しませんよ。」`,
+    luck: (luck) => luckLine('ja', luck),
   },
 }
 
@@ -1019,6 +1138,53 @@ export function health(env: GameEnv) {
     ok: true,
     typesafeConfigured: Boolean(env.TYPESAFE_API_KEY?.trim()),
     llm: llm ? { provider: llm.label, model: llm.model } : null,
+  }
+}
+
+/**
+ * 题材坐标的锚点：0 → 100 依次是「本格·逻辑推理」到「变格·怪力乱神」。
+ * 用 Score 而不是让模型直接吐数字，是为了拿到「有序档位上的加权位置」，
+ * 每道题的分数彼此可比，才谈得上按接近度排序。
+ */
+const GENRE_LEVELS = [
+  '纯本格：现实世界，答案完全能靠题面线索推理出来，没有超自然成分。',
+  '偏本格：现实题材，但要靠一点冷知识、巧合或时间线错位才说得通。',
+  '中间：现实框架，关键落在心理、身份错认或幻觉这类主观成分上。',
+  '偏变格：设定离奇（民俗、诅咒、替身、诡物），但规则自洽、仍然可推理。',
+  '变格·怪力乱神：明确的鬼神、怨灵或超自然力量在推动故事。',
+] as const
+
+/**
+ * 给一道汤打一个 0–100 的题材分。只在发布和维护时各跑一次，不进任何请求热路径。
+ * 没有 TypeSafe 密钥或判断失败时返回 null，交给调用方退回标签启发式。
+ */
+export async function scoreGenre(env: GameEnv, puzzle: Puzzle): Promise<number | null> {
+  if (!env.TYPESAFE_API_KEY?.trim()) return null
+  try {
+    const { answers } = await getClient(env).systemOne({
+      state: {
+        puzzle: { title: puzzle.title, surface: puzzle.surface, truth: puzzle.truth },
+      },
+      questions: {
+        genre: score(
+          {
+            question:
+              'How far does `puzzle` sit from 本格 (orthodox, realistic deduction) toward 变格 (supernatural, weird)?',
+            compare: ['puzzle.surface', 'puzzle.truth'],
+            focus:
+              'Judge only how 变格 the puzzle is, not how good it is. Read the truth — that is what actually explains the surface — and ignore the tags.',
+          },
+          GENRE_LEVELS,
+        ),
+      },
+    })
+    const raw = (answers as unknown as { genre?: { score?: unknown } }).genre?.score
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
+    const span = GENRE_LEVELS.length - 1
+    return Math.max(0, Math.min(100, Math.round((raw / span) * 100)))
+  } catch (error) {
+    console.warn('[turtle-soup] 题材打分失败：', error)
+    return null
   }
 }
 

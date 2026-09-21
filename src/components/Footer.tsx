@@ -22,7 +22,7 @@ export function Footer() {
       <div className="border-t border-foreground/25 pt-6">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <span className="font-mono text-[10px] tracking-[0.24em] text-foreground">
-            {t('海龟汤调查局 / TURTLE SOUP BUREAU')}
+            {t('海龟汤调查局')}
           </span>
           <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
             Meaningless Meaning Studio

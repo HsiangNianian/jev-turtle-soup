@@ -3,13 +3,39 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
 import { navigate } from '@/lib/router'
-import { getMyProfile, updateMyProfile, type Profile } from '@/lib/library-client'
+import {
+  getMyProfile,
+  isCoolingDown,
+  PROFILE_FIELD_COOLDOWN_MS,
+  updateMyProfile,
+  HANDLE_COOLDOWN_MS,
+  type Profile,
+} from '@/lib/library-client'
 import { renderInline } from '@/lib/markdown'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
+/** 冷却中还差几天可改：把「下次可改日期」写清楚，比只禁用输入框友好。 */
+function cooldownHint(
+  changedAt: number | null,
+  windowMs: number,
+  formatDate: (value: number) => string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string | null {
+  if (!isCoolingDown(changedAt, windowMs)) return null
+  const readyAt = (changedAt as number) + windowMs
+  return t(
+    windowMs === HANDLE_COOLDOWN_MS
+      ? '每年可改一次 · 下次可改 {date}'
+      : '每 30 天可改一次 · 下次可改 {date}',
+    {
+      date: formatDate(readyAt),
+    },
+  )
+}
+
 export function ProfileEditPage() {
-  const { t } = useI18n()
+  const { t, formatDate } = useI18n()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [handle, setHandle] = useState('')
@@ -49,6 +75,25 @@ export function ProfileEditPage() {
     }
   }
 
+  const nameHint = cooldownHint(
+    profile?.displayNameChangedAt ?? null,
+    PROFILE_FIELD_COOLDOWN_MS,
+    formatDate,
+    t,
+  )
+  const handleHint = cooldownHint(
+    profile?.handleChangedAt ?? null,
+    HANDLE_COOLDOWN_MS,
+    formatDate,
+    t,
+  )
+  const bioHint = cooldownHint(
+    profile?.bioChangedAt ?? null,
+    PROFILE_FIELD_COOLDOWN_MS,
+    formatDate,
+    t,
+  )
+
   if (!profile && !error) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
@@ -58,34 +103,37 @@ export function ProfileEditPage() {
   }
 
   return (
-    <PageShell label={t('编辑资料 / PROFILE')} title={t('作者资料')}>
+    <PageShell label={t('编辑资料')} title={t('作者资料')}>
       <div className="mt-7 space-y-6">
-        <Field label={t('昵称 / NICKNAME')} hint={t('最多 24 字')}>
+        <Field label={t('昵称')} hint={nameHint ?? t('最多 24 字')}>
           <input
             value={displayName}
             maxLength={24}
+            disabled={Boolean(nameHint)}
             onChange={(event) => setDisplayName(event.target.value)}
             className={inputClass}
           />
         </Field>
 
-        <Field label={t('主页地址 / HANDLE')} hint={t('3-20 位小写字母、数字或连字符')}>
+        <Field label={t('主页地址')} hint={handleHint ?? t('3-20 位小写字母、数字或连字符')}>
           <div className="flex items-center gap-2">
             <span className="shrink-0 font-mono text-[12px] text-muted-foreground">/u/</span>
             <input
               value={handle}
               maxLength={20}
+              disabled={Boolean(handleHint)}
               onChange={(event) => setHandle(event.target.value.toLowerCase())}
               className={`${inputClass} font-mono`}
             />
           </div>
         </Field>
 
-        <Field label={t('个人简介 / BIO')} hint={t('最多 200 字')}>
+        <Field label={t('个人简介')} hint={bioHint ?? t('最多 200 字')}>
           <textarea
             value={bio}
             rows={4}
             maxLength={200}
+            disabled={Boolean(bioHint)}
             onChange={(event) => setBio(event.target.value)}
             placeholder={t('想说什么都行，比如你的出题偏好。')}
             className={`${inputClass} resize-none leading-7`}

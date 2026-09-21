@@ -44,7 +44,7 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
 
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
           <span className="font-mono text-[10px] font-bold tracking-[0.2em] sm:text-[11px] sm:tracking-[0.22em]">
-            {t('讯问记录 / TRANSCRIPT')}
+            {t('讯问记录')}
           </span>
           <span className="truncate font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
             {t(STATUS_LABEL[game.status])} · {formatWhen(game.updatedAt)}

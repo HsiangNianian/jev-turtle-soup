@@ -31,7 +31,7 @@ export function LeavingPage() {
 
   return (
     <PageShell
-      label={t('站外链接 / EXTERNAL')}
+      label={t('站外链接')}
       title={safe ? t('即将离开本站') : t('这个链接不能用')}
     >
       {safe ? (
@@ -44,7 +44,7 @@ export function LeavingPage() {
 
           <div className="mt-5 border border-foreground/25 bg-card px-4 py-3.5">
             <div className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
-              {t('目标地址 / TARGET')}
+              {t('目标地址')}
             </div>
             <div className="mt-2 font-mono text-[12px] break-all text-foreground/90">{target}</div>
             {host ? (

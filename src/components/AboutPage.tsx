@@ -40,7 +40,7 @@ export function AboutPage() {
   const { t } = useI18n()
   return (
     <PageShell
-      label={t('关于 / ABOUT')}
+      label={t('关于')}
       title={t('关于这碗汤')}
       meta={
         <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
@@ -72,7 +72,7 @@ export function AboutPage() {
       </p>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        {t('怎么玩 / HOW TO PLAY')}
+        {t('怎么玩')}
       </div>
       <ul className="mt-3 border-t border-foreground/20">
         {HOW_TO_PLAY.map((item) => (
@@ -88,7 +88,7 @@ export function AboutPage() {
       </ul>
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        {t('我们存了什么 / YOUR DATA')}
+        {t('我们存了什么')}
       </div>
       <ul className="mt-3 border-t border-foreground/20">
         {DATA.map((item) => (

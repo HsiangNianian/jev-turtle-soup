@@ -38,7 +38,7 @@ export function PuzzleDetailPage({
 
   if (error) {
     return (
-      <PageShell label={t('案卷 / CASE')} title={t('打不开这一卷')}>
+      <PageShell label={t('案卷')} title={t('打不开这一卷')}>
         <div className="mt-6">
           <Empty>{error}</Empty>
         </div>
@@ -56,7 +56,7 @@ export function PuzzleDetailPage({
 
   return (
     <PageShell
-      label={t('案卷 / CASE')}
+      label={t('案卷')}
       title={puzzle.title}
       meta={
         <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">

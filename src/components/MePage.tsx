@@ -52,7 +52,7 @@ export function MePage({ handle, onLogout }: { handle: string; onLogout: () => v
 
   return (
     <PageShell
-      label={t('我的题库 / MY PUZZLES')}
+      label={t('我的题库')}
       title={t('我的海龟汤')}
       meta={
         <Link

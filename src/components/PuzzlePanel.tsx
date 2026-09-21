@@ -86,7 +86,7 @@ export function PuzzlePanel({
       <div className="mt-6 h-px w-full bg-foreground/25" />
 
       <div className="mt-6 font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-        {t('汤面 / STATEMENT OF FACTS')}
+        {t('汤面')}
       </div>
       <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{session.surface}</p>
 
@@ -120,7 +120,7 @@ export function PuzzlePanel({
       {revealed && truth ? (
         <div className="animate-pop mt-8 border-l-4 border-stamp pl-5">
           <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
-            <Unlock className="size-3.5" /> {t('汤底 / VERDICT')}
+            <Unlock className="size-3.5" /> {t('汤底')}
           </div>
           <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
         </div>
@@ -167,7 +167,7 @@ export function PuzzlePanel({
         <div className="mt-9">
           <div className="flex items-baseline justify-between">
             <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              {t('问答记录 / LEDGER')}
+              {t('问答记录')}
             </div>
             <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/70">
               {String(ledger.length).padStart(2, '0')}

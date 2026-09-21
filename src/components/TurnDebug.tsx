@@ -89,18 +89,14 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
         {t('判读明细 · {intent} · {tag}', { intent, tag })}
       </summary>
       <div className="mt-2.5 space-y-3.5 border-l border-dashed border-foreground/15 pl-3.5">
-        <Section
-          title={t('意图 INTENT · 置信度 {value}', { value: debug.intent.confidence.toFixed(2) })}
-        >
+        <Section title={t('意图 · 置信度 {value}', { value: debug.intent.confidence.toFixed(2) })}>
           <Bars
             probabilities={debug.intent.probabilities}
             labels={INTENT_LABEL}
             highlight={debug.intent.choice}
           />
         </Section>
-        <Section
-          title={t('回答 VERDICT · 置信度 {value}', { value: debug.verdict.confidence.toFixed(2) })}
-        >
+        <Section title={t('回答 · 置信度 {value}', { value: debug.verdict.confidence.toFixed(2) })}>
           <Bars
             probabilities={debug.verdict.probabilities}
             labels={VERDICT_LABEL}
@@ -108,7 +104,7 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
           />
         </Section>
         {debug.contradictsEarlier || debug.matchesEarlier ? (
-          <Section title={t('一致性 CONSISTENCY')}>
+          <Section title={t('一致性')}>
             <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] text-muted-foreground/70">
               {debug.contradictsEarlier ? (
                 <span className="tabular-nums">
@@ -132,7 +128,7 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
           </Section>
         ) : null}
         {debug.dimensions ? (
-          <Section title={t('推理维度 DIMENSIONS')}>
+          <Section title={t('推理维度')}>
             <div className="flex flex-wrap items-center gap-3 font-mono text-[10px] tabular-nums text-muted-foreground/70">
               <span>
                 {t('动机')} {debug.dimensions.motive.toFixed(2)}
@@ -146,7 +142,7 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
             </div>
           </Section>
         ) : null}
-        <Section title={t('推理接近度 GUESS_CLOSENESS')}>
+        <Section title={t('推理接近度')}>
           <div className="flex items-center gap-3 font-mono text-[10px] text-muted-foreground/70">
             <span className="tabular-nums text-foreground/75">
               {debug.closeness.score.toFixed(2)} / 3

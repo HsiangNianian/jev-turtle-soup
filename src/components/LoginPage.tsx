@@ -41,13 +41,13 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
   }
 
   return (
-    <PageShell label={t('登录 / SIGN IN')} title={t('邮箱验证码登录')}>
+    <PageShell label={t('登录')} title={t('邮箱验证码登录')}>
       <p className="mt-5 max-w-xl font-serif text-[15px] leading-8 text-foreground/75">
         {t('不需要密码。填邮箱收一封 6 位验证码，验证后就能上传自己的海龟汤、管理题库和作者主页。')}
       </p>
 
       <div className="mt-7 space-y-5">
-        <Field label={t('邮箱 / EMAIL')}>
+        <Field label={t('邮箱')}>
           <div className="flex items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center border border-foreground/30 bg-card text-muted-foreground">
               <Mail className="size-4" />
@@ -67,7 +67,7 @@ export function LoginPage({ onDone }: { onDone: (user: AuthUser) => void }) {
         </Field>
 
         {sent ? (
-          <Field label={t('验证码 / CODE')} hint={t('10 分钟内有效')}>
+          <Field label={t('验证码')} hint={t('10 分钟内有效')}>
             <input
               inputMode="numeric"
               value={code}

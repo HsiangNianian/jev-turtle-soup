@@ -10,7 +10,11 @@ CREATE TABLE IF NOT EXISTS users (
   bio TEXT NOT NULL DEFAULT '',
   profile_public INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER
+  updated_at INTEGER,
+  -- 资料修改冷却：NULL = 从没改过（注册时自动生成的不算），随时可改
+  handle_changed_at INTEGER,
+  display_name_changed_at INTEGER,
+  bio_changed_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS puzzles (
@@ -25,6 +29,8 @@ CREATE TABLE IF NOT EXISTS puzzles (
   visibility TEXT NOT NULL DEFAULT 'public',
   plays INTEGER NOT NULL DEFAULT 0,
   solves INTEGER NOT NULL DEFAULT 0,
+  -- 题材坐标：0 = 本格·逻辑推理，100 = 变格·怪力乱神（发布时打一次分）
+  genre_score REAL,
   created_at INTEGER NOT NULL
 );
 

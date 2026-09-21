@@ -112,9 +112,9 @@ export default function App() {
     return {
       date: luck.date,
       score: luck.score,
-      tier: luck.tier.label,
-      good: luck.good,
-      bad: luck.bad,
+      tierKey: luck.tier.key,
+      goodIndex: luck.goodIndex,
+      badIndex: luck.badIndex,
     }
   }, [])
 
@@ -543,7 +543,7 @@ export default function App() {
       if (!game) {
         return (
           <ScrollArea>
-            <Missing label={t('案卷 / CASE')} message={t('找不到这一卷。')} />
+            <Missing label={t('案卷')} message={t('找不到这一卷。')} />
           </ScrollArea>
         )
       }
@@ -554,7 +554,7 @@ export default function App() {
       if (!session) {
         return (
           <ScrollArea>
-            <Missing label={t('对局 / PLAY')} message={t('还没有开案。')} />
+            <Missing label={t('对局')} message={t('还没有开案。')} />
           </ScrollArea>
         )
       }
@@ -593,7 +593,7 @@ export default function App() {
       return (
         <ScrollArea>
           {user ? (
-            <Missing label={t('登录 / SIGN IN')} message={t('你已经登录了。')} />
+            <Missing label={t('登录')} message={t('你已经登录了。')} />
           ) : (
             <LoginPage onDone={handleLogin} />
           )}
@@ -653,7 +653,7 @@ export default function App() {
           {user ? (
             <UploadPage />
           ) : (
-            <Missing label={t('上传 / NEW PUZZLE')} message={t('请先登录。')} />
+            <Missing label={t('上传')} message={t('请先登录。')} />
           )}
         </ScrollArea>
       )
@@ -664,7 +664,7 @@ export default function App() {
           {user ? (
             <ProfileEditPage />
           ) : (
-            <Missing label={t('编辑资料 / PROFILE')} message={t('请先登录。')} />
+            <Missing label={t('编辑资料')} message={t('请先登录。')} />
           )}
         </ScrollArea>
       )
@@ -678,7 +678,7 @@ export default function App() {
               onLogout={() => void handleLogout()}
             />
           ) : (
-            <Missing label={t('我的题库 / MY PUZZLES')} message={t('请先登录。')} />
+            <Missing label={t('我的题库')} message={t('请先登录。')} />
           )}
         </ScrollArea>
       )
@@ -735,9 +735,6 @@ export default function App() {
           >
             {t('海龟汤调查局')}
           </Link>
-          <span className="hidden font-mono text-[10px] tracking-[0.24em] opacity-55 sm:inline">
-            / TURTLE SOUP BUREAU
-          </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 font-mono text-[10px] tracking-[0.16em] sm:gap-4 sm:tracking-[0.2em]">
             <Link

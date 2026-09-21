@@ -39,42 +39,26 @@ function StatusStamp({ status }: { status: GameStatus }) {
   )
 }
 
-/** 首页的「今日官方汤」卡片：拿不到就安静地不出现。 */
+/** 首页的「今日官方汤」卡片：拿不到今天的汤就由调用方决定不渲染。 */
 function DailyCard({
-  activeGames,
+  daily,
+  ongoing,
   onStart,
   onContinue,
 }: {
-  activeGames: ArchivedGame[]
+  daily: DailyDetail
+  /** 今天这碗已经在办了的话，按钮就是「继续调查」 */
+  ongoing: ArchivedGame | undefined
   onStart: (daily: DailyDetail) => void
   onContinue: (id: string) => void
 }) {
   const { t } = useI18n()
-  const [daily, setDaily] = useState<DailyDetail | null>(null)
-
-  useEffect(() => {
-    let alive = true
-    listDailies()
-      .then((data) => {
-        if (alive) setDaily(data.today)
-      })
-      .catch(() => undefined)
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  if (!daily) return null
-
-  const ongoing = activeGames.find(
-    (game) => game.source === 'daily' && game.dailyDate === daily.date,
-  )
 
   return (
     <div className="mt-9 border border-foreground bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
         <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-          {t('今日官方汤 / DAILY')} · {daily.date}
+          {t('今日官方汤')} · {daily.date}
         </span>
         <span className="stamp flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
           <Lock className="size-3" /> {t('明日解锁')}
@@ -143,9 +127,31 @@ export function Landing({
   onDelete,
 }: LandingProps) {
   const { t } = useI18n()
+  const [todayDaily, setTodayDaily] = useState<DailyDetail | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [dontAskAgain, setDontAskAgain] = useState(false)
   const [skipConfirm, setSkipConfirm] = useState(readSkipDeleteConfirm)
+
+  useEffect(() => {
+    let alive = true
+    listDailies()
+      .then((data) => {
+        if (alive) setTodayDaily(data.today)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  // 今天官方汤已经在办的话，它由上面那张 DAILY 卡片负责，
+  // 不能再出现在「在办案件」列表里，否则同一个案子会摆两个框。
+  const todayDailyGame = todayDaily
+    ? activeGames.find((game) => game.source === 'daily' && game.dailyDate === todayDaily.date)
+    : undefined
+  const openCases = todayDailyGame
+    ? activeGames.filter((game) => game.id !== todayDailyGame.id)
+    : activeGames
 
   function requestDelete(id: string) {
     if (skipConfirm) {
@@ -172,7 +178,7 @@ export function Landing({
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center px-5 py-12 sm:px-6 sm:py-16">
       <div className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground sm:text-[11px]">
-        {t('案件受理 · CASE INTAKE')}
+        {t('案件受理')}
       </div>
       <div className="mt-5 flex items-start justify-between gap-5">
         <h1 className="font-serif text-[clamp(2.75rem,9vw,4.5rem)] leading-none font-semibold">
@@ -187,19 +193,26 @@ export function Landing({
         )}
       </p>
 
-      <DailyCard activeGames={activeGames} onStart={onStartDaily} onContinue={onContinue} />
+      {todayDaily ? (
+        <DailyCard
+          daily={todayDaily}
+          ongoing={todayDailyGame}
+          onStart={onStartDaily}
+          onContinue={onContinue}
+        />
+      ) : null}
 
-      {activeGames.length ? (
+      {openCases.length ? (
         <div className="mt-9 space-y-4">
-          {activeGames.map((game) => (
+          {openCases.map((game) => (
             <div key={game.id} className="border border-foreground bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
                 <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
                   {game.source === 'library'
-                    ? t('题库里的汤 / PLAYING')
+                    ? t('题库里的汤')
                     : game.source === 'daily'
-                      ? t('今日官方汤 / PLAYING')
-                      : t('在办案件 / OPEN CASE')}
+                      ? t('今日官方汤')
+                      : t('在办案件')}
                 </span>
                 <span className="stamp px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
                   {t('机密')}
@@ -253,7 +266,7 @@ export function Landing({
         <div className="mt-12">
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              {t('档案室 / ARCHIVE')}
+              {t('档案室')}
             </span>
             <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/70">
               {t('{count} 卷', { count: String(archives.length).padStart(2, '0') })}

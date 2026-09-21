@@ -82,7 +82,7 @@ export function DailyDetailPage({
 
   if (error) {
     return (
-      <PageShell label={t('官方汤 / DAILY')} title={t('打不开这一碗')}>
+      <PageShell label={t('官方汤')} title={t('打不开这一碗')}>
         <div className="mt-6">
           <Empty>{error}</Empty>
         </div>
@@ -108,7 +108,7 @@ export function DailyDetailPage({
 
   return (
     <PageShell
-      label={t('官方汤 / DAILY')}
+      label={t('官方汤')}
       title={daily.title}
       meta={
         <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
@@ -128,7 +128,7 @@ export function DailyDetailPage({
           {daily.truth ? (
             <div className="animate-pop mt-8 border-l-4 border-stamp pl-5">
               <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
-                <Unlock className="size-3.5" /> {t('汤底 / VERDICT')}
+                <Unlock className="size-3.5" /> {t('汤底')}
               </div>
               <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">
                 {daily.truth}
@@ -139,7 +139,7 @@ export function DailyDetailPage({
           {daily.story ? (
             <div className="mt-8">
               <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-                {t('完整故事 / FULL STORY')}
+                {t('完整故事')}
               </div>
               <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/80">
                 {daily.story}
@@ -150,7 +150,7 @@ export function DailyDetailPage({
           {daily.hint ? (
             <div className="mt-8 border-t border-dashed border-foreground/25 pt-5">
               <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-                {t('提示 / HINT')}
+                {t('提示')}
               </div>
               <p className="mt-2 font-serif text-[14px] leading-7 text-foreground/75">
                 {daily.hint}
@@ -212,7 +212,7 @@ export function DailyIndexPage({
   const past = history.filter((item) => item.date !== today?.date)
 
   return (
-    <PageShell label={t('官方汤 / DAILY')} title={t('每日官方汤')}>
+    <PageShell label={t('官方汤')} title={t('每日官方汤')}>
       <p className="mt-5 max-w-xl font-serif text-[14px] leading-7 text-foreground/75">
         {t(
           '每天零点（UTC）由砚熬一碗，所有人都拿到同一道题。当天的汤只能问，不能揭晓；过了午夜就能回看汤底。',
@@ -227,7 +227,7 @@ export function DailyIndexPage({
         <div className="mt-8 border border-foreground bg-card">
           <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
             <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-              {t('今日 / TODAY')} · {today.date}
+              {t('今日')} · {today.date}
             </span>
             <span className="stamp flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
               <Lock className="size-3" /> {t('明日解锁')}
@@ -267,7 +267,7 @@ export function DailyIndexPage({
         <div className="mt-12">
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              {t('往期 / PAST')}
+              {t('往期')}
             </span>
             <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/70">
               {t('{count} 碗', { count: String(past.length).padStart(2, '0') })}

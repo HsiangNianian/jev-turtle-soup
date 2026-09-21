@@ -263,7 +263,7 @@ export function SocialPanel({
       </div>
 
       <div className="mt-6 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        {t('留言板 / MESSAGES')}
+        {t('留言板')}
       </div>
 
       {social?.signedIn ? (

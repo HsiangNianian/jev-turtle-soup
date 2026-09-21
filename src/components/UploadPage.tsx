@@ -60,13 +60,13 @@ export function UploadPage() {
   }
 
   return (
-    <PageShell label={t('上传 / NEW PUZZLE')} title={t('写一碗海龟汤')}>
+    <PageShell label={t('上传')} title={t('写一碗海龟汤')}>
       <p className="mt-5 max-w-xl font-serif text-[15px] leading-8 text-foreground/75">
         {t('汤面只写现象、制造悬念；汤底交代真相，并且必须能解释汤面里的每个反常细节。')}
       </p>
 
       <div className="mt-7 space-y-6">
-        <Field label={t('标题 / TITLE')} hint={t('最多 40 字')}>
+        <Field label={t('标题')} hint={t('最多 40 字')}>
           <input
             value={title}
             maxLength={40}
@@ -76,7 +76,7 @@ export function UploadPage() {
           />
         </Field>
 
-        <Field label={t('汤面 / SURFACE')} hint={t('最多 200 字')}>
+        <Field label={t('汤面')} hint={t('最多 200 字')}>
           <textarea
             value={surface}
             rows={3}
@@ -90,7 +90,7 @@ export function UploadPage() {
           </span>
         </Field>
 
-        <Field label={t('汤底 / TRUTH')} hint={t('最多 2000 字')}>
+        <Field label={t('汤底')} hint={t('最多 2000 字')}>
           <textarea
             value={truth}
             rows={5}
@@ -101,7 +101,7 @@ export function UploadPage() {
           />
         </Field>
 
-        <Field label={t('提示 / HINT')} hint={t('可选，最多 200 字')}>
+        <Field label={t('提示')} hint={t('可选，最多 200 字')}>
           <input
             value={hint}
             maxLength={200}
@@ -111,7 +111,7 @@ export function UploadPage() {
           />
         </Field>
 
-        <Field label={t('难度 / DIFFICULTY')}>
+        <Field label={t('难度')}>
           <span className="flex gap-px">
             {DIFFICULTIES.map((value) => (
               <button
@@ -131,7 +131,7 @@ export function UploadPage() {
           </span>
         </Field>
 
-        <Field label={t('标签 / TAGS')} hint={t('空格或逗号分隔，最多 5 个')}>
+        <Field label={t('标签')} hint={t('空格或逗号分隔，最多 5 个')}>
           <span className="mb-2 flex flex-wrap gap-2">
             {PRESET_TAGS.map((tag) => (
               <button
@@ -160,7 +160,7 @@ export function UploadPage() {
           />
         </Field>
 
-        <Field label={t('可见性 / VISIBILITY')}>
+        <Field label={t('可见性')}>
           <span className="flex gap-px">
             {(
               [

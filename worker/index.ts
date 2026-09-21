@@ -49,6 +49,7 @@ import {
   listPublicPuzzles,
   listTags,
   revealLibraryPuzzle,
+  scoreUnscoredPuzzles,
   updateProfile,
   updatePuzzle,
 } from '../shared/library.ts'
@@ -227,10 +228,11 @@ async function runMaintenance(
     days?: number
     onProgress?: (chars: number) => void
   } = {},
-): Promise<{ purged: boolean; swept: boolean; audit: AuditResult | null }> {
+): Promise<{ purged: boolean; swept: boolean; scored: number; audit: AuditResult | null }> {
   const db = requireDb(env)
   let purged = false
   let swept = false
+  let scored = 0
   let audit: AuditResult | null = null
 
   try {
@@ -248,6 +250,13 @@ async function runMaintenance(
     console.warn('[maintenance] 清理过期对局失败：', error)
   }
 
+  try {
+    // 每次补几道题的题材分（上传时判失败、或后来才公开的）
+    scored = await scoreUnscoredPuzzles(env, db)
+  } catch (error) {
+    console.warn('[maintenance] 题材补分失败：', error)
+  }
+
   if (options.audit !== false) {
     try {
       audit = await inspectJudgments(env, db, {
@@ -260,7 +269,7 @@ async function runMaintenance(
     }
   }
 
-  return { purged, swept, audit }
+  return { purged, swept, scored, audit }
 }
 
 function puzzleStore(db: D1Like): PuzzleStore {
@@ -407,12 +416,15 @@ async function routeLibrary(
 
   if (pathname === '/api/library/puzzles') {
     if (request.method === 'GET') {
+      const rawGenre = url.searchParams.get('genre')
+      const genre = rawGenre === null ? undefined : Number(rawGenre)
       const items = await listPublicPuzzles(db, {
         sort: url.searchParams.get('sort') ?? 'new',
         limit: Number(url.searchParams.get('limit') ?? 20),
         offset: Number(url.searchParams.get('offset') ?? 0),
         query: url.searchParams.get('q') ?? '',
         tag: url.searchParams.get('tag') ?? '',
+        genre: Number.isFinite(genre) ? genre : undefined,
       })
       return json({ items })
     }
@@ -420,7 +432,7 @@ async function routeLibrary(
       const current = await requireUser(request, env)
       const body = await readJson(request)
       await ensureHandle(db, current.uid)
-      return json(await createPuzzle(db, current.uid, body))
+      return json(await createPuzzle(env, db, current.uid, body))
     }
     return json({ error: '方法不被允许' }, 405)
   }
@@ -435,7 +447,7 @@ async function routeLibrary(
     if (request.method === 'GET') return json(await getPublicPuzzle(db, id))
     const current = await requireUser(request, env)
     if (request.method === 'PATCH')
-      return json(await updatePuzzle(db, current.uid, id, await readJson(request)))
+      return json(await updatePuzzle(env, db, current.uid, id, await readJson(request)))
     if (request.method === 'DELETE') return json(await deletePuzzle(db, current.uid, id))
     return json({ error: '方法不被允许' }, 405)
   }
@@ -798,7 +810,7 @@ export default {
         runMaintenance(env)
           .then((result) =>
             console.log(
-              `[maintenance] 清日志=${result.purged}｜清对局=${result.swept}｜巡检=${
+              `[maintenance] 清日志=${result.purged}｜清对局=${result.swept}｜题材补分=${result.scored}｜巡检=${
                 result.audit
                   ? `${result.audit.checked} 条，改判 ${result.audit.flagged} 条`
                   : '跳过'

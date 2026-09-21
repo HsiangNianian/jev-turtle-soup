@@ -1,12 +1,44 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
-import { askError, judge, readLocale, type GameEnv } from './game.ts'
+import { askError, judge, readLocale, scoreGenre, type GameEnv } from './game.ts'
 import { logTurn } from './logs.ts'
 
 export type Visibility = 'public' | 'private'
 
 export const VISIBILITIES: Visibility[] = ['public', 'private']
 const DIFFICULTIES = ['简单', '中等', '困难']
+
+/**
+ * 题材坐标的兜底：Jev 打不了分（没密钥 / 调用失败）时，用标签估一个。
+ * 只覆盖已知的标签，都没命中就当它不好不坏（50）。
+ */
+const GENRE_TAG_HINTS: Record<string, number> = {
+  怪力乱神: 95,
+  灵异: 90,
+  诡物: 88,
+  民俗: 78,
+  幻觉: 72,
+  替身: 66,
+  记忆: 54,
+  反转: 52,
+  心理: 46,
+  密室: 32,
+  雨夜: 30,
+  都市: 28,
+  巧合: 26,
+  电梯: 24,
+  误会: 22,
+  推理: 20,
+  本格: 10,
+}
+
+export function genreFromTags(tags: string[]): number {
+  const hits = tags
+    .map((tag) => GENRE_TAG_HINTS[tag])
+    .filter((value): value is number => typeof value === 'number')
+  if (!hits.length) return 50
+  return Math.round(hits.reduce((sum, value) => sum + value, 0) / hits.length)
+}
 
 export interface OwnerInfo {
   handle: string
@@ -23,6 +55,8 @@ export interface PublicPuzzle {
   solves: number
   createdAt: number
   owner: OwnerInfo
+  /** 0 = 本格·逻辑推理，100 = 变格·怪力乱神；没打过分为 null */
+  genreScore: number | null
 }
 
 interface PuzzleRow {
@@ -37,6 +71,7 @@ interface PuzzleRow {
   visibility: string
   plays: number
   solves: number
+  genre_score: number | null
   created_at: number
 }
 
@@ -88,6 +123,10 @@ function toPublic(
       handle: row.owner_handle ?? '',
       displayName: row.owner_name ?? row.owner_handle ?? '匿名',
     },
+    genreScore:
+      typeof row.genre_score === 'number' && Number.isFinite(row.genre_score)
+        ? row.genre_score
+        : null,
   }
 }
 
@@ -107,13 +146,22 @@ const OWNER_SELECT = `SELECT p.*, u.handle AS owner_handle, u.display_name AS ow
 
 export async function listPublicPuzzles(
   db: D1Like,
-  options: { sort: string; limit: number; offset: number; query: string; tag?: string },
+  options: {
+    sort: string
+    limit: number
+    offset: number
+    query: string
+    tag?: string
+    /** 0–100 的题材目标：给了就按「离这个位置有多近」排序，最近的排前面 */
+    genre?: number
+  },
 ): Promise<PublicPuzzle[]> {
   const limit = Math.min(Math.max(options.limit || 20, 1), 50)
   const offset = Math.max(options.offset || 0, 0)
   const query = options.query.trim()
   const tag = (options.tag ?? '').trim().slice(0, 12)
-  const order = options.sort === 'hot' ? 'p.plays DESC, p.created_at DESC' : 'p.created_at DESC'
+  const secondary = options.sort === 'hot' ? 'p.plays DESC, p.created_at DESC' : 'p.created_at DESC'
+  const genre = Number.isFinite(options.genre) ? Math.min(Math.max(options.genre ?? 0, 0), 100) : null
 
   const filters = [`p.visibility = 'public'`]
   const bindings: unknown[] = []
@@ -126,6 +174,9 @@ export async function listPublicPuzzles(
     filters.push('p.tags LIKE ?')
     bindings.push(`%"${tag}"%`)
   }
+  // 没打过分的按中间值算，免得刚上传的题因为 NULL 被甩到最后
+  const order = genre === null ? secondary : `ABS(COALESCE(p.genre_score, 50) - ?) ASC, ${secondary}`
+  if (genre !== null) bindings.push(genre)
   bindings.push(limit, offset)
 
   const { results } = await db
@@ -250,7 +301,12 @@ export async function revealLibraryPuzzle(
   return { title: row.title, truth: row.truth, hint: row.hint }
 }
 
-export async function createPuzzle(db: D1Like, uid: string, body: Record<string, unknown>) {
+export async function createPuzzle(
+  env: GameEnv,
+  db: D1Like,
+  uid: string,
+  body: Record<string, unknown>,
+) {
   const puzzle = {
     title: text(body.title, '标题', 40),
     surface: text(body.surface, '汤面', 200),
@@ -261,10 +317,12 @@ export async function createPuzzle(db: D1Like, uid: string, body: Record<string,
     visibility: visibility(body.visibility),
   }
   const id = crypto.randomUUID()
+  // 题材坐标：发布时让 Jev 判一次，判不了就退回标签估算
+  const genreScore = (await scoreGenre(env, puzzle)) ?? genreFromTags(puzzle.tags)
   await db
     .prepare(
-      `INSERT INTO puzzles (id, owner_id, title, surface, truth, hint, difficulty, tags, visibility, plays, solves, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`,
+      `INSERT INTO puzzles (id, owner_id, title, surface, truth, hint, difficulty, tags, visibility, plays, solves, genre_score, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`,
     )
     .bind(
       id,
@@ -276,13 +334,47 @@ export async function createPuzzle(db: D1Like, uid: string, body: Record<string,
       puzzle.difficulty,
       JSON.stringify(puzzle.tags),
       puzzle.visibility,
+      genreScore,
       Date.now(),
     )
     .run()
   return { id }
 }
 
+/**
+ * 给还没打分的公开题补分。跑在定时维护里——LLM 调用不能塞进列表请求的热路径。
+ */
+export async function scoreUnscoredPuzzles(
+  env: GameEnv,
+  db: D1Like,
+  limit = 5,
+): Promise<number> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, title, surface, truth, hint, tags FROM puzzles
+        WHERE visibility = 'public' AND genre_score IS NULL
+        ORDER BY created_at DESC LIMIT ?`,
+    )
+    .bind(Math.max(1, Math.min(Math.trunc(limit), 20)))
+    .all<{ id: string; title: string; surface: string; truth: string; hint: string; tags: string }>()
+
+  let scored = 0
+  for (const row of results ?? []) {
+    const value =
+      (await scoreGenre(env, {
+        title: row.title,
+        surface: row.surface,
+        truth: row.truth,
+        hint: row.hint,
+      })) ?? genreFromTags(safeTags(row.tags))
+    await db.prepare('UPDATE puzzles SET genre_score = ? WHERE id = ?').bind(value, row.id).run()
+    scored += 1
+  }
+  return scored
+}
+
 export async function updatePuzzle(
+  env: GameEnv,
   db: D1Like,
   uid: string,
   id: string,
@@ -316,6 +408,19 @@ export async function updatePuzzle(
     .prepare(`UPDATE puzzles SET ${fields.join(', ')} WHERE id = ? AND owner_id = ?`)
     .bind(...values)
     .run()
+
+  // 题面/汤底变了，题材坐标要重打；标签变了也得跟着动，否则会留一个过时的分
+  if (body.surface !== undefined || body.truth !== undefined || body.tags !== undefined) {
+    const updated = await db
+      .prepare('SELECT title, surface, truth, hint, tags FROM puzzles WHERE id = ?')
+      .bind(id)
+      .first<{ title: string; surface: string; truth: string; hint: string; tags: string }>()
+    if (updated) {
+      const score =
+        (await scoreGenre(env, updated)) ?? genreFromTags(safeTags(updated.tags))
+      await db.prepare('UPDATE puzzles SET genre_score = ? WHERE id = ?').bind(score, id).run()
+    }
+  }
   return { ok: true }
 }
 
@@ -367,6 +472,30 @@ export interface Profile {
   bio: string
   profilePublic: boolean
   createdAt: number
+  /** 各自最后一次「真的改了」的时间；null 表示还没改过，随时可改 */
+  handleChangedAt: number | null
+  displayNameChangedAt: number | null
+  bioChangedAt: number | null
+}
+
+/** 主页地址一年只能自定义一次，昵称和简介 30 天一次。 */
+export const HANDLE_COOLDOWN_MS = 1000 * 60 * 60 * 24 * 365
+export const PROFILE_FIELD_COOLDOWN_MS = 1000 * 60 * 60 * 24 * 30
+
+function formatDay(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10)
+}
+
+/** 冷却期内不许再改；只拦「真的改了」的情况，原样提交不算。 */
+function assertCooldown(label: string, last: number | null, windowMs: number): void {
+  if (last === null) return
+  const readyAt = last + windowMs
+  if (Date.now() < readyAt) {
+    throw new ApiError(
+      429,
+      `${label}在冷却期内，下次可以修改的日期是 ${formatDay(readyAt)}`,
+    )
+  }
 }
 
 export function defaultHandle(): string {
@@ -396,7 +525,9 @@ export async function ensureHandle(db: D1Like, uid: string): Promise<string> {
 async function profileRow(db: D1Like, where: string, value: string) {
   return db
     .prepare(
-      `SELECT id, email, handle, display_name, bio, profile_public, created_at FROM users WHERE ${where} = ?`,
+      `SELECT id, email, handle, display_name, bio, profile_public, created_at,
+              handle_changed_at, display_name_changed_at, bio_changed_at
+         FROM users WHERE ${where} = ?`,
     )
     .bind(value)
     .first<{
@@ -407,6 +538,9 @@ async function profileRow(db: D1Like, where: string, value: string) {
       bio: string
       profile_public: number
       created_at: number
+      handle_changed_at: number | null
+      display_name_changed_at: number | null
+      bio_changed_at: number | null
     }>()
 }
 
@@ -422,22 +556,40 @@ export async function getMyProfile(db: D1Like, uid: string): Promise<Profile> {
     bio: row.bio ?? '',
     profilePublic: row.profile_public !== 0,
     createdAt: row.created_at,
+    handleChangedAt: row.handle_changed_at ?? null,
+    displayNameChangedAt: row.display_name_changed_at ?? null,
+    bioChangedAt: row.bio_changed_at ?? null,
   }
 }
 
 export async function updateProfile(db: D1Like, uid: string, body: Record<string, unknown>) {
+  // 要先拿到旧值：冷却只针对「真的改了」，原样提交既不算改动也不该被拦
+  const current = await profileRow(db, 'id', uid)
+  if (!current) throw new ApiError(404, '账号不存在')
+
   const fields: string[] = []
   const values: unknown[] = []
   const set = (column: string, value: unknown) => {
     fields.push(`${column} = ?`)
     values.push(value)
   }
+  const now = Date.now()
 
   if (body.displayName !== undefined) {
-    set('display_name', text(body.displayName, '昵称', 24))
+    const displayName = text(body.displayName, '昵称', 24)
+    if (displayName !== (current.display_name ?? '')) {
+      assertCooldown('昵称', current.display_name_changed_at ?? null, PROFILE_FIELD_COOLDOWN_MS)
+      set('display_name', displayName)
+      set('display_name_changed_at', now)
+    }
   }
   if (body.bio !== undefined) {
-    set('bio', text(body.bio, '个人简介', 200, false))
+    const bio = text(body.bio, '个人简介', 200, false)
+    if (bio !== (current.bio ?? '')) {
+      assertCooldown('个人简介', current.bio_changed_at ?? null, PROFILE_FIELD_COOLDOWN_MS)
+      set('bio', bio)
+      set('bio_changed_at', now)
+    }
   }
   if (body.profilePublic !== undefined) {
     set('profile_public', body.profilePublic ? 1 : 0)
@@ -447,16 +599,20 @@ export async function updateProfile(db: D1Like, uid: string, body: Record<string
     if (!/^[a-z0-9][a-z0-9-]{2,19}$/.test(handle)) {
       throw new ApiError(400, '主页地址只能用 3-20 位小写字母、数字或连字符')
     }
-    const taken = await db
-      .prepare('SELECT id FROM users WHERE handle = ? AND id != ?')
-      .bind(handle, uid)
-      .first<{ id: string }>()
-    if (taken) throw new ApiError(409, '这个主页地址已经被占用了')
-    set('handle', handle)
+    if (handle !== (current.handle ?? '')) {
+      assertCooldown('主页地址', current.handle_changed_at ?? null, HANDLE_COOLDOWN_MS)
+      const taken = await db
+        .prepare('SELECT id FROM users WHERE handle = ? AND id != ?')
+        .bind(handle, uid)
+        .first<{ id: string }>()
+      if (taken) throw new ApiError(409, '这个主页地址已经被占用了')
+      set('handle', handle)
+      set('handle_changed_at', now)
+    }
   }
 
   if (!fields.length) throw new ApiError(400, '没有要修改的内容')
-  set('updated_at', Date.now())
+  set('updated_at', now)
   values.push(uid)
   await db
     .prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`)

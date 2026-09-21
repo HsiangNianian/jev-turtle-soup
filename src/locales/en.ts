@@ -24,8 +24,6 @@ export const en: Record<string, string> = {
   '主页地址': 'Handle',
   今日人品: "Today's luck",
   以后不再提示: "Don't ask again",
-  '会连同本局的问答与判读一起存档，方便我们复盘。':
-    'Sends this case and its transcript along, so we can look into it.',
   '作者': 'Author',
   作者资料: 'Author profile',
   你: 'You',

@@ -291,9 +291,6 @@ export function ChatPanel({
               >
                 {t('取消')}
               </button>
-              <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground/70">
-                {t('会连同本局的问答与判读一起存档，方便我们复盘。')}
-              </span>
             </div>
             {reportState === 'error' && reportError ? (
               <p className="mt-2 font-mono text-[10px] text-stamp">{reportError}</p>

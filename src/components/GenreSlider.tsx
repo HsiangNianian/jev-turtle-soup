@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useI18n } from '@/lib/i18n'
 
@@ -28,6 +28,47 @@ const BASELINE = VIEW_HEIGHT / 2
 const FLIP_MS = 150
 const FLIP_GAP_MS = 120
 
+/**
+ * 字号上限与下限。真正的字号按容器宽度折算（见 useFitText）——
+ * 「变格·怪力乱神」比「居中 · 不限」长得多，写死一个 rem 总有一头要溢出。
+ */
+const MAX_FONT_PX = 104
+const MIN_FONT_PX = 20
+/** 量宽用的参考字号：用大一点的数字量，折算误差小。 */
+const PROBE_PX = 100
+
+/**
+ * 让一行字始终装得下：用一个隐藏的探针按参考字号量出文案宽度，
+ * 再按容器宽度折算字号。改的是 DOM 上的 style，不经过 React state，
+ * 所以不会每换一次字就多一次渲染。窗口大小变化会重算。
+ */
+function useFitText(text: string) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const probeRef = useRef<HTMLSpanElement>(null)
+  const sizeRef = useRef<HTMLSpanElement>(null)
+
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    const probe = probeRef.current
+    const target = sizeRef.current
+    if (!box || !probe || !target) return
+    const fit = () => {
+      const available = box.clientWidth
+      const width = probe.getBoundingClientRect().width
+      if (!available || !width) return
+      const size = Math.max(MIN_FONT_PX, Math.min(MAX_FONT_PX, (available / width) * PROBE_PX))
+      target.style.fontSize = `${size}px`
+    }
+    fit()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(fit)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [text])
+
+  return { boxRef, probeRef, sizeRef }
+}
+
 function waveY(x: number, value: number, phase: number): number {
   const amp = 3 + (value / 100) * 12
   const spikes = value / 100
@@ -44,17 +85,6 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
   const [visible, setVisible] = useState(true)
   const [calm, setCalm] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const boxRef = useRef<HTMLDivElement>(null)
-
-  const readout = useMemo(
-    () => (next: number) => {
-      if (next <= POLE) return t('本格·逻辑推理')
-      if (next >= 100 - POLE) return t('变格·怪力乱神')
-      if (next === GENRE_NEUTRAL) return t('居中 · 不限')
-      return next > GENRE_NEUTRAL ? `${t('变格度')} ${next}` : `${t('本格度')} ${100 - next}`
-    },
-    [t],
-  )
 
   /**
    * 上下覆写用的两帧。存的是**数值**不是文案：文案在渲染时按当前语言算，
@@ -66,6 +96,19 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
     id: 0,
   }))
   const lastFlip = useRef(0)
+
+  const readout = useMemo(
+    () => (next: number) => {
+      if (next <= POLE) return t('本格·逻辑推理')
+      if (next >= 100 - POLE) return t('变格·怪力乱神')
+      if (next === GENRE_NEUTRAL) return t('居中 · 不限')
+      return next > GENRE_NEUTRAL ? `${t('变格度')} ${next}` : `${t('本格度')} ${100 - next}`
+    },
+    [t],
+  )
+
+  // 字号跟着容器宽度走，长的那几个（变格·怪力乱神）也不会捅出去
+  const { boxRef, probeRef, sizeRef } = useFitText(readout(frame.to))
 
   // 松手那一刻才通知外面去检索
   useEffect(() => {
@@ -93,7 +136,7 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
     })
     observer.observe(node)
     return () => observer.disconnect()
-  }, [])
+  }, [boxRef])
 
   const animating = visible && (!calm || dragging)
 
@@ -142,6 +185,16 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
 
   return (
     <div ref={boxRef} className="relative mt-6 h-40 select-none sm:h-52">
+      {/* 量宽探针：同字体同字重，按参考字号量一遍文案宽度 */}
+      <span
+        ref={probeRef}
+        aria-hidden
+        className="pointer-events-none invisible absolute top-0 left-0 font-serif font-black whitespace-nowrap tracking-[-0.02em] tabular-nums"
+        style={{ fontSize: `${PROBE_PX}px` }}
+      >
+        {toText}
+      </span>
+
       <input
         ref={inputRef}
         type="range"
@@ -165,11 +218,14 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
         className="pointer-events-none absolute inset-0 flex items-center justify-center"
         aria-hidden
       >
-        <span className="relative inline-block h-[1.3em] overflow-hidden whitespace-nowrap align-bottom font-serif text-[3.25rem] leading-none font-black tracking-[-0.02em] tabular-nums sm:text-[5rem]">
-          {/* 量宽用：描边那层往右下错开一点，这里留出余量，免得被裁掉 */}
-          <span className="invisible block pr-[0.1em]">{fromText ?? toText}</span>
+        <span
+          ref={sizeRef}
+          className="relative inline-block h-[1.3em] overflow-hidden whitespace-nowrap align-bottom font-serif text-[2rem] leading-none font-black tracking-[-0.02em] tabular-nums"
+        >
+          {/* 撑开盒子的量宽层（不可见），真正的字浮在上面 */}
+          <span className="invisible block">{fromText ?? toText}</span>
           {fromText !== null && fromText !== toText ? (
-            <span className="invisible block pr-[0.1em]">{toText}</span>
+            <span className="invisible block">{toText}</span>
           ) : null}
           {fromText ? (
             <span
@@ -191,15 +247,7 @@ export function GenreSlider({ onCommit }: { onCommit: (value: number) => void })
                 : { animation: `genre-flip-in ${FLIP_MS}ms cubic-bezier(0.3,0.8,0.3,1)` }
             }
           >
-            {/* 错位的描边层：像套印没对准的那一下 */}
-            <span
-              aria-hidden
-              className="absolute inset-0 translate-x-[0.045em] translate-y-[0.03em] text-transparent"
-              style={{ WebkitTextStroke: '0.03em var(--foreground)' }}
-            >
-              {toText}
-            </span>
-            <span className="relative">{toText}</span>
+            {toText}
           </span>
         </span>
       </div>

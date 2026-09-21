@@ -51,7 +51,10 @@ export function LibraryPage() {
   const [items, setItems] = useState<LibraryPuzzle[] | null>(null)
   const [sort, setSort] = useState<'new' | 'hot'>('new')
   const [query, setQuery] = useState('')
+  // genre 只负责游标和填充的实时跟手；真正拿去检索的是放手下那一刻的 committedGenre。
+  // 不然拖动时每移动一个像素都会发一次请求。
   const [genre, setGenre] = useState(GENRE_NEUTRAL)
+  const [committedGenre, setCommittedGenre] = useState(GENRE_NEUTRAL)
   const [error, setError] = useState<string | null>(null)
   // 语义重排是异步补上的：先给关键字结果，重排回来再换一次顺序
   const [reranking, setReranking] = useState(false)
@@ -59,7 +62,18 @@ export function LibraryPage() {
   const rerankToken = useRef(0)
 
   // 居中 = 不挑题材；一旦拖动就让服务端按「离这个位置多近」排序
-  const genreFilter = genre === GENRE_NEUTRAL ? undefined : genre
+  const genreFilter = committedGenre === GENRE_NEUTRAL ? undefined : committedGenre
+
+  // 用原生 change 事件当作「松手了」：鼠标、触屏、键盘方向键都会在这里收尾，
+  // 松手在滑动条外面也算数（range 会捕获指针）。
+  const rangeRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const node = rangeRef.current
+    if (!node) return
+    const onSettled = () => setCommittedGenre(Number(node.value))
+    node.addEventListener('change', onSettled)
+    return () => node.removeEventListener('change', onSettled)
+  }, [])
 
   const search = useCallback(
     async (text: string, signal: { alive: boolean }) => {
@@ -149,6 +163,7 @@ export function LibraryPage() {
         </div>
 
         <input
+          ref={rangeRef}
           type="range"
           min={0}
           max={100}

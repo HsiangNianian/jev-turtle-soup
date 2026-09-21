@@ -329,6 +329,13 @@ export interface EstablishedFact {
 const MAX_ESTABLISHED = 40
 const MAX_CANDIDATES = 5
 const VERDICT_CHOICES = ['yes', 'no', 'partly', 'irrelevant']
+/** 反面问题的答案：是↔不是；「是，也不是」与「无关」取反后仍是自己。 */
+const INVERTED_VERDICT: Record<string, string> = {
+  yes: 'no',
+  no: 'yes',
+  partly: 'partly',
+  irrelevant: 'irrelevant',
+}
 
 function readEstablished(value: unknown): EstablishedFact[] {
   if (!Array.isArray(value)) return []
@@ -346,6 +353,40 @@ function readEstablished(value: unknown): EstablishedFact[] {
 
 function normaliseForCompare(value: string): string {
   return value.replace(/[\s，。？！、,.?!；;：:"'「」（）()【】\]]+/g, '').toLowerCase()
+}
+
+/**
+ * 否定词。中文的正反问法常常只差一个「不 / 没」，两句话的 bigram 相似度
+ * 高到 0.9 以上——台账会把它当成「同一问题又问了一遍」，然后把旧答案原样抄回来。
+ * 所以除了一般的重复，还要能把「正反两面」单独认出来，抄的时候取反。
+ */
+const NEGATION_TOKENS = ['不是', '不会', '不能', '没有', '没', '不', '未', '无', '别', '非']
+
+function stripNegation(value: string): string {
+  let out = value
+  for (const token of NEGATION_TOKENS) out = out.split(token).join('')
+  return out
+}
+
+function countNegation(value: string): number {
+  let count = 0
+  let rest = value
+  for (const token of NEGATION_TOKENS) {
+    const parts = rest.split(token)
+    count += parts.length - 1
+    rest = parts.join('')
+  }
+  return count
+}
+
+/** 去掉否定词之后是同一句话、但否定数量奇偶不同 → 问的是同一件事的反面。 */
+function isNegationPair(a: string, b: string): boolean {
+  const na = normaliseForCompare(a)
+  const nb = normaliseForCompare(b)
+  if (!na || !nb || na === nb) return false
+  const sa = stripNegation(na)
+  if (!sa || sa !== stripNegation(nb)) return false
+  return Math.abs(countNegation(na) - countNegation(nb)) % 2 === 1
 }
 
 function bigrams(value: string): Set<string> {
@@ -377,16 +418,38 @@ function similarFacts(
     .slice(0, MAX_CANDIDATES)
 }
 
-/** 候选会随台账变化，所以问题表要按状态生成。 */
-function candidateOptions(candidates: { index: number; fact: EstablishedFact }[]) {
+type Candidate = { index: number; fact: EstablishedFact }
+
+/**
+ * 候选会随台账变化，所以问题表要按状态生成。
+ * 代码先按否定词把候选分成两组：可能要「原样复用」的，和可能要「取反复用」的。
+ * 分组只是缩小模型的选择范围，最终仍由 Jev 判断——两组里都可以答 none。
+ */
+function candidateOptions(candidates: Candidate[], mode: 'same' | 'opposite') {
   const options: Record<string, { what: string }> = {}
   for (const { index, fact } of candidates) {
-    options[`fact_${index}`] = {
-      what: `The player is asking the same thing as: “${fact.question}”`,
-    }
+    options[`fact_${index}`] =
+      mode === 'same'
+        ? { what: `The player is asking the same thing as: “${fact.question}”` }
+        : {
+            what: `The player is asking the exact opposite of: “${fact.question}” — i.e. whether the negation of that recorded answer holds`,
+          }
   }
-  options.none = { what: 'It is a new question, not a repeat of any candidate.' }
+  options.none =
+    mode === 'same'
+      ? { what: 'It is a new question, not a repeat of any candidate.' }
+      : { what: 'It is a new question, not the opposite of any candidate.' }
   return options
+}
+
+function splitCandidates(candidates: Candidate[], message: string) {
+  const same: Candidate[] = []
+  const opposite: Candidate[] = []
+  for (const candidate of candidates) {
+    if (isNegationPair(message, candidate.fact.question)) opposite.push(candidate)
+    else same.push(candidate)
+  }
+  return { same, opposite }
 }
 
 const REPLY_LOCALES: Record<string, Locale> = { 'zh-CN': 'zh-CN', en: 'en', ja: 'ja' }
@@ -398,7 +461,8 @@ function replyLocaleFor(answers: HostAnswers, uiLocale: Locale): Locale {
   return picked && answer!.confidence >= 0.6 ? picked : uiLocale
 }
 
-function hostQuestions(candidates: { index: number; fact: EstablishedFact }[]) {
+function hostQuestions(candidates: Candidate[], message: string) {
+  const { same, opposite } = splitCandidates(candidates, message)
   return {
     ...HOST_QUESTIONS,
     contradicts_earlier: noul(
@@ -413,16 +477,35 @@ function hostQuestions(candidates: { index: number; fact: EstablishedFact }[]) {
         false: 'Nothing recorded is contradicted by answering this question.',
       },
     ),
-    matches_earlier: choice(
-      {
-        question:
-          'Is `latest_player_message` essentially the same question as one of the recorded facts?',
-        compare: ['latest_player_message', 'established'],
-        focus:
-          'Match only when the player is asking the same thing again, not merely about the same topic. If no candidate matches, choose none.',
-      },
-      candidateOptions(candidates),
-    ),
+    ...(same.length
+      ? {
+          matches_earlier: choice(
+            {
+              question:
+                'Is `latest_player_message` essentially the same question as one of the recorded facts?',
+              compare: ['latest_player_message', 'established'],
+              focus:
+                'Match only when the player is asking the same thing again, not merely about the same topic. If no candidate matches, choose none.',
+            },
+            candidateOptions(same, 'same'),
+          ),
+        }
+      : {}),
+    // 只差一个否定词的那种问法：是同一件事的反面，答案要取反，不能照抄
+    ...(opposite.length
+      ? {
+          opposite_of: choice(
+            {
+              question:
+                'Is `latest_player_message` asking whether the opposite of one of the listed candidate facts holds?',
+              compare: ['latest_player_message', 'established'],
+              focus:
+                'The candidates here differ from the player’s message by a negation (不 / 没 / 未 …), so they are the same proposition stated the other way round. Match only if the player is really asking that same proposition negated; if the two are merely about the same topic, choose none.',
+            },
+            candidateOptions(opposite, 'opposite'),
+          ),
+        }
+      : {}),
   }
 }
 
@@ -594,6 +677,7 @@ interface HostAnswers {
   message_language?: ChoiceAnswer
   contradicts_earlier?: NoulAnswer
   matches_earlier?: ChoiceAnswer
+  opposite_of?: ChoiceAnswer
   intent: ChoiceAnswer
   verdict: ChoiceAnswer
   motive_correct: NoulAnswer
@@ -636,6 +720,8 @@ function readLuck(value: unknown): LuckInfo | null {
 interface HostCopy {
   verdict: Record<string, string>
   repeat: (word: string) => string
+  /** 玩家问的正好是之前那条的反面时用 */
+  repeatOpposite: (word: string) => string
   dailyLocked: string
   rephrase: string
   howToPlay: string
@@ -790,6 +876,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     },
     dailyLocked: '今天这碗官方汤不能提前揭晓——明天它就会解锁，到时候你随时可以翻看。',
     repeat: (word) => `这个问题你之前问过了，答案还是「${word}」。`,
+    repeatOpposite: (word) => `这和你之前问的正好相反，所以答案是「${word}」。`,
     rephrase: '这个问题主持人有点拿不准……能换一个更具体的问法吗？',
     howToPlay:
       '玩法：主持人只会回答「是」「不是」「无关」或者「是，也不是」。你可以不断提出能用是 / 否回答的问题，一步步逼近汤底；也可以随时说出你的完整推理，猜对了就通关。',
@@ -814,6 +901,8 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     dailyLocked:
       'The daily bowl cannot be unsealed early — it unlocks tomorrow, and then you can read the truth whenever you like.',
     repeat: (word) => `You asked this before — the answer is still “${word}”.`,
+    repeatOpposite: (word) =>
+      `That is the other side of a question you already asked, so the answer is “${word}”.`,
     rephrase: 'The host is not quite sure about that one… could you ask it more concretely?',
     howToPlay:
       'How it works: the host only answers yes, no, unrelated, or partly. Keep asking questions that can be answered with yes or no to close in on the truth, or state your full theory — get it right and the case is solved.',
@@ -838,6 +927,8 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     dailyLocked:
       '本日の公式の一杯は前もって開封できません。明日になれば解放され、いつでも真相を読めます。',
     repeat: (word) => `その質問は前にも出ました。答えは変わりません——「${word}」。`,
+    repeatOpposite: (word) =>
+      `以前の質問とちょうど裏返しですね。ですから答えは「${word}」です。`,
     rephrase: 'その質問は司会にも判断しかねるようです……もう少し具体的に訊いてもらえますか。',
     howToPlay:
       '遊びかた：司会が答えるのは「はい」「いいえ」「無関係」「どちらでもある」だけです。はい／いいえで答えられる質問を重ねて真相に近づくか、推理をそのまま述べてください。当たれば解決です。',
@@ -995,23 +1086,29 @@ export function composeTurn(
   }
 
   if (intent === 'yes_no_question') {
-    // 重复提问时直接复用当时那条结论，不让模型重新判读出相反答案
-    const matched = answers.matches_earlier?.choice
-    if (matched && matched.startsWith('fact_')) {
-      const index = Number(matched.slice('fact_'.length))
+    // 重复提问时直接复用当时那条结论，不让模型重新判读出相反答案。
+    // 问的是反面（只差一个否定词）就取反复用——这是「新娘认识陌生人」和
+    // 「新娘不认识陌生人」都答「不是」的根源：字符串太像，台账当成了同一问。
+    for (const [answer, flip] of [
+      [answers.matches_earlier, false],
+      [answers.opposite_of, true],
+    ] as const) {
+      const picked = answer?.choice
+      if (!picked || !picked.startsWith('fact_')) continue
+      const index = Number(picked.slice('fact_'.length))
       const fact = established[index]
       const known = candidates.some((item) => item.index === index)
-      if (known && fact && VERDICT_CHOICES.includes(fact.verdict)) {
-        const word = (copy.verdict[fact.verdict] ?? fact.verdict).replace(/[。.]$/, '')
-        return {
-          intent,
-          verdict: fact.verdict,
-          solved: false,
-          revealed: false,
-          closeness: null,
-          confidence: answers.matches_earlier?.confidence ?? 0.9,
-          reply: copy.repeat(word),
-        }
+      if (!known || !fact || !VERDICT_CHOICES.includes(fact.verdict)) continue
+      const verdict = flip ? INVERTED_VERDICT[fact.verdict] ?? fact.verdict : fact.verdict
+      const word = (copy.verdict[verdict] ?? verdict).replace(/[。.]$/, '')
+      return {
+        intent,
+        verdict,
+        solved: false,
+        revealed: false,
+        closeness: null,
+        confidence: answer?.confidence ?? 0.9,
+        reply: flip ? copy.repeatOpposite(word) : copy.repeat(word),
       }
     }
 
@@ -1121,6 +1218,14 @@ function buildDebug(answers: HostAnswers) {
           matchesEarlier: {
             choice: answers.matches_earlier.choice,
             confidence: answers.matches_earlier.confidence,
+          },
+        }
+      : {}),
+    ...(answers.opposite_of
+      ? {
+          oppositeOf: {
+            choice: answers.opposite_of.choice,
+            confidence: answers.opposite_of.confidence,
           },
         }
       : {}),
@@ -1356,7 +1461,7 @@ export async function judge(
   const { answers, model } = await client.systemOne({
     // 台账是 interface 数组，SDK 的 EntryType 认的是索引签名，这里收口一次
     state: state as unknown as EntryType,
-    questions: hostQuestions(candidates),
+    questions: hostQuestions(candidates, message),
   })
 
   const replyLocale = replyLocaleFor(answers, locale)

@@ -738,6 +738,11 @@ interface HostCopy {
   closeHigh: string
   closeMid: string
   closeLow: string
+  /** 玩家陈述的是「一个判断」而不是一套理论时，按判断本身的真假回答 */
+  affirm: string
+  deny: string
+  partlyStatement: string
+  irrelevantStatement: string
   unclear: string
   luckMissing: string
   luck: (luck: LuckInfo) => string
@@ -893,6 +898,10 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     closeHigh: '已经很接近了！核心抓住了，但还差最后一块关键拼图。',
     closeMid: '沾到一点边了，方向可以再往关键的地方想想。',
     closeLow: '嗯……这个说法和真相差得有点远，再换条线索想想。',
+    affirm: '对，这一点是成立的。',
+    deny: '不是这样。',
+    partlyStatement: '一半对一半：方向是对的，细节不对。',
+    irrelevantStatement: '这和真相没有关系。',
     unclear: '主持人没太听懂。你可以问一个是非题，或者直接说出你的推理。',
     luckMissing:
       '主持人翻了翻手边的册子，又合上了：「今日人品得在首页那格日历上看——你刷新一下再来问我。」',
@@ -919,6 +928,10 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     closeHigh: 'Very close! You have the core of it, but one key piece is still missing.',
     closeMid: 'You are brushing against it — steer toward the crucial detail.',
     closeLow: 'Hmm… that is rather far from the truth. Try another thread.',
+    affirm: 'Yes — that much is true.',
+    deny: 'No, that is not it.',
+    partlyStatement: 'Half right: the direction is right, the detail is not.',
+    irrelevantStatement: 'That has nothing to do with it.',
     unclear: 'The host did not quite follow. Ask a yes-or-no question, or state your theory.',
     luckMissing:
       'The host leafs through a small notebook and closes it. “Today’s luck is on the calendar on the front page — refresh and ask me again.”',
@@ -934,8 +947,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     dailyLocked:
       '本日の公式の一杯は前もって開封できません。明日になれば解放され、いつでも真相を読めます。',
     repeat: (word) => `その質問は前にも出ました。答えは変わりません——「${word}」。`,
-    repeatOpposite: (word) =>
-      `以前の質問とちょうど裏返しですね。ですから答えは「${word}」です。`,
+    repeatOpposite: (word) => `以前の質問とちょうど裏返しですね。ですから答えは「${word}」です。`,
     rephrase: 'その質問は司会にも判断しかねるようです……もう少し具体的に訊いてもらえますか。',
     howToPlay:
       '遊びかた：司会が答えるのは「はい」「いいえ」「無関係」「どちらでもある」だけです。はい／いいえで答えられる質問を重ねて真相に近づくか、推理をそのまま述べてください。当たれば解決です。',
@@ -945,6 +957,10 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     closeHigh: 'かなり近い！芯は掴めていますが、あと一枚だけ重要なピースが足りません。',
     closeMid: '少し触れています。核心に寄せていってください。',
     closeLow: 'うーん……それは真相からだいぶ遠いですね。別の糸をたどってみては。',
+    affirm: 'はい、その点は事実です。',
+    deny: 'いいえ、そうではありません。',
+    partlyStatement: '半分正解です。方向は合っていますが、細部が違います。',
+    irrelevantStatement: 'それは真相と関係ありません。',
     unclear: '司会にはよく伝わらなかったようです。はい／いいえの質問か、推理を述べてください。',
     luckMissing:
       '司会は手元の帳面をめくり、閉じた。「今日の運勢はホームの暦にあります。更新してもう一度訊いてください。」',
@@ -1072,6 +1088,37 @@ export function composeTurn(
         reply: copy.solved,
       }
     }
+    /*
+     * 玩家说的可能是「一套理论」，也可能只是「一个判断」（「电子锁时间不对」）。
+     * 只看 closeness（由动机/手法/反转三个维度加权）的话，单个判断的维度分天然很低，
+     * 于是同一句话会被答成「差得有点远」；而把它加上「是不是」写成问句，
+     * 走的是判读那条路，又会答「是」——两条路径口径相反。
+     *
+     * 所以先看这个判断本身成不成立：判读说得清楚就用判读，说不清楚（含糊的理论）
+     * 才退回 closeness 的冷热提示。
+     */
+    const statedVerdict = answers.verdict.choice as string
+    const statedConfidence = answers.verdict.confidence
+    if (statedConfidence >= 0.5 && ['yes', 'no', 'partly', 'irrelevant'].includes(statedVerdict)) {
+      const reply =
+        statedVerdict === 'yes'
+          ? copy.affirm
+          : statedVerdict === 'no'
+            ? copy.deny
+            : statedVerdict === 'partly'
+              ? copy.partlyStatement
+              : copy.irrelevantStatement
+      return {
+        intent,
+        verdict: statedVerdict,
+        solved: false,
+        revealed: false,
+        closeness,
+        confidence: statedConfidence,
+        reply,
+      }
+    }
+
     const reply =
       closeness >= 0.66 ? copy.closeHigh : closeness >= 0.33 ? copy.closeMid : copy.closeLow
     return {
@@ -1107,7 +1154,7 @@ export function composeTurn(
       const fact = established[index]
       const known = candidates.some((item) => item.index === index)
       if (!known || !fact || !VERDICT_CHOICES.includes(fact.verdict)) continue
-      const verdict = flip ? INVERTED_VERDICT[fact.verdict] ?? fact.verdict : fact.verdict
+      const verdict = flip ? (INVERTED_VERDICT[fact.verdict] ?? fact.verdict) : fact.verdict
       const word = (copy.verdict[verdict] ?? verdict).replace(/[。.]$/, '')
       return {
         intent,

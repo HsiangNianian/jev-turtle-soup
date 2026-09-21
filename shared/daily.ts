@@ -24,33 +24,227 @@ const CondensedSchema = z.object({
   hint: z.string().min(1),
 })
 
-const STORY_SYSTEM = `你是一位顶级海龟汤出题人。海龟汤的第一步不是写谜面，而是先写一则**完整、自洽、能站得住的故事**，之后才会从它里面凝练出汤底与汤面。
+export type DailyLocale = 'zh-CN' | 'en' | 'ja'
+
+/** 每天随机摇一次：走本格还是变格、什么题材、用哪种语言原生写。 */
+export interface DailyRoll {
+  locale: DailyLocale
+  /** 0 = 本格·逻辑推理，100 = 变格·怪力乱神 */
+  genreTarget: number
+  tag: string
+}
+
+const DAILY_LOCALES: DailyLocale[] = ['zh-CN', 'en', 'ja']
+
+const REALISTIC_TAGS = [
+  '都市',
+  '悬疑',
+  '推理',
+  '密室',
+  '误会',
+  '身份',
+  '时间线',
+  '心理',
+  '记忆',
+  '反转',
+  '雨夜',
+  '老房子',
+  '医院',
+  '电梯',
+  '婚礼',
+  '葬礼',
+  '书信',
+  '照片',
+  '镜子',
+]
+const SUPERNATURAL_TAGS = ['民俗', '禁忌', '诅咒', '诡物', '怪力乱神', '替身', '幻觉', '灵异']
+
+function pick<T>(list: T[]): T {
+  return list[Math.floor(Math.random() * list.length)]
+}
+
+/** 摇一次。同一句话里给足「有多变格」和「写什么题材」两条指令。 */
+export function rollDaily(): DailyRoll {
+  const genreTarget = Math.floor(Math.random() * 101)
+  const pool =
+    genreTarget >= 70
+      ? [...SUPERNATURAL_TAGS, ...REALISTIC_TAGS]
+      : genreTarget <= 30
+        ? REALISTIC_TAGS
+        : [...REALISTIC_TAGS, ...SUPERNATURAL_TAGS]
+  return { locale: pick(DAILY_LOCALES), genreTarget, tag: pick(pool) }
+}
+
+/**
+ * 题材档位的说法。变格那一头要放开鬼神，但规则必须自洽——
+ * 和本格一样，仍然要求「汤面里能找到线索」，不许用「其实是场梦」收尾。
+ */
+function genreBrief(roll: DailyRoll): string {
+  const { genreTarget, tag } = roll
+  const motif = `题材围绕「${tag}」展开。`
+  if (genreTarget <= 15) {
+    return `【本格·逻辑推理】故事发生在现实世界，答案完全能靠线索推理出来，不要任何超自然成分。${motif}`
+  }
+  if (genreTarget <= 40) {
+    return `【偏本格】现实题材，可以靠巧合、冷知识或时间线错位来解开，不要超自然。${motif}`
+  }
+  if (genreTarget <= 60) {
+    return `【中间】现实框架，关键落在心理、身份错认或幻觉这类主观成分上；幻觉可以用，但要有现实成因。${motif}`
+  }
+  if (genreTarget <= 85) {
+    return `【偏变格】设定可以离奇（民俗、诅咒、替身、诡物），但规则必须前后一致、线索可推理。${motif}`
+  }
+  return `【变格·怪力乱神】可以有明确的鬼神、怨灵或超自然力量，但超自然的规则必须自洽，并且线索都在故事里交代过。不要用「其实是一场梦」「一切都是幻觉」收尾，也不要靠血腥和 jump scare 吓人。${motif}`
+}
+
+/** 后台/日志里给人看的语言名，不影响玩家界面。 */
+export const LOCALE_LABEL_ZH: Record<DailyLocale, string> = {
+  'zh-CN': '简体中文',
+  en: '英文',
+  ja: '日文',
+}
+
+interface LocaleSpec {
+  /** 写进 prompt 的长度说法——英文按词数说，模型才写得准 */
+  storyBrief: string
+  storyMin: number
+  storyMax: number
+  /** 校验时按字还是按词量 */
+  unit: '字' | 'words'
+  surfaceMax: number
+  truthMax: number
+}
+
+/**
+ * 英文按字符量会离谱地长（9000 字≈1500 词），所以英文改用**词数**，
+ * 而且校验上限要留出余量：上限等于 prompt 里的目标值时，模型稍微写长一点
+ * 就会连试三轮都过不了，整天的汤直接生成失败（实测踩过）。
+ */
+const LOCALE_SPECS: Record<DailyLocale, LocaleSpec> = {
+  'zh-CN': {
+    storyBrief: '800 到 1200 字',
+    storyMin: 400,
+    storyMax: 2500,
+    unit: '字',
+    surfaceMax: 60,
+    truthMax: 220,
+  },
+  ja: {
+    storyBrief: '800 から 1200 字',
+    storyMin: 400,
+    storyMax: 2500,
+    unit: '字',
+    surfaceMax: 60,
+    truthMax: 220,
+  },
+  en: {
+    storyBrief: '700 to 1000 words',
+    storyMin: 500,
+    storyMax: 1400,
+    unit: 'words',
+    surfaceMax: 220,
+    truthMax: 800,
+  },
+}
+
+function measureStory(story: string, spec: LocaleSpec): number {
+  return spec.unit === 'words' ? story.trim().split(/\s+/).filter(Boolean).length : story.length
+}
+
+function storySystem(roll: DailyRoll): string {
+  const setting = genreBrief(roll)
+  const lengthRule = LOCALE_SPECS[roll.locale].storyBrief
+  if (roll.locale === 'en') {
+    return `You are a top-tier turtle-soup (situation puzzle) writer. The first step is not to write the riddle — it is to write a **complete, self-consistent story that stands on its own**; the surface and the truth are distilled from it afterwards.
+
+Write an original story and output exactly one json object.
+
+Requirements:
+1. story: the full story, ${lengthRule}. Give it real characters, motives, a timeline and a chain of cause and effect. Every strange event must be explained inside the story itself — no contradictions.
+2. key_twist: one sentence naming the single most important reversal (used for review).
+3. The reversal must be surprising, yet completely justified in hindsight, and its clues must be planted in the story.
+4. ${setting}
+5. No gore, sexual content, jump scares or anything illegal.
+6. title: a short title. tags: 2-3 short tags **in English**. difficulty: exactly one of 简单 / 中等 / 困难 (keep the Chinese value — the interface translates it).
+7. Write everything in natural, idiomatic English.
+
+Output format (strict json, no markdown fences):
+{"title": "Title", "story": "Full story", "key_twist": "The twist", "difficulty": "中等", "tags": ["tag1", "tag2"]}`
+  }
+  if (roll.locale === 'ja') {
+    return `あなたは一流のウミガメのスープ（状況推理）作家です。最初に書くのは謎かけではありません。**それ自体で成立する、完全で矛盾のない物語**を先に書き、そこから湯面と真相を凝縮して作ります。
+
+オリジナルの物語を書き、json オブジェクトを一つだけ出力してください。
+
+条件：
+1. story：物語の全文、${lengthRule}。具体的な人物・動機・時系列・因果関係を用意し、不可解な出来事はすべて物語の内部で説明すること。矛盾は禁止。
+2. key_twist：この物語で最も重要な反転を一文で（審査に使います）。
+3. 反転は意外でありながら、振り返れば完全に筋が通っていること。手がかりは物語の中に置いておくこと。
+4. ${setting}
+5. 残虐・性的表現・ジャンプスケア・違法な内容は禁止。
+6. title：短いタイトル。tags：**日本語**の短いタグを 2〜3 個。difficulty：简单 / 中等 / 困难 のいずれかをそのまま（表示側で翻訳します）。
+7. 全文を自然な日本語で書くこと。
+
+出力形式（厳密な json、markdown のコードブロックは不要）：
+{"title": "タイトル", "story": "物語全文", "key_twist": "反転", "difficulty": "中等", "tags": ["タグ1", "タグ2"]}`
+  }
+  return `你是一位顶级海龟汤出题人。海龟汤的第一步不是写谜面，而是先写一则**完整、自洽、能站得住的故事**，之后才会从它里面凝练出汤底与汤面。
 
 请写一则原创故事，并只输出一个 json 对象。
 
 要求：
-1. story：完整的故事正文，800 到 1200 字。要有具体的人物、动机、时间线和因果链；每一件反常的事都必须在故事内部得到解释，不能互相矛盾。
+1. story：完整的故事正文，${lengthRule}。要有具体的人物、动机、时间线和因果链；每一件反常的事都必须在故事内部得到解释，不能互相矛盾。
 2. key_twist：一句话点明这个故事最关键的反转（供审核使用）。
 3. 反转必须出人意料、但回溯故事又完全合理，并且线索在故事里都交代过。
-4. 故事发生在现实世界，可以用巧合、误会、身份、职业、心理、时间线错位等手法；不要鬼神、超自然、灵异，不要"其实是一场梦"。
+4. ${setting}
 5. 不要血腥、色情、恐怖 jump scare 或违法内容。
-6. title：一个 2 到 10 字的标题。tags：2 到 3 个中文短标签。difficulty：简单 / 中等 / 困难。
+6. title：一个 2 到 10 字的标题。tags：2 到 3 个**中文**短标签。difficulty：简单 / 中等 / 困难。
 7. 全文使用简体中文。
 
 输出格式（严格 json，不要 markdown 代码块）：
 {"title": "标题", "story": "完整故事", "key_twist": "关键反转", "difficulty": "中等", "tags": ["标签1", "标签2"]}`
+}
 
-const CONDENSE_SYSTEM = `你要把一则已经写好的故事凝练成一道海龟汤。你只输出一个 json 对象。
+function condenseSystem(roll: DailyRoll): string {
+  const spec = LOCALE_SPECS[roll.locale]
+  if (roll.locale === 'en') {
+    return `Condense a finished story into one turtle-soup puzzle. Output exactly one json object.
+
+Requirements:
+1. truth: 3-5 sentences, under ${spec.truthMax} characters, stating the core cause and effect and the key reversal. **Only use what the story already contains** — invent no character, event or motive, and drop no part of the twist.
+2. surface: **one sentence only**, under ${spec.surfaceMax} characters. Show only the single strangest thing that happens; never explain it or give the answer away.
+3. hint: one sentence that nudges the reasoning without revealing the answer.
+4. Every detail in the surface must be explainable by the truth.
+5. Write entirely in natural English.
+
+Output format (strict json, no markdown fences):
+{"truth": "Truth", "surface": "Surface", "hint": "Hint"}`
+  }
+  if (roll.locale === 'ja') {
+    return `書き上がった物語を一つのウミガメのスープに凝縮します。json オブジェクトを一つだけ出力してください。
+
+条件：
+1. truth（真相）：3〜5 文、${spec.truthMax} 字以内。物語の核心的な因果と重要な反転を述べること。**物語にある情報だけ**を使い、人物・出来事・動機を新たに足したり、反転を落としたりしないこと。
+2. surface（湯面）：**一文だけ**、${spec.surfaceMax} 字以内。物語で最も不可解な現象だけを見せ、理由も真相も書かないこと。
+3. hint（ヒント）：一文。答えを明かさず、推理の方向を押すこと。
+4. 湯面の細部はすべて真相で説明できること。
+5. 全文を自然な日本語で書くこと。
+
+出力形式（厳密な json、markdown のコードブロックは不要）：
+{"truth": "真相", "surface": "湯面", "hint": "ヒント"}`
+  }
+  return `你要把一则已经写好的故事凝练成一道海龟汤。你只输出一个 json 对象。
 
 要求：
-1. truth（汤底）：3 到 5 句、150 字以内，把故事的核心因果与关键反转讲清楚。**只能使用故事里已有的信息**，不得新增人物、事件或动机，也不得遗漏关键反转。
-2. surface（汤面）：**只写一句话**，不超过 40 个字。只呈现故事里最反常的那一个现象，不解释原因、不点破真相。
+1. truth（汤底）：3 到 5 句、${spec.truthMax} 字以内，把故事的核心因果与关键反转讲清楚。**只能使用故事里已有的信息**，不得新增人物、事件或动机，也不得遗漏关键反转。
+2. surface（汤面）：**只写一句话**，不超过 ${spec.surfaceMax} 个字。只呈现故事里最反常的那一个现象，不解释原因、不点破真相。
 3. hint（提示）：一句话，不直接揭晓答案，但能推动推理方向。
 4. 汤面里出现的每个细节，都要能被汤底解释。
 5. 全文使用简体中文。
 
 输出格式（严格 json，不要 markdown 代码块）：
 {"truth": "汤底", "surface": "汤面", "hint": "提示"}`
+}
 
 export interface DailyReview {
   passed: boolean
@@ -61,6 +255,11 @@ export interface DailyReview {
 }
 
 export interface DailyDraft {
+  /** 这碗汤原生用什么语言写的 */
+  locale: DailyLocale
+  /** 摇到的题材坐标与题材标签（留档，用于回看与巡检） */
+  genreTarget: number
+  tag: string
   title: string
   story: string
   truth: string
@@ -251,10 +450,22 @@ export interface DailyProgress {
 
 export async function composeDaily(
   env: GameEnv,
-  options: { avoid?: string[]; date?: string; onProgress?: (progress: DailyProgress) => void },
+  options: {
+    avoid?: string[]
+    date?: string
+    onProgress?: (progress: DailyProgress) => void
+    /** 不给就现摇一次；手动重生成时可以传进来复用 */
+    roll?: DailyRoll
+  },
 ): Promise<DailyDraft> {
   const cfg = resolveLlm(env)
   if (!cfg) throw new ApiError(503, '未配置 LLM Key，无法生成每日汤')
+
+  const roll = options.roll ?? rollDaily()
+  const spec = LOCALE_SPECS[roll.locale]
+  console.log(
+    `[daily] 摇到：${LOCALE_LABEL_ZH[roll.locale]}｜题材 ${roll.tag}｜坐标 ${roll.genreTarget}`,
+  )
 
   const avoid = options.avoid ?? []
   let best: (DailyDraft & { score: number }) | null = null
@@ -270,7 +481,7 @@ export async function composeDaily(
     const retryBlock = issueBlock(carryIssues)
 
     const story = await generateJson<z.infer<typeof StorySchema>>(cfg, {
-      system: STORY_SYSTEM,
+      system: storySystem(roll),
       user: `请按上面的要求写一则完整的故事，以 json 输出。${avoidBlock}${retryBlock}`,
       effort: 'max',
       onProgress: (progress) =>
@@ -280,15 +491,20 @@ export async function composeDaily(
         if (!parsed.success) {
           return { issues: [`json 结构不合法：${parsed.error.message.slice(0, 160)}`] }
         }
+        const measured = measureStory(parsed.data.story, spec)
         const issues: string[] = []
-        if (parsed.data.story.length < 400) issues.push('故事太短，至少要写清楚完整经过')
-        if (parsed.data.story.length > 2000) issues.push('故事太长，请压缩到 1200 字左右')
+        if (measured < spec.storyMin) {
+          issues.push(`故事太短（${measured} ${spec.unit}），至少要写清楚完整经过`)
+        }
+        if (measured > spec.storyMax) {
+          issues.push(`故事太长（${measured} ${spec.unit}），请压到 ${spec.storyBrief}`)
+        }
         return issues.length ? { issues } : { value: parsed.data, issues: [] }
       },
     })
 
     const condensed = await generateJson<z.infer<typeof CondensedSchema>>(cfg, {
-      system: CONDENSE_SYSTEM,
+      system: condenseSystem(roll),
       user: `故事如下：\n\n${story.story}\n\n关键反转：${story.key_twist}\n\n请凝练出汤底、汤面与提示，以 json 输出。${retryBlock}`,
       effort: 'high',
       onProgress: (progress) =>
@@ -300,12 +516,14 @@ export async function composeDaily(
         }
         const issues: string[] = []
         const stops = (parsed.data.surface.match(/[。！？!?…]/g) ?? []).length
-        if (parsed.data.surface.length > 60) {
-          issues.push(`汤面太长（${parsed.data.surface.length} 字，要求 40 字以内）`)
+        if (parsed.data.surface.length > spec.surfaceMax) {
+          issues.push(
+            `汤面太长（${parsed.data.surface.length} 字，要求 ${spec.surfaceMax} 字以内）`,
+          )
         }
         if (stops > 1) issues.push(`汤面必须只有一句话，现在有 ${stops} 句`)
-        if (parsed.data.truth.length > 220) {
-          issues.push(`汤底太长（${parsed.data.truth.length} 字，要求 150 字以内）`)
+        if (parsed.data.truth.length > spec.truthMax) {
+          issues.push(`汤底太长（${parsed.data.truth.length} 字，要求 ${spec.truthMax} 字以内）`)
         }
         return issues.length ? { issues } : { value: parsed.data, issues: [] }
       },
@@ -322,6 +540,9 @@ export async function composeDaily(
     options.onProgress?.({ stage: 'review', attempt, chars: 0 })
     const review = await reviewDaily(env, draft, attempt)
     const candidate: DailyDraft & { score: number } = {
+      locale: roll.locale,
+      genreTarget: roll.genreTarget,
+      tag: roll.tag,
       title: draft.title,
       story: draft.story,
       truth: draft.truth,

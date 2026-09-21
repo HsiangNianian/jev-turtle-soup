@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS dailies (
   review_json TEXT,               -- Jev 审核的完整结果
   attempts INTEGER NOT NULL DEFAULT 0,
   relaxed INTEGER NOT NULL DEFAULT 0,  -- 是否放宽阈值后发布
+  locale TEXT NOT NULL DEFAULT 'zh-CN', -- 原生写作语言：zh-CN / en / ja
+  genre_target INTEGER,           -- 摇到的题材坐标：0 本格 · 100 变格
   created_at INTEGER NOT NULL
 );
 

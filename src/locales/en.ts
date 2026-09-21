@@ -324,4 +324,8 @@ export const en: Record<string, string> = {
   '语义重排中…': 'Re-ranking…',
   '已按语义重排': 'Re-ranked by meaning',
   '没有找到相关的汤，换个说法试试。': 'Nothing matched — try different words.',
+  '中文': 'Chinese',
+  '英文': 'English',
+  '日文': 'Japanese',
+  '今天的汤是{language}的': 'Today’s bowl is in {language}.',
 }

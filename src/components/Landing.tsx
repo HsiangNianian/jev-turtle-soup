@@ -4,7 +4,7 @@ import { ArrowRight, Lock, Trash2 } from 'lucide-react'
 import { Link } from '@/components/Link'
 import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
-import { listDailies, type DailyDetail } from '@/lib/daily-client'
+import { dailyLanguageLabel, listDailies, type DailyDetail } from '@/lib/daily-client'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -72,7 +72,10 @@ function DailyCard({
             <span key={tag}>#{tag}</span>
           ))}
         </div>
-        <div className="mt-5 border-l-2 border-brand/50 pl-4">
+        <div className="mt-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+          {t('今天的汤是{language}的', { language: dailyLanguageLabel(daily.locale, t) })}
+        </div>
+        <div className="mt-4 border-l-2 border-brand/50 pl-4">
           <p className="surface-prose font-serif text-[15px] leading-8 text-foreground/90">
             {daily.surface}
           </p>

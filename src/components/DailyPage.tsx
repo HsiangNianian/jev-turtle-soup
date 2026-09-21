@@ -4,7 +4,13 @@ import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 import { Button, Empty, Notice, PageShell } from '@/components/Bits'
 import { Link } from '@/components/Link'
 import { findActiveDaily, type ArchivedGame } from '@/lib/archive'
-import { getDaily, listDailies, type DailyDetail, type DailySummary } from '@/lib/daily-client'
+import {
+  dailyLanguageLabel,
+  getDaily,
+  listDailies,
+  type DailyDetail,
+  type DailySummary,
+} from '@/lib/daily-client'
 import { useI18n } from '@/lib/i18n'
 
 /** 「开始推理」或「继续调查」——同一天已经有案卷时不该重开。 */
@@ -37,6 +43,16 @@ function Meta({ difficulty, tags }: { difficulty: string; tags: string[] }) {
         <span key={tag}>#{tag}</span>
       ))}
     </div>
+  )
+}
+
+/** 这碗汤是什么语言写的；读者界面语言未必相同，所以明说一句。 */
+function LanguageNote({ locale }: { locale: DailySummary['locale'] }) {
+  const { t } = useI18n()
+  return (
+    <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+      {t('今天的汤是{language}的', { language: dailyLanguageLabel(locale, t) })}
+    </span>
   )
 }
 
@@ -111,8 +127,9 @@ export function DailyDetailPage({
       label={t('官方汤')}
       title={daily.title}
       meta={
-        <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-          {daily.date}
+        <span className="flex items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+          <span>{daily.date}</span>
+          <LanguageNote locale={daily.locale} />
         </span>
       }
     >
@@ -236,6 +253,9 @@ export function DailyIndexPage({
           <div className="px-4 py-5 sm:px-5">
             <h2 className="font-serif text-2xl leading-snug font-semibold">{today.title}</h2>
             <Meta difficulty={today.difficulty} tags={today.tags} />
+            <div className="mt-2">
+              <LanguageNote locale={today.locale} />
+            </div>
             <div className="mt-5 border-l-2 border-brand/50 pl-4">
               <p className="surface-prose font-serif text-[15px] leading-8 text-foreground/90">
                 {today.surface}
@@ -285,6 +305,9 @@ export function DailyIndexPage({
                   </span>
                   <span className="min-w-0 flex-1 truncate font-serif text-[15px]">
                     {item.title}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+                    {dailyLanguageLabel(item.locale, t)}
                   </span>
                   <span className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
                     {t(item.difficulty)}

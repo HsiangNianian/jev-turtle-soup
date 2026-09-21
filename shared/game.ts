@@ -356,37 +356,44 @@ function normaliseForCompare(value: string): string {
 }
 
 /**
- * 否定词。中文的正反问法常常只差一个「不 / 没」，两句话的 bigram 相似度
+ * 否定语素。中文的正反问法常常只差一个「不 / 没」，两句话的 bigram 相似度
  * 高到 0.9 以上——台账会把它当成「同一问题又问了一遍」，然后把旧答案原样抄回来。
  * 所以除了一般的重复，还要能把「正反两面」单独认出来，抄的时候取反。
+ *
+ * 只列**最小语素**：写「没有」会把「有」一起吃掉，剥完就对不上「有…」那句了。
  */
-const NEGATION_TOKENS = ['不是', '不会', '不能', '没有', '没', '不', '未', '无', '别', '非']
+const NEGATION_TOKENS = ['不', '没', '未', '无', '别', '非', '否']
 
-function stripNegation(value: string): string {
-  let out = value
-  for (const token of NEGATION_TOKENS) out = out.split(token).join('')
-  return out
-}
-
-function countNegation(value: string): number {
-  let count = 0
-  let rest = value
-  for (const token of NEGATION_TOKENS) {
-    const parts = rest.split(token)
-    count += parts.length - 1
-    rest = parts.join('')
+/**
+ * 否定语素的位置。要求它后面至少还跟着两个字：
+ * 「淹没 / 沉没 / 出没 / 没落」这类合成词里的「没」因此不会被误认成否定。
+ * 代价是漏掉一些真的否定（「不对」），漏判只是少一条兜底，判错才会给出反答案。
+ */
+function negationMarks(value: string): number[] {
+  const marks: number[] = []
+  const chars = [...value]
+  for (let index = 0; index < chars.length; index += 1) {
+    if (!NEGATION_TOKENS.includes(chars[index])) continue
+    if (chars.length - index - 1 < 2) continue
+    marks.push(index)
   }
-  return count
+  return marks
 }
 
-/** 去掉否定词之后是同一句话、但否定数量奇偶不同 → 问的是同一件事的反面。 */
-function isNegationPair(a: string, b: string): boolean {
+function withoutMarks(value: string, marks: number[]): string {
+  return [...value].filter((_, index) => !marks.includes(index)).join('')
+}
+
+/** 剥掉否定语素之后是同一句话、但否定数量奇偶不同 → 问的是同一件事的反面。 */
+export function isNegationPair(a: string, b: string): boolean {
   const na = normaliseForCompare(a)
   const nb = normaliseForCompare(b)
   if (!na || !nb || na === nb) return false
-  const sa = stripNegation(na)
-  if (!sa || sa !== stripNegation(nb)) return false
-  return Math.abs(countNegation(na) - countNegation(nb)) % 2 === 1
+  const ma = negationMarks(na)
+  const mb = negationMarks(nb)
+  if (Math.abs(ma.length - mb.length) % 2 === 0) return false
+  const stripped = withoutMarks(na, ma)
+  return Boolean(stripped) && stripped === withoutMarks(nb, mb)
 }
 
 function bigrams(value: string): Set<string> {
@@ -418,7 +425,7 @@ function similarFacts(
     .slice(0, MAX_CANDIDATES)
 }
 
-type Candidate = { index: number; fact: EstablishedFact }
+type Candidate = { index: number; fact: EstablishedFact; score?: number }
 
 /**
  * 候选会随台账变化，所以问题表要按状态生成。
@@ -1037,8 +1044,9 @@ export function composeTurn(
   luck: LuckInfo | null = null,
   locale: Locale = 'zh-CN',
   established: EstablishedFact[] = [],
-  candidates: { index: number; fact: EstablishedFact }[] = [],
+  candidates: Candidate[] = [],
   truthLocked = false,
+  opposites: Candidate[] = [],
 ) {
   const copy = HOST_COPY[locale]
   const intentAnswer = answers.intent
@@ -1109,6 +1117,26 @@ export function composeTurn(
         closeness: null,
         confidence: answer?.confidence ?? 0.9,
         reply: flip ? copy.repeatOpposite(word) : copy.repeat(word),
+      }
+    }
+
+    // 代码兜底：剥掉否定词后完全同句，那就是同一件事的反面，不赌模型每次都选中。
+    // （「记忆里有…」vs「记忆里没有…」这类，模型有时就是答 none。）
+    const twin = [...opposites].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
+    if (twin) {
+      const fact = established[twin.index]
+      if (fact && VERDICT_CHOICES.includes(fact.verdict)) {
+        const verdict = INVERTED_VERDICT[fact.verdict] ?? fact.verdict
+        const word = (copy.verdict[verdict] ?? verdict).replace(/[。.]$/, '')
+        return {
+          intent,
+          verdict,
+          solved: false,
+          revealed: false,
+          closeness: null,
+          confidence: 0.9,
+          reply: copy.repeatOpposite(word),
+        }
       }
     }
 
@@ -1445,6 +1473,8 @@ export async function judge(
 
   const established = readEstablished(body.established)
   const candidates = similarFacts(message, established)
+  // 代码先把「只差一个否定词」的候选挑出来：给模型判，同时留作兜底
+  const { opposite: opposites } = splitCandidates(candidates, message)
 
   const state = {
     puzzle: {
@@ -1473,6 +1503,7 @@ export async function judge(
     established,
     candidates,
     options.truthLocked ?? false,
+    opposites,
   )
   return {
     ...turn,

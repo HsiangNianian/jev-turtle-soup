@@ -1,5 +1,27 @@
 import type { ReactNode } from 'react'
+import { BadgeCheck } from 'lucide-react'
+
+import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+
+/**
+ * 官方汤的认证标记：**只有一枚红章图标，不带文字**。
+ * 「官方 / 官汤」两个字在题库卡片、题库详情、每日详情三处都会把那一行挤宽，
+ * 所以统一收成一枚图标；含义靠 title（鼠标悬停）和 aria-label（读屏）交代。
+ */
+export function OfficialMark({ className }: { className?: string }) {
+  const { t } = useI18n()
+  return (
+    <span
+      role="img"
+      aria-label={t('官汤')}
+      title={t('官汤')}
+      className={cn('inline-flex shrink-0 items-center text-stamp', className)}
+    >
+      <BadgeCheck className="size-3.5" aria-hidden />
+    </span>
+  )
+}
 
 export function PageShell({
   label,

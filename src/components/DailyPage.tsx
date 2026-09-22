@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, BadgeCheck, Loader2, Lock, Unlock } from 'lucide-react'
+import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
-import { Button, Empty, Notice, PageShell } from '@/components/Bits'
+import { Button, Empty, Notice, OfficialMark, PageShell } from '@/components/Bits'
 import { Link } from '@/components/Link'
 import { findActiveDaily, type ArchivedGame } from '@/lib/archive'
 import { genreLabel } from '@/lib/library-client'
@@ -170,11 +170,8 @@ export function DailyDetailPage({
     <PageShell title={daily.title}>
       {/* 日期、人数、语言、题材全部并到「难度」这一行 —— 它们本来就是同一类元信息 */}
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-        {/* 认证勋章就放在难度左边，和题库卡片上那枚「官汤」位置一致 */}
-        <span className="flex items-center gap-1.5 text-stamp">
-          <BadgeCheck className="size-3.5" aria-hidden />
-          {t('官方')}
-        </span>
+        {/* 认证勋章就放在难度左边，和题库卡片上那枚一致 */}
+        <OfficialMark />
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(daily.difficulty)}</span>
         {daily.locked ? null : daily.tags.map((tag) => <span key={tag}>#{tag}</span>)}
         {genreLabel(daily.genreScore, t) ? (

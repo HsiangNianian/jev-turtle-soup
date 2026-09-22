@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, Loader2 } from 'lucide-react'
 
-import { Button, Empty, PageShell } from '@/components/Bits'
+import { Button, Empty, OfficialMark, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
 import { genreLabel } from '@/lib/library-client'
 
@@ -74,11 +74,7 @@ export function PuzzleDetailPage({
       }
     >
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-        {puzzle.official ? (
-          <span className="stamp px-1.5 py-0.5 text-[9px] font-bold tracking-[0.2em]">
-            {t('官汤')}
-          </span>
-        ) : null}
+        {puzzle.official ? <OfficialMark /> : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         {puzzle.tags.map((tag) => (
           <span key={tag}>#{tag}</span>

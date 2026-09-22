@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 
-import { Empty, PageShell, inputClass } from '@/components/Bits'
+import { Empty, OfficialMark, PageShell, inputClass } from '@/components/Bits'
 
 import { genreLabel, listPuzzles, rerankPuzzles, type LibraryPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
@@ -21,11 +21,7 @@ function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
       className="flex h-full flex-col border border-foreground/30 bg-card p-4 transition-colors hover:border-foreground"
     >
       <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-        {puzzle.official ? (
-          <span className="stamp px-1.5 py-0.5 text-[9px] font-bold tracking-[0.2em]">
-            {t('官汤')}
-          </span>
-        ) : null}
+        {puzzle.official ? <OfficialMark /> : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         <span>{t('游玩 {plays}', { plays: puzzle.plays })}</span>
         <span>·</span>

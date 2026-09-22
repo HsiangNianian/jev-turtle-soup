@@ -338,6 +338,5 @@ export const en: Record<string, string> = {
     'This is the site’s reader group, “{group}”. It lives on QQ, so what happens there — content and privacy included — is Tencent’s to manage, not ours. Group {number}; you can also search for it inside QQ.',
   '群里是写汤和玩汤的人：出题讨论、判读纠错、催更，以及「这道汤到底该怎么问」。':
     'It is where the people who write and play these puzzles hang out: puzzle talk, judging corrections, pestering for more, and “how on earth am I supposed to ask this one”.',
-  '官方': 'Official',
   '这一碗是{language}的': 'This bowl is in {language}.',
 }

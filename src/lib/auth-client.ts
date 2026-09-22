@@ -5,6 +5,8 @@ export interface AuthUser {
   email: string
   name?: string | null
   handle?: string
+  /** 是否管理员：有它才给「管理后台」入口 */
+  isAdmin?: boolean
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {

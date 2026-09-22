@@ -136,6 +136,16 @@ CREATE TABLE IF NOT EXISTS client_errors (
 
 CREATE INDEX IF NOT EXISTS idx_client_errors_count ON client_errors (count DESC);
 
+-- 管理员名单：uid 在表里就能进 /admin（登录态鉴权，不用共享口令）
+CREATE TABLE IF NOT EXISTS admins (
+  uid TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
+
+-- 站点作者的初始管理员（等价于 012-admins.sql 里的种子）
+INSERT OR IGNORE INTO admins (uid, created_at)
+VALUES ('f50c1a48-5936-4352-9df7-cb9e7c46ca8f', CAST(strftime('%s', 'now') AS INTEGER) * 1000);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_judge_flags_turn ON judge_flags (turn_log_id);
 CREATE INDEX IF NOT EXISTS idx_judge_flags_created ON judge_flags (created_at DESC);
 

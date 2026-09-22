@@ -8,6 +8,18 @@ import {
   type PuzzleStore,
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
+import {
+  addAdmin,
+  clearClientErrors,
+  deleteClientError,
+  deleteJudgeFlag,
+  deleteReport,
+  isAdmin,
+  listAdmins,
+  listReports,
+  removeAdmin,
+  setReportStatus,
+} from '../shared/admin.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
 import { listClientErrors, recordClientError, recordWorkerError } from '../shared/telemetry.ts'
@@ -425,6 +437,16 @@ async function requireUser(request: Request, env: Env) {
   return current as { uid: string; email: string }
 }
 
+/**
+ * 管理接口的入口：必须是登录用户，且 uid 在 admins 表里。
+ * 和 requireAdmin（共享口令）分开：口令是给机器/cron 调的，这个是给人用的。
+ */
+async function requireAdminSession(request: Request, env: Env): Promise<{ uid: string; email: string }> {
+  const current = await requireUser(request, env)
+  if (!(await isAdmin(requireDb(env), current.uid))) throw new ApiError(403, '无权访问')
+  return current
+}
+
 function authDeps(env: Env): AuthDeps {
   if (!env.AUTH_KV || !env.DB || !env.AUTH_SECRET) {
     throw new ApiError(503, '登录服务尚未配置')
@@ -453,6 +475,8 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
         uid: current.uid,
         name: profile.displayName,
         handle: profile.handle,
+        // 前端据此决定要不要给「管理后台」入口
+        isAdmin: await isAdmin(env.DB!, current.uid),
       },
     })
   }
@@ -605,6 +629,88 @@ async function routeProfile(
   const handle = safeDecode(pathname.slice('/api/u/'.length)).toLowerCase()
   if (!handle) return null
   return json({ profile: await getPublicProfile(requireDb(env), handle) })
+}
+
+/**
+ * 管理后台。全部走登录态 + admins 表；数据本身复用各自模块的读函数
+ * （listJudgeFlags / listClientErrors），只有「改名/删除」这类动作放这里。
+ */
+async function routeAdmin(
+  request: Request,
+  env: Env,
+  pathname: string,
+  url: URL,
+): Promise<Response | null> {
+  if (!pathname.startsWith('/api/admin/')) return null
+  const db = requireDb(env)
+  await requireAdminSession(request, env)
+
+  if (pathname === '/api/admin/reports') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const limit = Number(url.searchParams.get('limit') ?? '100')
+    return json({ items: await listReports(db, limit) })
+  }
+  if (pathname.startsWith('/api/admin/reports/')) {
+    const id = safeDecode(pathname.slice('/api/admin/reports/'.length))
+    if (request.method === 'PATCH') {
+      const body = await readJson(request)
+      await setReportStatus(db, id, typeof body.status === 'string' ? body.status : '')
+      return json({ ok: true })
+    }
+    if (request.method === 'DELETE') {
+      await deleteReport(db, id)
+      return json({ ok: true })
+    }
+    return json({ error: '方法不被允许' }, 405)
+  }
+
+  if (pathname === '/api/admin/flags') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const limit = Number(url.searchParams.get('limit') ?? '100')
+    return json({ items: await listJudgeFlags(db, limit) })
+  }
+  if (pathname.startsWith('/api/admin/flags/')) {
+    if (request.method !== 'DELETE') return json({ error: '方法不被允许' }, 405)
+    await deleteJudgeFlag(db, safeDecode(pathname.slice('/api/admin/flags/'.length)))
+    return json({ ok: true })
+  }
+
+  if (pathname === '/api/admin/errors') {
+    if (request.method === 'GET') {
+      const limit = Number(url.searchParams.get('limit') ?? '100')
+      return json({ items: await listClientErrors(db, limit) })
+    }
+    if (request.method === 'DELETE') {
+      await clearClientErrors(db)
+      return json({ ok: true })
+    }
+    return json({ error: '方法不被允许' }, 405)
+  }
+  if (pathname.startsWith('/api/admin/errors/')) {
+    if (request.method !== 'DELETE') return json({ error: '方法不被允许' }, 405)
+    await deleteClientError(db, safeDecode(pathname.slice('/api/admin/errors/'.length)))
+    return json({ ok: true })
+  }
+
+  if (pathname === '/api/admin/admins') {
+    if (request.method === 'GET') return json({ items: await listAdmins(db) })
+    if (request.method === 'POST') {
+      const body = await readJson(request)
+      const entry = await addAdmin(db, {
+        uid: typeof body.uid === 'string' ? body.uid : undefined,
+        email: typeof body.email === 'string' ? body.email : undefined,
+      })
+      return json({ admin: entry })
+    }
+    return json({ error: '方法不被允许' }, 405)
+  }
+  if (pathname.startsWith('/api/admin/admins/')) {
+    if (request.method !== 'DELETE') return json({ error: '方法不被允许' }, 405)
+    await removeAdmin(db, safeDecode(pathname.slice('/api/admin/admins/'.length)))
+    return json({ ok: true })
+  }
+
+  return json({ error: '未知接口' }, 404)
 }
 
 /**
@@ -801,6 +907,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   if (me) return me
   const profile = await routeProfile(request, env, pathname)
   if (profile) return profile
+  const admin = await routeAdmin(request, env, pathname, url)
+  if (admin) return admin
 
   if (pathname === '/api/health') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)

@@ -53,6 +53,9 @@ const PuzzlePanel = lazy(() =>
 const UploadPage = lazy(() =>
   import('@/components/UploadPage').then((m) => ({ default: m.UploadPage })),
 )
+const AdminPage = lazy(() =>
+  import('@/components/AdminPage').then((m) => ({ default: m.AdminPage })),
+)
 import {
   askHost,
   fetchHealth,
@@ -647,6 +650,17 @@ export default function App() {
         </ScrollArea>
       )
     }
+    if (path === '/admin') {
+      return (
+        <ScrollArea>
+          {user?.isAdmin ? (
+            <AdminPage />
+          ) : (
+            <Missing label={t('管理后台')} message={t('无权访问。')} />
+          )}
+        </ScrollArea>
+      )
+    }
     if (path === '/leaving') return <LeavingPage />
     if (path === '/about') {
       return (
@@ -715,6 +729,7 @@ export default function App() {
           {user ? (
             <MePage
               handle={user.handle ?? user.name ?? user.email}
+              isAdmin={Boolean(user.isAdmin)}
               onLogout={() => void handleLogout()}
             />
           ) : (

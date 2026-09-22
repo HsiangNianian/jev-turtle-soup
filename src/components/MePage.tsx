@@ -8,7 +8,15 @@ import { deletePuzzle, listMyPuzzles, updatePuzzle, type OwnPuzzle } from '@/lib
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
-export function MePage({ handle, onLogout }: { handle: string; onLogout: () => void }) {
+export function MePage({
+  handle,
+  isAdmin = false,
+  onLogout,
+}: {
+  handle: string
+  isAdmin?: boolean
+  onLogout: () => void
+}) {
   const { t } = useI18n()
   const [items, setItems] = useState<OwnPuzzle[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -70,6 +78,11 @@ export function MePage({ handle, onLogout }: { handle: string; onLogout: () => v
         <Button variant="outline" onClick={() => navigate('/me/profile')}>
           {t('编辑资料')}
         </Button>
+        {isAdmin ? (
+          <Button variant="outline" onClick={() => navigate('/admin')}>
+            {t('管理后台')}
+          </Button>
+        ) : null}
         <Button variant="ghost" onClick={onLogout}>
           {t('退出')}
         </Button>

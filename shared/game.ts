@@ -798,6 +798,7 @@ interface HostCopy {
   rephrase: string
   howToPlay: string
   hint: (hint: string) => string
+  noHint: string
   reveal: string
   solved: string
   closeHigh: string
@@ -962,6 +963,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     howToPlay:
       '玩法：主持人只会回答「是」「不是」「无关」或者「是，也不是」。你可以不断提出能用是 / 否回答的问题，一步步逼近汤底；也可以随时说出你的完整推理，猜对了就通关。',
     hint: (hint) => `主持人压低声音说了一句提示：「${hint}」`,
+    noHint: '砚摸了摸空口袋：「这碗汤没附提示，我也掏不出来。再问个问题试试？」',
     reveal: '好吧，既然你坚持——这就是真相。',
     solved: '……没错，就是这样。你完全还原了真相，这一碗被你喝到底了。',
     guessWithVerdict: (word, note) => `${word}——${note}`,
@@ -994,6 +996,8 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     howToPlay:
       'How it works: the host only answers yes, no, unrelated, or partly. Keep asking questions that can be answered with yes or no to close in on the truth, or state your full theory — get it right and the case is solved.',
     hint: (hint) => `The host lowers his voice: “${hint}”`,
+    noHint:
+      'The host checks his empty pockets. “No hints with this bowl, I’m afraid. Mystery is all I’ve got. Try another question?”',
     reveal: 'All right, if you insist — this is what really happened.',
     solved: '…yes, exactly. You have the whole truth; this bowl is finished.',
     guessWithVerdict: (word, note) => `${word} — ${note}`,
@@ -1025,6 +1029,8 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     howToPlay:
       '遊びかた：司会が答えるのは「はい」「いいえ」「無関係」「どちらでもある」だけです。はい／いいえで答えられる質問を重ねて真相に近づくか、推理をそのまま述べてください。当たれば解決です。',
     hint: (hint) => `司会が声を落として言った。「${hint}」`,
+    noHint:
+      '司会が空っぽのポケットを探る。「この一杯、ヒントは付いていないんです。謎ならたっぷりありますけど。もう一問どうぞ。」',
     reveal: 'わかりました、そこまで言うなら——これが真相です。',
     solved: '……そのとおり。あなたは真相を言い当てました。この一杯は飲みきられました。',
     guessWithVerdict: (word, note) => `${word}——${note}`,
@@ -1075,12 +1081,13 @@ function handleMeta(
 ) {
   const copy = HOST_COPY[locale]
   if (kind === 'hint') {
+    const hint = puzzle.hint?.trim()
     return {
       intent: 'meta',
       verdict: 'hint',
       solved: false,
       revealed: false,
-      reply: copy.hint(puzzle.hint),
+      reply: hint ? copy.hint(hint) : copy.noHint,
     }
   }
   if (kind === 'full_answer') {

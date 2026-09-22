@@ -9,6 +9,8 @@
 
 ### Fixes
 
+- Reply playfully in the player’s language when a puzzle has no hint, instead of displaying empty quotation marks.
+
 - Generate daily puzzles using recent titles and surfaces from the puzzle table.
 - Prevent account switches and late responses from mixing progress or clearing newer edits.
 - Preserve legacy saves during migration and report local storage failures without claiming progress was saved.
@@ -16,7 +18,7 @@
 ### Development
 
 - Keep Vite hot reload and local Workers development as separate, documented entry points.
-- Pin Wrangler 4.136.2 and Vitest 5.0.1, add 37 regression tests, and provide a local OTP mode that skips email.
+- Pin Wrangler 4.136.2 and Vitest 5.0.1, add regression tests, and provide a local OTP mode that skips email.
 - Document environment-file precedence and incremental database upgrades.
 
 ### Compatibility

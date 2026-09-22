@@ -68,6 +68,7 @@ import {
   saveGames,
   toSession,
   upsertGame,
+  winningConclusion,
   type ArchivedGame,
   type GameStatus,
 } from '@/lib/archive'
@@ -575,6 +576,7 @@ export default function App() {
         closeness={closeness}
         turnCount={turnCount}
         ledger={ledger}
+        conclusion={solved ? winningConclusion(messages) : null}
         locked={lockedDaily}
         onReveal={handleReveal}
         onStart={onStart}

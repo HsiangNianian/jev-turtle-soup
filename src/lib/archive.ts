@@ -86,6 +86,17 @@ export function toSession(game: ArchivedGame): GameSession {
   }
 }
 
+/**
+ * 结案报告里的「你的结论」：猜中时玩家最后说的那句话。
+ * 判赢之后输入框就关了，所以最后一条玩家发言就是获胜的那句。
+ */
+export function winningConclusion(messages: ChatMessage[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === 'player') return messages[index].text
+  }
+  return null
+}
+
 export function buildLedger(
   messages: ChatMessage[],
 ): { id: string; question: string; verdict: string }[] {

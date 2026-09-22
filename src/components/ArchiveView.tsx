@@ -4,7 +4,14 @@ import { ArrowRight } from 'lucide-react'
 import { CaseDrawer } from '@/components/CaseDrawer'
 import { Transcript } from '@/components/ChatPanel'
 import { PuzzlePanel } from '@/components/PuzzlePanel'
-import { STATUS_LABEL, buildLedger, formatWhen, toSession, type ArchivedGame } from '@/lib/archive'
+import {
+  STATUS_LABEL,
+  buildLedger,
+  formatWhen,
+  toSession,
+  winningConclusion,
+  type ArchivedGame,
+} from '@/lib/archive'
 import { useI18n } from '@/lib/i18n'
 
 export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContinue: () => void }) {
@@ -21,6 +28,7 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
       closeness={game.closeness}
       turnCount={game.turnCount}
       ledger={ledger}
+      conclusion={game.solved ? winningConclusion(game.messages) : null}
       onReveal={() => {}}
       readOnly
     />

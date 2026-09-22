@@ -12,6 +12,8 @@ interface PuzzlePanelProps {
   closeness: number | null
   turnCount: number
   ledger: LedgerItem[]
+  /** 猜中时玩家最后说的那句 —— 结案报告里和汤底并排对照 */
+  conclusion?: string | null
   /** 今日官方汤：当天不许拆封汤底 */
   locked?: boolean
   onReveal: () => void
@@ -59,6 +61,7 @@ export function PuzzlePanel({
   closeness,
   turnCount,
   ledger,
+  conclusion = null,
   locked = false,
   onReveal,
   onStart,
@@ -113,7 +116,12 @@ export function PuzzlePanel({
           }
         />
         <Field label={t('已问')} value={t('{turns} 轮', { turns: turnCount })} />
-        {progress !== null ? <Field label={t('接近度')} value={`${progress}%`} /> : null}
+        {/*
+          猜中之后不显示接近度：赢了还挂着「70%」是矛盾的，
+          而且那条反馈说的「结束得有点突然」有一半来自这个数字。
+          直接揭晓（没猜中）时它仍然有意义 —— 能看出自己差多远。
+        */}
+        {progress !== null && !solved ? <Field label={t('接近度')} value={`${progress}%`} /> : null}
       </div>
 
       {progress !== null && !revealed ? (
@@ -126,8 +134,34 @@ export function PuzzlePanel({
       ) : null}
 
       {revealed && truth ? (
-        <div className="animate-pop mt-8 border-l-4 border-stamp pl-5">
-          <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
+        /*
+         * 结案报告：把玩家的结论和汤底并排摆出来让他自己对照。
+         * 刻意**不打分** —— 给「推理有多接近」打分这件事我们试过，
+         * 无论是看完整度还是看解释力都不稳，最后退回了原来的判准。
+         * 摆出来让人自己看，比给一个不准的分数诚实。
+         */
+        <div className="animate-pop mt-8 border-t-2 border-foreground pt-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
+              {t('结案报告')}
+            </span>
+            <span className="font-mono text-[10px] tracking-[0.18em] text-stamp">
+              {t(solved ? '已结案' : '已揭晓')}
+            </span>
+          </div>
+
+          {solved && conclusion ? (
+            <>
+              <div className="mt-4 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
+                {t('你的结论')}
+              </div>
+              <p className="mt-2 border-l-2 border-foreground/30 pl-3 font-serif text-[14px] leading-7 text-foreground/80">
+                {conclusion}
+              </p>
+            </>
+          ) : null}
+
+          <div className="mt-5 flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
             <Unlock className="size-3.5" /> {t('汤底')}
           </div>
           <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>

@@ -343,4 +343,6 @@ export const en: Record<string, string> = {
     'A refresh should fix it. Your case files live on this device, so refreshing loses nothing.',
   '刷新': 'Refresh',
   '反面复用': 'opposite',
+  '结案报告': 'Case closed',
+  '你的结论': 'Your conclusion',
 }

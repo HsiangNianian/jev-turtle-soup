@@ -16,12 +16,20 @@ import {
   deleteReport,
   isAdmin,
   listAdmins,
+  listPuzzlesForAdmin,
   listReports,
   removeAdmin,
+  setPuzzleFeatured,
   setReportStatus,
 } from '../shared/admin.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
-import { authorActivity, authorSummary, listOwnPuzzles } from '../shared/author.ts'
+import {
+  authorActivity,
+  authorSummary,
+  countAuthorSocial,
+  listOwnPuzzles,
+  recognise,
+} from '../shared/author.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
 import { listClientErrors, recordClientError, recordWorkerError } from '../shared/telemetry.ts'
 import {
@@ -620,7 +628,16 @@ async function routeMe(
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
     const current = await requireUser(request, env)
     const items = await listOwnPuzzles(db, current.uid)
-    return json({ items, summary: authorSummary(items) })
+    const summary = authorSummary(items)
+    const social = await countAuthorSocial(db, current.uid)
+    const recognition = recognise({
+      puzzles: summary.public,
+      plays: summary.plays,
+      solves: summary.solves,
+      likes: social.likes,
+      comments: social.comments,
+    })
+    return json({ items, summary, recognition })
   }
 
   // 作者动态流：从 attempts / comments / likes 现算，不新增表
@@ -722,6 +739,20 @@ async function routeAdmin(
   if (pathname.startsWith('/api/admin/admins/')) {
     if (request.method !== 'DELETE') return json({ error: '方法不被允许' }, 405)
     await removeAdmin(db, safeDecode(pathname.slice('/api/admin/admins/'.length)))
+    return json({ ok: true })
+  }
+
+  // 题库精选位：给公开题打 / 取消精选
+  if (pathname === '/api/admin/puzzles') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const limit = Number(url.searchParams.get('limit') ?? '100')
+    return json({ items: await listPuzzlesForAdmin(db, limit) })
+  }
+  if (pathname.startsWith('/api/admin/puzzles/')) {
+    if (request.method !== 'PATCH') return json({ error: '方法不被允许' }, 405)
+    const id = safeDecode(pathname.slice('/api/admin/puzzles/'.length))
+    const body = await readJson(request)
+    await setPuzzleFeatured(db, id, Boolean(body.featured))
     return json({ ok: true })
   }
 

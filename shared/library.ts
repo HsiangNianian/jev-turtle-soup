@@ -1,6 +1,7 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
 import { askError, judge, readLocale, rerankCandidates, scoreGenre, type GameEnv } from './game.ts'
+import { countAuthorSocial, recognise } from './author.ts'
 import { logTurn } from './logs.ts'
 import { utcDateKey } from './daily.ts'
 
@@ -60,6 +61,8 @@ export interface PublicPuzzle {
   genreScore: number | null
   /** 官方每日汤（过期之后才进题库），列表和详情上要有一枚标识 */
   official: boolean
+  /** 管理员打的精选标：题库「精选」排序里排前面 */
+  featured: boolean
 }
 
 interface PuzzleRow {
@@ -75,6 +78,7 @@ interface PuzzleRow {
   plays: number
   solves: number
   genre_score: number | null
+  featured: number
   created_at: number
 }
 
@@ -131,6 +135,7 @@ function toPublic(
         ? row.genre_score
         : null,
     official: row.visibility === 'daily',
+    featured: row.featured === 1,
   }
 }
 
@@ -178,7 +183,13 @@ export async function listPublicPuzzles(
   const limit = Math.min(Math.max(options.limit || 20, 1), 50)
   const offset = Math.max(options.offset || 0, 0)
   const query = options.query.trim()
-  const secondary = options.sort === 'hot' ? 'p.plays DESC, p.created_at DESC' : 'p.created_at DESC'
+  const secondary =
+    options.sort === 'hot'
+      ? 'p.plays DESC, p.created_at DESC'
+      : options.sort === 'featured'
+        ? // 精选排前面，其后按人气、再按时间 —— 精选位有限，剩下的别空着
+          'p.featured DESC, p.plays DESC, p.created_at DESC'
+        : 'p.created_at DESC'
   const genre = Number.isFinite(options.genre)
     ? Math.min(Math.max(options.genre ?? 0, 0), 100)
     : null
@@ -690,7 +701,7 @@ export async function getPublicProfile(db: D1Like, handle: string) {
     createdAt: row.created_at,
   }
   if (row.profile_public === 0) {
-    return { ...base, bio: '', profilePublic: false, puzzles: [] }
+    return { ...base, bio: '', profilePublic: false, puzzles: [], recognition: null }
   }
   const { results } = await db
     .prepare(
@@ -701,10 +712,20 @@ export async function getPublicProfile(db: D1Like, handle: string) {
     )
     .bind(row.id)
     .all<OwnedRow>()
+  const puzzles = (results ?? []).map(toPublic)
+  const social = await countAuthorSocial(db, row.id)
   return {
     ...base,
     bio: row.bio ?? '',
     profilePublic: true,
-    puzzles: (results ?? []).map(toPublic),
+    puzzles,
+    // 徽章用列表里已经有的读数算：主页展示的数字和徽章来自同一处，不会打架
+    recognition: recognise({
+      puzzles: puzzles.length,
+      plays: puzzles.reduce((sum, item) => sum + item.plays, 0),
+      solves: puzzles.reduce((sum, item) => sum + item.solves, 0),
+      likes: social.likes,
+      comments: social.comments,
+    }),
   }
 }

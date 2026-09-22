@@ -35,6 +35,8 @@ export interface LibraryPuzzle {
   genreScore: number | null
   /** 过期的官方每日汤：和用户上传的题一样能玩，只是多一枚标识 */
   official: boolean
+  /** 管理员打的精选标 */
+  featured: boolean
 }
 
 export interface LibraryPuzzleDetail extends LibraryPuzzle {
@@ -111,6 +113,17 @@ export function isCoolingDown(changedAt: number | null, windowMs: number): boole
   return readyAt !== null && Date.now() < readyAt
 }
 
+export interface Recognition {
+  /** 公开的题数 */
+  puzzles: number
+  plays: number
+  solves: number
+  likes: number
+  comments: number
+  /** 已获得的徽章 key（中文文案，用 t() 翻） */
+  badges: string[]
+}
+
 export interface PublicProfile {
   handle: string
   displayName: string
@@ -118,6 +131,8 @@ export interface PublicProfile {
   profilePublic: boolean
   createdAt: number
   puzzles: LibraryPuzzle[]
+  /** 私密主页为 null：徽章会泄露活跃度，不该在锁着的主页上出现 */
+  recognition: Recognition | null
 }
 
 export interface PuzzleInput {
@@ -161,7 +176,7 @@ function puzzleCacheKey(options: { sort?: string; q?: string; genre?: number }):
 }
 
 export function listPuzzles(
-  options: { sort?: 'new' | 'hot'; q?: string; genre?: number } = {},
+  options: { sort?: 'new' | 'hot' | 'featured'; q?: string; genre?: number } = {},
   hooks: { onStale?: (items: LibraryPuzzle[]) => void } = {},
 ) {
   const params = new URLSearchParams()
@@ -192,7 +207,7 @@ export function listPuzzles(
  * 反复改同一个搜索词不该反复花钱。
  */
 export function rerankPuzzles(
-  options: { sort?: 'new' | 'hot'; q: string; genre?: number },
+  options: { sort?: 'new' | 'hot' | 'featured'; q: string; genre?: number },
   hooks: { onStale?: (items: LibraryPuzzle[]) => void } = {},
 ) {
   const key = `rerank:${options.sort ?? 'new'}:${options.q}:${
@@ -201,7 +216,7 @@ export function rerankPuzzles(
   return staleWhileRevalidate(key, 10 * 60 * 1000, () => rerankRequest(options), hooks)
 }
 
-function rerankRequest(options: { sort?: 'new' | 'hot'; q: string; genre?: number }) {
+function rerankRequest(options: { sort?: 'new' | 'hot' | 'featured'; q: string; genre?: number }) {
   return request<{ items: LibraryPuzzle[] }>('/api/library/search/rerank', {
     method: 'POST',
     body: JSON.stringify({
@@ -266,7 +281,9 @@ export function deletePuzzle(id: string) {
 }
 
 export function listMyPuzzles() {
-  return request<{ items: OwnPuzzle[]; summary: AuthorSummary }>('/api/me/puzzles')
+  return request<{ items: OwnPuzzle[]; summary: AuthorSummary; recognition: Recognition }>(
+    '/api/me/puzzles',
+  )
 }
 
 export function fetchAuthorActivity() {

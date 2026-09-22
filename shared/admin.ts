@@ -212,3 +212,61 @@ export async function deleteClientError(db: D1Like, hash: string): Promise<void>
 export async function clearClientErrors(db: D1Like): Promise<void> {
   await db.prepare('DELETE FROM client_errors').run()
 }
+
+export interface AdminPuzzle {
+  id: string
+  title: string
+  surface: string
+  ownerName: string
+  plays: number
+  solves: number
+  featured: boolean
+  createdAt: number
+}
+
+interface AdminPuzzleRow {
+  id: string
+  title: string
+  surface: string
+  plays: number
+  solves: number
+  featured: number
+  created_at: number
+  owner_name: string | null
+  owner_handle: string | null
+}
+
+/** 题库里可以打精选的题：用户公开的。已精选的排前面，方便回头取消。 */
+export async function listPuzzlesForAdmin(db: D1Like, limit = 100): Promise<AdminPuzzle[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT p.id, p.title, p.surface, p.plays, p.solves, p.featured, p.created_at,
+              u.display_name AS owner_name, u.handle AS owner_handle
+         FROM puzzles p LEFT JOIN users u ON u.id = p.owner_id
+        WHERE p.visibility = 'public'
+        ORDER BY p.featured DESC, p.created_at DESC
+        LIMIT ?`,
+    )
+    .bind(clamp(limit))
+    .all<AdminPuzzleRow>()
+
+  return (results ?? []).map((row) => ({
+    id: row.id,
+    title: row.title,
+    surface: row.surface,
+    ownerName: row.owner_name ?? row.owner_handle ?? '匿名',
+    plays: row.plays,
+    solves: row.solves,
+    featured: row.featured === 1,
+    createdAt: row.created_at,
+  }))
+}
+
+/** 打 / 取消精选。只动公开题，私密或官汤不该出现在精选位。 */
+export async function setPuzzleFeatured(db: D1Like, id: string, featured: boolean): Promise<void> {
+  if (!id) throw new ApiError(400, '缺少 id')
+  await db
+    .prepare("UPDATE puzzles SET featured = ? WHERE id = ? AND visibility = 'public'")
+    .bind(featured ? 1 : 0, id)
+    .run()
+}

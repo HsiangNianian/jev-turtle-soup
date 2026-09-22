@@ -12,12 +12,15 @@ import {
   listAdminAdmins,
   listAdminErrors,
   listAdminFlags,
+  listAdminPuzzles,
   listAdminReports,
   removeAdmin,
+  setAdminPuzzleFeatured,
   setAdminReportStatus,
   type AdminEntry,
   type AdminError,
   type AdminFlag,
+  type AdminPuzzle,
   type AdminReport,
 } from '@/lib/admin-client'
 import { useI18n } from '@/lib/i18n'
@@ -49,10 +52,11 @@ function fmt(ts: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-type Tab = 'reports' | 'flags' | 'errors' | 'admins'
+type Tab = 'reports' | 'flags' | 'puzzles' | 'errors' | 'admins'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'reports', label: '玩家反馈' },
   { key: 'flags', label: '判读巡检' },
+  { key: 'puzzles', label: '题库精选' },
   { key: 'errors', label: '客户端错误' },
   { key: 'admins', label: '管理员' },
 ]
@@ -84,6 +88,7 @@ export function AdminPage() {
       <div className="mt-7">
         {tab === 'reports' ? <ReportsPanel /> : null}
         {tab === 'flags' ? <FlagsPanel /> : null}
+        {tab === 'puzzles' ? <PuzzlesPanel /> : null}
         {tab === 'errors' ? <ErrorsPanel /> : null}
         {tab === 'admins' ? <AdminsPanel /> : null}
       </div>
@@ -309,6 +314,77 @@ function FlagsPanel() {
         </li>
       ))}
     </ul>
+  )
+}
+
+function PuzzlesPanel() {
+  const [items, setItems] = useState<AdminPuzzle[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  useEffect(() => {
+    listAdminPuzzles()
+      .then(setItems)
+      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : '加载失败'))
+  }, [])
+
+  async function toggle(puzzle: AdminPuzzle) {
+    setBusy(puzzle.id)
+    setError(null)
+    try {
+      const next = !puzzle.featured
+      await setAdminPuzzleFeatured(puzzle.id, next)
+      setItems((prev) =>
+        (prev ?? [])
+          .map((item) => (item.id === puzzle.id ? { ...item, featured: next } : item))
+          .sort((a, b) => Number(b.featured) - Number(a.featured)),
+      )
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '操作失败')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  if (error) return <Notice tone="stamp">{error}</Notice>
+  if (!items) return <Loading />
+  if (!items.length) return <Empty>题库里还没有公开的汤。</Empty>
+
+  return (
+    <div>
+      <p className="mb-4 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+        打过精选的题，在题库「精选」排序里排前面。
+      </p>
+      <ul className="border-t border-foreground/20">
+        {items.map((puzzle) => (
+          <li key={puzzle.id} className="rule-dashed flex flex-wrap items-center gap-3 py-4">
+            {puzzle.featured ? (
+              <span className="shrink-0 border border-stamp px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.14em] text-stamp">
+                精选
+              </span>
+            ) : null}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-serif text-[15px]">{puzzle.title}</span>
+              <span className="mt-0.5 block truncate font-serif text-[12px] text-muted-foreground">
+                {puzzle.surface}
+              </span>
+            </span>
+            <Meta>@{puzzle.ownerName}</Meta>
+            <Meta>
+              {puzzle.plays} / {puzzle.solves}
+            </Meta>
+            <Button
+              size="sm"
+              variant={puzzle.featured ? 'outline' : 'primary'}
+              disabled={busy === puzzle.id}
+              onClick={() => void toggle(puzzle)}
+            >
+              {puzzle.featured ? '取消精选' : '设为精选'}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

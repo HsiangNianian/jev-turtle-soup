@@ -153,6 +153,64 @@ export function authorSummary(puzzles: AuthorPuzzle[]): AuthorSummary {
   )
 }
 
+/** 作者得到的赞与留言总数：主页的，加上名下所有题上的。 */
+export async function countAuthorSocial(
+  db: D1Like,
+  uid: string,
+): Promise<{ likes: number; comments: number }> {
+  const [likes, comments] = await Promise.all([
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM likes
+          WHERE (target_type = 'profile' AND target_id = ?)
+             OR (target_type = 'puzzle' AND target_id IN (SELECT id FROM puzzles WHERE owner_id = ?))`,
+      )
+      .bind(uid, uid)
+      .first<{ n: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM comments
+          WHERE (target_type = 'profile' AND target_id = ?)
+             OR (target_type = 'puzzle' AND target_id IN (SELECT id FROM puzzles WHERE owner_id = ?))`,
+      )
+      .bind(uid, uid)
+      .first<{ n: number }>(),
+  ])
+  return { likes: likes?.n ?? 0, comments: comments?.n ?? 0 }
+}
+
+/** 里程碑。门槛刻意选得低——早期能亮一枚，比高不可攀更有用。 */
+const BADGE_RULES: { key: string; test: (r: RecognitionCounts) => boolean }[] = [
+  { key: '首汤', test: (r) => r.puzzles >= 1 },
+  { key: '有人解开', test: (r) => r.solves >= 1 },
+  { key: '十人解开', test: (r) => r.solves >= 10 },
+  { key: '百人问过', test: (r) => r.plays >= 100 },
+  { key: '被赞过', test: (r) => r.likes >= 1 },
+  { key: '有留言', test: (r) => r.comments >= 1 },
+]
+
+export interface RecognitionCounts {
+  /** 公开的题数 */
+  puzzles: number
+  plays: number
+  solves: number
+  likes: number
+  comments: number
+}
+
+export interface Recognition extends RecognitionCounts {
+  /** 已获得的徽章 key（中文文案，前端 t() 翻），按固定顺序 */
+  badges: string[]
+}
+
+export function deriveBadges(counts: RecognitionCounts): string[] {
+  return BADGE_RULES.filter((rule) => rule.test(counts)).map((rule) => rule.key)
+}
+
+export function recognise(counts: RecognitionCounts): Recognition {
+  return { ...counts, badges: deriveBadges(counts) }
+}
+
 export async function authorActivity(
   db: D1Like,
   uid: string,

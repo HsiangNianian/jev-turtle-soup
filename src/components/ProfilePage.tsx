@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Lock } from 'lucide-react'
 
-import { Empty, PageShell } from '@/components/Bits'
+import { Badges, Empty, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
 
 import { getPublicProfile, type PublicProfile } from '@/lib/library-client'
@@ -80,6 +80,10 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
           </Link>
         ) : null}
       </div>
+
+      {profile.recognition?.badges.length ? (
+        <Badges badges={profile.recognition.badges} className="mt-4" />
+      ) : null}
 
       {!profile.profilePublic ? (
         <div className="mt-8 flex items-center gap-3 border border-dashed border-foreground/25 px-5 py-8 font-mono text-[11px] tracking-[0.16em] text-muted-foreground">

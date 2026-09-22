@@ -22,6 +22,11 @@ function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
     >
       <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
         {puzzle.official ? <OfficialMark /> : null}
+        {puzzle.featured ? (
+          <span className="border border-stamp px-1.5 py-0.5 font-bold tracking-[0.14em] text-stamp">
+            {t('精选')}
+          </span>
+        ) : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         <span>{t('游玩 {plays}', { plays: puzzle.plays })}</span>
         <span>·</span>
@@ -49,7 +54,7 @@ function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
 export function LibraryPage() {
   const { t } = useI18n()
   const [items, setItems] = useState<LibraryPuzzle[] | null>(null)
-  const [sort, setSort] = useState<'new' | 'hot'>('new')
+  const [sort, setSort] = useState<'new' | 'hot' | 'featured'>('new')
   const [query, setQuery] = useState('')
   // 滑块自己管游标的实时跟手；只有松手那一刻的值才会到这里来触发检索。
   const [committedGenre, setCommittedGenre] = useState(GENRE_NEUTRAL)
@@ -136,7 +141,7 @@ export function LibraryPage() {
       title={t('别人熬的汤')}
       meta={
         <div className="flex items-center gap-1">
-          {(['new', 'hot'] as const).map((key) => (
+          {(['new', 'hot', 'featured'] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -148,7 +153,7 @@ export function LibraryPage() {
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {key === 'new' ? t('最新') : t('最热')}
+              {key === 'new' ? t('最新') : key === 'hot' ? t('最热') : t('精选')}
             </button>
           ))}
         </div>

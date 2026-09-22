@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 
-import { Button, Empty, Notice, PageShell } from '@/components/Bits'
+import { Badges, Button, Empty, Notice, PageShell } from '@/components/Bits'
 import { navigate } from '@/lib/router'
 import { Link } from '@/components/Link'
 import {
@@ -12,6 +12,7 @@ import {
   type AuthorEvent,
   type AuthorSummary,
   type OwnPuzzle,
+  type Recognition,
 } from '@/lib/library-client'
 import { formatWhen } from '@/lib/archive'
 import { cn } from '@/lib/utils'
@@ -60,6 +61,7 @@ export function MePage({
   const { t } = useI18n()
   const [items, setItems] = useState<OwnPuzzle[] | null>(null)
   const [summary, setSummary] = useState<AuthorSummary | null>(null)
+  const [recognition, setRecognition] = useState<Recognition | null>(null)
   const [activity, setActivity] = useState<AuthorEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -69,6 +71,7 @@ export function MePage({
       .then((data) => {
         setItems(data.items)
         setSummary(data.summary)
+        setRecognition(data.recognition)
       })
       .catch((caught: unknown) =>
         setError(caught instanceof Error ? caught.message : t('加载失败')),
@@ -143,6 +146,15 @@ export function MePage({
           <StatCell label={t('累计问过')} value={summary.plays} />
           <StatCell label={t('累计解开')} value={summary.solves} />
           <StatCell label={t('本周问过')} value={summary.playsThisWeek} />
+        </div>
+      ) : null}
+
+      {recognition && recognition.badges.length ? (
+        <div className="mt-5">
+          <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+            {t('成就')}
+          </div>
+          <Badges badges={recognition.badges} className="mt-2" />
         </div>
       ) : null}
 

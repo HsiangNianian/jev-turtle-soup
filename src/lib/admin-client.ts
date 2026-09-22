@@ -115,6 +115,28 @@ export function addAdmin(identifier: string) {
   }).then((d) => d.admin)
 }
 
+export interface AdminPuzzle {
+  id: string
+  title: string
+  surface: string
+  ownerName: string
+  plays: number
+  solves: number
+  featured: boolean
+  createdAt: number
+}
+
+export function listAdminPuzzles() {
+  return request<{ items: AdminPuzzle[] }>('/api/admin/puzzles?limit=200').then((d) => d.items)
+}
+
+export function setAdminPuzzleFeatured(id: string, featured: boolean) {
+  return request<{ ok: boolean }>(`/api/admin/puzzles/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ featured }),
+  })
+}
+
 export function removeAdmin(uid: string) {
   return request<{ ok: boolean }>(`/api/admin/admins/${encodeURIComponent(uid)}`, {
     method: 'DELETE',

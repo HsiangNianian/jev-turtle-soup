@@ -128,6 +128,24 @@ export function Button({
   )
 }
 
+/** 作者里程碑徽章：一排小戳。文案 key 由服务端给（中文），这里只负责翻。 */
+export function Badges({ badges, className }: { badges: string[]; className?: string }) {
+  const { t } = useI18n()
+  if (!badges.length) return null
+  return (
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+      {badges.map((badge) => (
+        <span
+          key={badge}
+          className="border border-stamp/60 px-2 py-1 font-mono text-[10px] tracking-[0.14em] text-stamp"
+        >
+          {t(badge)}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return (
     <p className="mt-6 border border-dashed border-foreground/25 px-4 py-8 text-center font-mono text-[11px] tracking-[0.16em] text-muted-foreground">

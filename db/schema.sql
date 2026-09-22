@@ -31,11 +31,14 @@ CREATE TABLE IF NOT EXISTS puzzles (
   solves INTEGER NOT NULL DEFAULT 0,
   -- 题材坐标：0 = 本格·逻辑推理，100 = 变格·怪力乱神（发布时打一次分）
   genre_score REAL,
+  -- 管理员在后台打的「精选」标：题库按精选排序时排前面
+  featured INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_puzzles_created ON puzzles (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_puzzles_visibility ON puzzles (visibility, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_puzzles_featured ON puzzles (featured, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users (handle) WHERE handle IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_puzzles_owner ON puzzles (owner_id);
 

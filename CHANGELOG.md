@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.33.2 - 2026-09-22
+
+### Fixes
+
+- Keep routine cloud saves silent so each question and answer no longer shows a sync banner.
+- Show sync notices and retry controls only for offline, failed, unauthenticated, or unsaved progress.
+
 ## 0.33.1 - 2026-09-22
 
 ### Fixes

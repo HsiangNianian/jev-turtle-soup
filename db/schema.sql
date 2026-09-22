@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS dailies (
   relaxed INTEGER NOT NULL DEFAULT 0,  -- 是否放宽阈值后发布
   locale TEXT NOT NULL DEFAULT 'zh-CN', -- 原生写作语言：zh-CN / en / ja
   genre_target INTEGER,           -- 摇到的题材坐标：0 本格 · 100 变格
+  genre_score REAL,               -- 生成后实测的落点（和题库同一把尺子）
   created_at INTEGER NOT NULL
 );
 

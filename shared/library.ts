@@ -2,6 +2,7 @@ import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
 import { askError, judge, readLocale, rerankCandidates, scoreGenre, type GameEnv } from './game.ts'
 import { logTurn } from './logs.ts'
+import { utcDateKey } from './daily.ts'
 
 export type Visibility = 'public' | 'private'
 
@@ -57,6 +58,8 @@ export interface PublicPuzzle {
   owner: OwnerInfo
   /** 0 = 本格·逻辑推理，100 = 变格·怪力乱神；没打过分为 null */
   genreScore: number | null
+  /** 官方每日汤（过期之后才进题库），列表和详情上要有一枚标识 */
+  official: boolean
 }
 
 interface PuzzleRow {
@@ -127,6 +130,7 @@ function toPublic(
       typeof row.genre_score === 'number' && Number.isFinite(row.genre_score)
         ? row.genre_score
         : null,
+    official: row.visibility === 'daily',
   }
 }
 
@@ -141,8 +145,20 @@ function safeTags(raw: string): string[] {
   }
 }
 
+/**
+ * 作者信息用 LEFT JOIN：官方汤的 owner_id 是空串（没有作者），
+ * INNER JOIN 会把它整行滤掉——题库里就永远看不到过期的官汤。
+ */
 const OWNER_SELECT = `SELECT p.*, u.handle AS owner_handle, u.display_name AS owner_name
-  FROM puzzles p JOIN users u ON u.id = p.owner_id`
+  FROM puzzles p LEFT JOIN users u ON u.id = p.owner_id`
+
+/**
+ * 题库里能玩的题：用户公开的，加上**过了当天**的官方汤。
+ * 今天的官方汤还没揭晓，不能进题库——否则汤底就等于摆在列表里了。
+ * 用 IN 子查询而不是 JOIN，免得 dailies 那边一旦有重复行把结果乘出来。
+ */
+const PLAYABLE = `(p.visibility = 'public'
+  OR (p.visibility = 'daily' AND p.id IN (SELECT puzzle_id FROM dailies WHERE date < ?)))`
 
 /**
  * 关键字检索：标题、汤面、标签、作者名与主页地址一次全搜。
@@ -167,8 +183,8 @@ export async function listPublicPuzzles(
     ? Math.min(Math.max(options.genre ?? 0, 0), 100)
     : null
 
-  const filters = [`p.visibility = 'public'`]
-  const bindings: unknown[] = []
+  const filters = [PLAYABLE]
+  const bindings: unknown[] = [utcDateKey()]
   if (query) {
     const like = likePattern(query)
     filters.push(
@@ -237,8 +253,8 @@ export async function getPublicPuzzle(
   id: string,
 ): Promise<PublicPuzzle & { ownerBio: string }> {
   const row = await db
-    .prepare(`${OWNER_SELECT} WHERE p.id = ? AND p.visibility = 'public'`)
-    .bind(id)
+    .prepare(`${OWNER_SELECT} WHERE p.id = ? AND ${PLAYABLE}`)
+    .bind(id, utcDateKey())
     .first<OwnedRow & { bio?: string }>()
   if (!row) throw new ApiError(404, '这道汤不存在，或者作者没有公开')
   const owner = await db

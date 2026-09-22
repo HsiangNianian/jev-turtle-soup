@@ -4,6 +4,7 @@ import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 import { Button, Empty, Notice, PageShell } from '@/components/Bits'
 import { Link } from '@/components/Link'
 import { findActiveDaily, type ArchivedGame } from '@/lib/archive'
+import { genreLabel } from '@/lib/library-client'
 import {
   dailyLanguageLabel,
   getDaily,
@@ -34,24 +35,43 @@ function StartButton({
   )
 }
 
-function Meta({ difficulty, tags }: { difficulty: string; tags: string[] }) {
+/**
+ * 难度和题材标签。**当天的汤不显示标签** —— 标签会直接点名题材
+ * （#怪力乱神、#电梯 之类），对还没揭晓的汤来说等于剧透。
+ * 过期进了题库之后才和别的题一样带上标签。
+ */
+function Meta({
+  difficulty,
+  tags,
+  locked = false,
+}: {
+  difficulty: string
+  tags: string[]
+  locked?: boolean
+}) {
   const { t } = useI18n()
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
       <span className="border border-foreground/25 px-1.5 py-0.5">{t(difficulty)}</span>
-      {tags.map((tag) => (
-        <span key={tag}>#{tag}</span>
-      ))}
+      {locked ? null : tags.map((tag) => <span key={tag}>#{tag}</span>)}
     </div>
   )
 }
 
-/** 这碗汤是什么语言写的；读者界面语言未必相同，所以明说一句。 */
-function LanguageNote({ locale }: { locale: DailySummary['locale'] }) {
+/** 这碗汤是什么语言写的；读者界面语言未必相同，所以明说一句。顺带报出题材落点。 */
+function LanguageNote({
+  locale,
+  genreScore,
+}: {
+  locale: DailySummary['locale']
+  genreScore?: number | null
+}) {
   const { t } = useI18n()
+  const genre = genreLabel(genreScore, t)
   return (
-    <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-      {t('今天的汤是{language}的', { language: dailyLanguageLabel(locale, t) })}
+    <span className="flex flex-wrap items-center gap-x-3 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+      <span>{t('今天的汤是{language}的', { language: dailyLanguageLabel(locale, t) })}</span>
+      {genre ? <span className="text-stamp/80">{genre}</span> : null}
     </span>
   )
 }
@@ -67,11 +87,14 @@ function Surface({ text }: { text: string }) {
 export function DailyDetailPage({
   date,
   activeGames,
+  games,
   onStart,
   onContinue,
 }: {
   date: string
   activeGames: ArchivedGame[]
+  /** 本地所有对局：用来判断这一天的汤底该不该给这个人看 */
+  games: ArchivedGame[]
   onStart: (daily: DailyDetail) => void
   onContinue: (id: string) => void
 }) {
@@ -95,6 +118,9 @@ export function DailyDetailPage({
       alive = false
     }
   }, [date, t])
+
+  const record = daily ? games.find((game) => game.id === daily.puzzleId) : undefined
+  const unlocked = Boolean(record && (record.solved || record.revealed))
 
   if (error) {
     return (
@@ -129,16 +155,27 @@ export function DailyDetailPage({
       meta={
         <span className="flex items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
           <span>{daily.date}</span>
-          <LanguageNote locale={daily.locale} />
+          <LanguageNote locale={daily.locale} genreScore={daily.genreScore} />
         </span>
       }
     >
-      <Meta difficulty={daily.difficulty} tags={daily.tags} />
+      <Meta difficulty={daily.difficulty} tags={daily.tags} locked={daily.locked} />
       <Surface text={daily.surface} />
 
       {daily.locked ? (
         <div className="mt-6">
           <Notice tone="stamp">{t('今天的官方汤还不能揭晓——过了午夜，汤底会自己浮上来。')}</Notice>
+        </div>
+      ) : !unlocked ? (
+        /*
+         * 往期的汤底不白给：本地没有「结案 / 揭晓过」的记录就先藏着。
+         * 这只是不让人不小心剧透自己——接口本来就返回这些内容，
+         * 存心想看的人绕得过去，但正常点进来的人不会撞见答案。
+         */
+        <div className="mt-6">
+          <Notice>
+            {t('你还没解开这一天。先自己问一问——结案或揭晓之后，汤底和完整故事都会回到这一页。')}
+          </Notice>
         </div>
       ) : (
         <>
@@ -252,9 +289,9 @@ export function DailyIndexPage({
           </div>
           <div className="px-4 py-5 sm:px-5">
             <h2 className="font-serif text-2xl leading-snug font-semibold">{today.title}</h2>
-            <Meta difficulty={today.difficulty} tags={today.tags} />
+            <Meta difficulty={today.difficulty} tags={today.tags} locked={today.locked} />
             <div className="mt-2">
-              <LanguageNote locale={today.locale} />
+              <LanguageNote locale={today.locale} genreScore={today.genreScore} />
             </div>
             <div className="mt-5 border-l-2 border-brand/50 pl-4">
               <p className="surface-prose font-serif text-[15px] leading-8 text-foreground/90">

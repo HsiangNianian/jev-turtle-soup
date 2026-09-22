@@ -678,6 +678,7 @@ export default function App() {
           <DailyDetailPage
             date={dailyMatch.date}
             activeGames={activeGames}
+            games={allGames}
             onStart={startDailyGame}
             onContinue={handleContinue}
           />

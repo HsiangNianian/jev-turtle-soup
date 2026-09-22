@@ -8,7 +8,7 @@ import {
   type PuzzleStore,
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
-import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
+import { composeDaily, LOCALE_LABEL_ZH, scoreUnscoredDailies, utcDateKey } from '../shared/daily.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
 import {
   addComment,
@@ -122,6 +122,7 @@ interface DailyRow {
   relaxed: number
   locale: string | null
   genre_target: number | null
+  genre_score: number | null
   created_at: number
 }
 
@@ -154,6 +155,8 @@ function dailyPayload(row: DailyRow, locked: boolean) {
     tags,
     /** 这碗汤原生用什么语言写的——非该语言的读者要能一眼看出来 */
     locale: row.locale ?? 'zh-CN',
+    /** 实际落点（0 本格 · 100 变格），没打过分就是 null */
+    genreScore: row.genre_score ?? null,
     locked,
     relaxed: row.relaxed === 1,
     ...(locked
@@ -192,11 +195,18 @@ async function generateTodayDaily(
     { title: draft.title, surface: draft.surface, truth: draft.truth, hint: draft.hint },
     { difficulty: draft.difficulty, createdAt: Date.now(), visibility: 'daily' },
   )
+  // 题库那边（滑块、卡片）读的是 puzzles.genre_score，所以同一把尺子的分数也写一份过去
+  if (draft.genreScore !== null) {
+    await db
+      .prepare('UPDATE puzzles SET genre_score = ? WHERE id = ?')
+      .bind(draft.genreScore, puzzleId)
+      .run()
+  }
   await db
     .prepare(
       `INSERT INTO dailies
-         (date, puzzle_id, title, surface, truth, story, hint, tags, difficulty, review_json, attempts, relaxed, locale, genre_target, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (date, puzzle_id, title, surface, truth, story, hint, tags, difficulty, review_json, attempts, relaxed, locale, genre_target, genre_score, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       date,
@@ -213,11 +223,12 @@ async function generateTodayDaily(
       draft.relaxed ? 1 : 0,
       draft.locale,
       draft.genreTarget,
+      draft.genreScore,
       Date.now(),
     )
     .run()
   console.log(
-    `[daily] ${date} 已生成《${draft.title}》｜${LOCALE_LABEL_ZH[draft.locale]}｜题材 ${draft.tag}／坐标 ${draft.genreTarget}｜${draft.attempts} 次尝试｜relaxed=${draft.relaxed}`,
+    `[daily] ${date} 已生成《${draft.title}》｜${LOCALE_LABEL_ZH[draft.locale]}｜题材 ${draft.tag}／目标 ${draft.genreTarget}／实测 ${draft.genreScore ?? '—'}｜${draft.attempts} 次尝试｜relaxed=${draft.relaxed}`,
   )
 }
 
@@ -266,6 +277,8 @@ async function runMaintenance(
   try {
     // 每次补几道题的题材分（上传时判失败、或后来才公开的）
     scored = await scoreUnscoredPuzzles(env, db)
+    // 每日汤同理：早于这个功能生成的、或当时判分失败的那些
+    scored += await scoreUnscoredDailies(env, db)
   } catch (error) {
     console.warn('[maintenance] 题材补分失败：', error)
   }

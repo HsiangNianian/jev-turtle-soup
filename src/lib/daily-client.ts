@@ -16,6 +16,8 @@ export interface DailySummary {
   difficulty: string
   tags: string[]
   locale: DailyLocale
+  /** 实测题材落点：0 本格 · 100 变格；没打过分为 null */
+  genreScore: number | null
   relaxed: boolean
 }
 
@@ -53,8 +55,10 @@ async function request<T>(path: string): Promise<T> {
 export function listDailies(hooks: { onStale?: (value: DailyIndex) => void } = {}) {
   const key = utcToday()
   if (indexCache?.key === key) return Promise.resolve(indexCache.value)
-  return staleWhileRevalidate<DailyIndex>(`daily:${key}`, DAILY_TTL_MS, () =>
-    request<DailyIndex>('/api/daily'),
+  return staleWhileRevalidate<DailyIndex>(
+    `daily:${key}`,
+    DAILY_TTL_MS,
+    () => request<DailyIndex>('/api/daily'),
     hooks,
   ).then((value) => {
     indexCache = { key, value }
@@ -71,10 +75,13 @@ export function getDaily(date: string, hooks: { onStale?: (value: DailyDetail) =
       (data) => data.daily,
     )
   }
-  return staleWhileRevalidate<DailyDetail>(`daily:${date}`, DAILY_TTL_MS, () =>
-    request<{ daily: DailyDetail }>(`/api/daily/${encodeURIComponent(date)}`).then(
-      (data) => data.daily,
-    ),
+  return staleWhileRevalidate<DailyDetail>(
+    `daily:${date}`,
+    DAILY_TTL_MS,
+    () =>
+      request<{ daily: DailyDetail }>(`/api/daily/${encodeURIComponent(date)}`).then(
+        (data) => data.daily,
+      ),
     hooks,
   )
 }

@@ -3,7 +3,7 @@ import { Loader2, Search } from 'lucide-react'
 
 import { Empty, PageShell, inputClass } from '@/components/Bits'
 
-import { listPuzzles, rerankPuzzles, type LibraryPuzzle } from '@/lib/library-client'
+import { genreLabel, listPuzzles, rerankPuzzles, type LibraryPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
 import { GenreSlider, GENRE_NEUTRAL } from '@/components/GenreSlider'
@@ -14,18 +14,18 @@ const RERANK_DELAY_MS = 700
 
 function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
   const { t } = useI18n()
-  const label =
-    typeof puzzle.genreScore !== 'number'
-      ? null
-      : puzzle.genreScore >= GENRE_NEUTRAL
-        ? `${t('变格度')} ${puzzle.genreScore}`
-        : `${t('本格度')} ${100 - puzzle.genreScore}`
+  const label = genreLabel(puzzle.genreScore, t)
   return (
     <Link
       to={`/library/${puzzle.id}`}
       className="flex h-full flex-col border border-foreground/30 bg-card p-4 transition-colors hover:border-foreground"
     >
       <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+        {puzzle.official ? (
+          <span className="stamp px-1.5 py-0.5 text-[9px] font-bold tracking-[0.2em]">
+            {t('官汤')}
+          </span>
+        ) : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         <span>{t('游玩 {plays}', { plays: puzzle.plays })}</span>
         <span>·</span>
@@ -37,8 +37,14 @@ function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
         {puzzle.surface}
       </p>
       <div className="mt-auto flex items-center gap-1.5 pt-3 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-        <span className="text-stamp">@</span>
-        <span className="truncate">{puzzle.owner.displayName}</span>
+        {puzzle.official ? (
+          <span className="truncate">{t('海龟汤调查局')}</span>
+        ) : (
+          <>
+            <span className="text-stamp">@</span>
+            <span className="truncate">{puzzle.owner.displayName}</span>
+          </>
+        )}
       </div>
     </Link>
   )

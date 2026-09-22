@@ -1,5 +1,6 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
+import { utcDateKey } from './daily.ts'
 import { submitReport } from './logs.ts'
 
 /**
@@ -58,9 +59,14 @@ export async function resolveTarget(db: D1Like, kind: string, id: string): Promi
     return { type: 'profile', id: row.id, ownerId: row.id }
   }
   if (kind === 'puzzle') {
+    // 过期后的官方汤和用户公开的题一样可以被点赞、留言
     const row = await db
-      .prepare("SELECT id, owner_id FROM puzzles WHERE id = ? AND visibility = 'public'")
-      .bind(id)
+      .prepare(
+        `SELECT id, owner_id FROM puzzles
+          WHERE id = ? AND (visibility = 'public'
+            OR (visibility = 'daily' AND id IN (SELECT puzzle_id FROM dailies WHERE date < ?)))`,
+      )
+      .bind(id, utcDateKey())
       .first<{ id: string; owner_id: string }>()
     if (!row) throw new ApiError(404, '这道汤不存在，或者作者没有公开')
     return { type: 'puzzle', id: row.id, ownerId: row.owner_id }

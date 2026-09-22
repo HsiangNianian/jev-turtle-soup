@@ -3,6 +3,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 
 import { Button, Empty, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
+import { genreLabel } from '@/lib/library-client'
 
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
 import { Link } from '@/components/Link'
@@ -73,16 +74,29 @@ export function PuzzleDetailPage({
       }
     >
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+        {puzzle.official ? (
+          <span className="stamp px-1.5 py-0.5 text-[9px] font-bold tracking-[0.2em]">
+            {t('官汤')}
+          </span>
+        ) : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         {puzzle.tags.map((tag) => (
           <span key={tag}>#{tag}</span>
         ))}
-        <Link
-          to={`/u/${puzzle.owner.handle}`}
-          className="ml-auto transition-colors hover:text-foreground"
-        >
-          @{puzzle.owner.displayName}
-        </Link>
+        {genreLabel(puzzle.genreScore, t) ? (
+          <span className="text-stamp/80">{genreLabel(puzzle.genreScore, t)}</span>
+        ) : null}
+        {/* 官方汤没有作者可点，署调查局的名字 */}
+        {puzzle.official ? (
+          <span className="ml-auto">{t('海龟汤调查局')}</span>
+        ) : (
+          <Link
+            to={`/u/${puzzle.owner.handle}`}
+            className="ml-auto transition-colors hover:text-foreground"
+          >
+            @{puzzle.owner.displayName}
+          </Link>
+        )}
       </div>
 
       <div className="mt-6 border-l-2 border-brand/50 pl-4">

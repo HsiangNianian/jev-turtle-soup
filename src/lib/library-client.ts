@@ -1,6 +1,18 @@
 import type { AskContext, HostTurn } from '@/lib/api'
 import { staleWhileRevalidate } from '@/lib/cache'
 
+/**
+ * 题材坐标的读数：0 本格 · 100 变格。
+ * 题库和每日汤共用同一把尺子，所以读数也共用同一处，免得两边措辞不一样。
+ */
+export function genreLabel(
+  score: number | null | undefined,
+  t: (key: string) => string,
+): string | null {
+  if (typeof score !== 'number') return null
+  return score >= 50 ? `${t('变格度')} ${score}` : `${t('本格度')} ${100 - score}`
+}
+
 /** 怪力乱神：出题时的一个预设标签（题库不再按标签筛选，搜索框直接搜标签）。 */
 export const SUPERNATURAL_TAG = '怪力乱神'
 
@@ -21,6 +33,8 @@ export interface LibraryPuzzle {
   owner: OwnerInfo
   /** 0 = 本格·逻辑推理，100 = 变格·怪力乱神；没打过分为 null */
   genreScore: number | null
+  /** 过期的官方每日汤：和用户上传的题一样能玩，只是多一枚标识 */
+  official: boolean
 }
 
 export interface LibraryPuzzleDetail extends LibraryPuzzle {

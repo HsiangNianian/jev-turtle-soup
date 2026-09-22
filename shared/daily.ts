@@ -1,7 +1,7 @@
 import { TypeSafeClient, noul, score } from '@typesafe-ai/sdk'
 import { z } from 'zod'
 
-import { ApiError, generateJson, resolveLlm, type GameEnv } from './game.ts'
+import { ApiError, generateJson, resolveLlm, scoreGenre, type GameEnv } from './game.ts'
 
 /** 每日官方汤按 UTC 换新。 */
 export function utcDateKey(now: Date = new Date()): string {
@@ -260,6 +260,8 @@ export interface DailyDraft {
   /** 摇到的题材坐标与题材标签（留档，用于回看与巡检） */
   genreTarget: number
   tag: string
+  /** 实际落点：和题库用的是同一把尺子（0 本格 · 100 变格），没有就是 null */
+  genreScore: number | null
   title: string
   story: string
   truth: string
@@ -543,6 +545,7 @@ export async function composeDaily(
       locale: roll.locale,
       genreTarget: roll.genreTarget,
       tag: roll.tag,
+      genreScore: null,
       title: draft.title,
       story: draft.story,
       truth: draft.truth,
@@ -560,11 +563,65 @@ export async function composeDaily(
       review.issues.join('；') || '—',
     )
     if (!best || candidate.score > best.score) best = candidate
-    if (review.passed) return candidate
+    if (review.passed) return finalise(env, candidate)
     carryIssues = review.issues
   }
 
   if (!best) throw new ApiError(502, '每日汤生成失败')
   console.warn('[daily] 连续未过审，发布分数最高的一版')
-  return { ...best, relaxed: true }
+  return finalise(env, { ...best, relaxed: true })
+}
+
+/** 定稿：补上实际落点。打不了分（没密钥/失败）就留 null，不影响发布。 */
+async function finalise(env: GameEnv, draft: DailyDraft & { score: number }): Promise<DailyDraft> {
+  const genreScore = await scoreGenre(env, {
+    title: draft.title,
+    surface: draft.surface,
+    truth: draft.truth,
+    hint: draft.hint,
+  })
+  return { ...draft, genreScore }
+}
+
+/**
+ * 给还没打过分的每日汤补一个题材分。
+ * 生成时会打一次（见 composeDaily 末尾）；这里兜的是早于这个功能生成的、
+ * 以及当时判读失败的那些。和题库共用 scoreGenre，所以两边数值可以直接比。
+ */
+export async function scoreUnscoredDailies(
+  env: GameEnv,
+  db: {
+    prepare: (sql: string) => {
+      bind: (...args: unknown[]) => {
+        all: <T>() => Promise<{ results?: T[] }>
+        run: () => Promise<unknown>
+      }
+    }
+  },
+  limit = 3,
+): Promise<number> {
+  const { results } = await db
+    .prepare(
+      `SELECT date, title, surface, truth, hint FROM dailies
+        WHERE genre_score IS NULL ORDER BY date DESC LIMIT ?`,
+    )
+    .bind(Math.max(1, Math.min(limit, 10)))
+    .all<{ date: string; title: string; surface: string; truth: string; hint: string }>()
+
+  let scored = 0
+  for (const row of results ?? []) {
+    const score = await scoreGenre(env, {
+      title: row.title,
+      surface: row.surface,
+      truth: row.truth,
+      hint: row.hint,
+    })
+    if (score === null) break
+    await db
+      .prepare('UPDATE dailies SET genre_score = ? WHERE date = ?')
+      .bind(score, row.date)
+      .run()
+    scored += 1
+  }
+  return scored
 }

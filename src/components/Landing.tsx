@@ -5,6 +5,7 @@ import { Link } from '@/components/Link'
 import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
 import { dailyLanguageLabel, listDailies, type DailyDetail } from '@/lib/daily-client'
+import { genreLabel } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -173,9 +174,14 @@ export function Landing({
                 <span className="border border-foreground/25 px-1.5 py-0.5">
                   {t(todayDaily.difficulty)}
                 </span>
-                {todayDaily.tags.map((tag) => (
-                  <span key={tag}>#{tag}</span>
-                ))}
+                {/* 当天的汤不带标签：标签会点名题材，等于剧透 */}
+                {todayDaily.locked
+                  ? null
+                  : todayDaily.tags.map((tag) => <span key={tag}>#{tag}</span>)}
+                {/* 和题库同一把尺子，读数也同一处来 */}
+                {genreLabel(todayDaily.genreScore, t) ? (
+                  <span className="text-stamp/80">{genreLabel(todayDaily.genreScore, t)}</span>
+                ) : null}
               </div>
               <p className="surface-prose mt-4 max-w-2xl border-l-2 border-brand/50 pl-4 font-serif text-[15px] leading-8 text-foreground/90">
                 {todayDaily.surface}

@@ -235,7 +235,7 @@ function dailyPayload(row: DailyRow, locked: boolean) {
  * 生成当天官方汤：先写完整故事，再凝练汤底/汤面，再由 Jev 审核，
  * 不过就带着问题重来并逐次放宽；全不过则发布分数最高的一版。
  */
-async function generateTodayDaily(
+export async function generateTodayDaily(
   env: Env,
   onProgress?: (progress: import('../shared/daily.ts').DailyProgress) => void,
 ): Promise<void> {
@@ -246,7 +246,10 @@ async function generateTodayDaily(
     return
   }
   const { results } = await db
-    .prepare('SELECT title, surface FROM dailies ORDER BY created_at DESC LIMIT 10')
+    .prepare(
+      `SELECT p.title, p.surface FROM dailies d
+      JOIN puzzles p ON p.id = d.puzzle_id ORDER BY d.created_at DESC LIMIT 10`,
+    )
     .all<{ title: string; surface: string }>()
   const avoid = (results ?? []).map((row) => `${row.title}｜${row.surface}`)
 

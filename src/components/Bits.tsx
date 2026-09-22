@@ -7,8 +7,8 @@ export function PageShell({
   meta,
   children,
 }: {
-  /** 可以是节点：官方汤那边用一枚认证标记代替文字 */
-  label: ReactNode
+  /** 可以不传：那一页把标记放到正文的元信息行里了 */
+  label?: ReactNode
   title: string
   meta?: ReactNode
   children: ReactNode
@@ -16,12 +16,16 @@ export function PageShell({
   return (
     <div className="mx-auto w-full max-w-3xl px-5 py-8 sm:py-12">
       {/* flex-wrap：meta 太长时换到下一行，而不是把 label 挤成「官方 / 汤」两行 */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="font-mono text-[10px] tracking-[0.28em] text-muted-foreground">
-          {label}
-        </span>
-        {meta}
-      </div>
+      {label || meta ? (
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          {label ? (
+            <span className="font-mono text-[10px] tracking-[0.28em] text-muted-foreground">
+              {label}
+            </span>
+          ) : null}
+          {meta}
+        </div>
+      ) : null}
       <h1 className="mt-3 font-serif text-3xl leading-tight font-semibold sm:text-4xl">{title}</h1>
       <div className="mt-5 h-px w-full bg-foreground/70" />
       {children}

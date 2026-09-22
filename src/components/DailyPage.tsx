@@ -167,18 +167,14 @@ export function DailyDetailPage({
   }
 
   return (
-    <PageShell
-      // 一枚认证标记代替「官方汤」三个字：手机上那三个字会被 meta 挤成两行
-      label={
-        <span className="flex items-center gap-1.5">
-          <BadgeCheck className="size-3.5 text-stamp" aria-hidden />
-          {t('官方')}
-        </span>
-      }
-      title={daily.title}
-    >
+    <PageShell title={daily.title}>
       {/* 日期、人数、语言、题材全部并到「难度」这一行 —— 它们本来就是同一类元信息 */}
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+        {/* 认证勋章就放在难度左边，和题库卡片上那枚「官汤」位置一致 */}
+        <span className="flex items-center gap-1.5 text-stamp">
+          <BadgeCheck className="size-3.5" aria-hidden />
+          {t('官方')}
+        </span>
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(daily.difficulty)}</span>
         {daily.locked ? null : daily.tags.map((tag) => <span key={tag}>#{tag}</span>)}
         {genreLabel(daily.genreScore, t) ? (

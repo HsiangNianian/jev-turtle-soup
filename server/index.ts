@@ -114,13 +114,16 @@ async function handler(env: GameEnv, req: IncomingMessage, res: ServerResponse) 
 }
 
 /**
- * Dev-only adapter: serves the same /api surface as `worker/index.ts` through the
- * Vite dev server, so `npm run dev` and the deployed Worker behave identically.
+ * Frontend development adapter: health and in-memory game endpoints only.
+ * Authentication, library, daily puzzles and saves require `npm run dev:worker`.
  */
 export function turtleSoupApi(env: GameEnv): Plugin {
   return {
     name: 'turtle-soup-api',
     configureServer(server) {
+      server.config.logger.info(
+        '[turtle-soup] Vite 提供前端热更新与有限 API；登录、题库、每日汤、云存档请用 npm run dev:worker（本地 D1）。',
+      )
       server.middlewares.use((req, res, next) => {
         void handler(env, req, res).then((handled) => {
           if (!handled) next()

@@ -328,7 +328,7 @@ export async function requestCode(
   })
   await deps.kv.put(rateKey(email), String(attempts + 1), { expirationTtl: OTP_TTL_SECONDS })
 
-  const sent = await sendCodeEmail(deps, email, code, mailLocale(locale))
+  const sent = deps.exposeCode ? false : await sendCodeEmail(deps, email, code, mailLocale(locale))
   if (!sent && !deps.exposeCode) {
     throw new ApiError(503, '邮件服务尚未配置，请联系管理员')
   }

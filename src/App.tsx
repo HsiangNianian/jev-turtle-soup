@@ -1027,7 +1027,7 @@ function GameApp({
       ) : null}
 
       {user || syncState.status === 'storage' ? (
-        <SyncNotice key={syncState.status} state={syncState} onRetry={onRetry} />
+        <SyncNotice state={syncState} onRetry={onRetry} />
       ) : null}
 
       {synced > 0 && syncState.status !== 'storage' ? (

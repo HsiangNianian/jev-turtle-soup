@@ -1,20 +1,13 @@
-import { useEffect, useState } from 'react'
 import { Cloud } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import type { SyncState } from '@/lib/save-sync'
 
-/** Keyed by status in the app so each new sync gets a fresh notice and timer. */
+/** Routine saves stay quiet; only problems need the player's attention. */
 export function SyncNotice({ state, onRetry }: { state: SyncState; onRetry: () => void }) {
   const { t } = useI18n()
-  const [hidden, setHidden] = useState(false)
 
-  useEffect(() => {
-    if (state.status !== 'synced') return
-    const timer = window.setTimeout(() => setHidden(true), 3000)
-    return () => window.clearTimeout(timer)
-  }, [state.status])
-
-  if (hidden) return null
+  if (state.status === 'local' || state.status === 'syncing' || state.status === 'synced')
+    return null
 
   return (
     <div
@@ -25,9 +18,6 @@ export function SyncNotice({ state, onRetry }: { state: SyncState; onRetry: () =
       <span>
         {t(
           {
-            local: '已保存在本机',
-            syncing: '同步中',
-            synced: '已同步',
             offline: '等待联网',
             error: '同步失败',
             auth: '同步失败：请重新登录',
@@ -45,11 +35,9 @@ export function SyncNotice({ state, onRetry }: { state: SyncState; onRetry: () =
           ({state.httpStatus})
         </span>
       ) : null}
-      {['offline', 'error', 'auth', 'storage'].includes(state.status) ? (
-        <button type="button" onClick={onRetry} className="underline underline-offset-2">
-          {t('重试同步')}
-        </button>
-      ) : null}
+      <button type="button" onClick={onRetry} className="underline underline-offset-2">
+        {t('重试同步')}
+      </button>
     </div>
   )
 }

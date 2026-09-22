@@ -10,7 +10,7 @@ import {
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
-import { listClientErrors, recordClientError } from '../shared/telemetry.ts'
+import { listClientErrors, recordClientError, recordWorkerError } from '../shared/telemetry.ts'
 import {
   addComment,
   deleteComment,
@@ -280,6 +280,7 @@ async function runMaintenance(
     purged = true
   } catch (error) {
     console.warn('[maintenance] 清理旧日志失败：', error)
+    await reportWorkerError(env, error, 'worker:maintenance', 'cron:purge')
   }
 
   try {
@@ -288,6 +289,7 @@ async function runMaintenance(
     swept = true
   } catch (error) {
     console.warn('[maintenance] 清理过期对局失败：', error)
+    await reportWorkerError(env, error, 'worker:maintenance', 'cron:sweep')
   }
 
   try {
@@ -295,6 +297,7 @@ async function runMaintenance(
     scored = await scoreUnscoredPuzzles(env, db)
   } catch (error) {
     console.warn('[maintenance] 题材补分失败：', error)
+    await reportWorkerError(env, error, 'worker:maintenance', 'cron:score')
   }
 
   if (options.audit !== false) {
@@ -306,6 +309,7 @@ async function runMaintenance(
       })
     } catch (error) {
       console.warn('[maintenance] 判读巡检失败：', error)
+      await reportWorkerError(env, error, 'worker:maintenance', 'cron:audit')
     }
   }
 
@@ -364,6 +368,35 @@ function puzzleStore(db: D1Like): PuzzleStore {
 function requireDb(env: Env): D1Like {
   if (!env.DB) throw new ApiError(503, '数据库尚未配置')
   return env.DB
+}
+
+/**
+ * 把 Worker 侧未处理的异常也送进错误台账。
+ *
+ * 以前这类错误只进 console.error —— 不 tail 就永远看不见，等玩家反馈时已经
+ * 影响了一批人。现在和客户端错误共用一张表和 /api/errors 出口。
+ *
+ * **尽力而为**：上报本身失败绝不能再抛一次，否则会把一个 500 变成更糟的崩溃。
+ */
+async function reportWorkerError(
+  env: Env,
+  error: unknown,
+  source: string,
+  path?: string,
+): Promise<void> {
+  if (!env.DB) return
+  try {
+    const message =
+      error instanceof Error ? error.message || error.name : String(error)
+    await recordWorkerError(env.DB, {
+      message,
+      stack: error instanceof Error ? (error.stack ?? '') : '',
+      path,
+      source,
+    })
+  } catch {
+    /* 上报失败就算了 */
+  }
 }
 
 async function viewer(request: Request, env: Env): Promise<Viewer> {
@@ -858,6 +891,7 @@ async function serveHtml(
     override = await pageOverride(env, url.pathname)
   } catch (error) {
     console.warn('[turtle-soup] 读取分享卡片内容失败：', error)
+    await reportWorkerError(env, error, 'worker:meta', url.pathname)
   }
   return new Response(applyMeta(html, locale, url.toString(), override), {
     status: response.status,
@@ -895,13 +929,17 @@ export default {
               }`,
             ),
           )
-          .catch((error) => console.error('[maintenance] 失败：', error)),
+          .catch((error) => {
+            console.error('[maintenance] 失败：', error)
+            return reportWorkerError(env, error, 'worker:cron', 'cron:maintenance')
+          }),
       )
       return
     }
     ctx.waitUntil(
       generateTodayDaily(env).catch((error) => {
         console.error('[daily] 生成失败：', error)
+        return reportWorkerError(env, error, 'worker:cron', 'cron:daily')
       }),
     )
   },
@@ -972,7 +1010,10 @@ export default {
         return json({ items: await listJudgeFlags(requireDb(env), limit) })
       } catch (error) {
         const status = error instanceof ApiError ? error.status : 500
-        if (status >= 500) console.error('[audit]', error)
+        if (status >= 500) {
+          console.error('[audit]', error)
+          await reportWorkerError(env, error, 'worker:audit', url.pathname)
+        }
         return json({ error: error instanceof Error ? error.message : '服务器内部错误' }, status)
       }
     }
@@ -1006,6 +1047,7 @@ export default {
           send('done', { daily: row ? dailyPayload(row, true) : null })
         } catch (error) {
           console.error('[daily] 手动生成失败：', error)
+          await reportWorkerError(env, error, 'worker:daily', url.pathname)
           throw error
         }
       })
@@ -1017,7 +1059,10 @@ export default {
       } catch (error) {
         const status = error instanceof ApiError ? error.status : 500
         const message = error instanceof Error ? error.message : '服务器内部错误'
-        if (status >= 500) console.error('[turtle-soup]', error)
+        if (status >= 500) {
+          console.error('[turtle-soup]', error)
+          await reportWorkerError(env, error, 'worker:route', url.pathname)
+        }
         return json({ error: message }, status)
       }
     }

@@ -18,6 +18,18 @@ export interface ClientErrorInput {
   source?: string
 }
 
+/**
+ * Worker 侧错误：路由抛 500、Cron 失败、出题流水线出错。
+ * 和客户端错误放**同一张表、同一个出口**，一次就能看完；但没有 build / locale ——
+ * 这些概念只存在于浏览器里。
+ */
+export interface WorkerErrorInput {
+  message: string
+  stack?: string
+  path?: string
+  source?: string
+}
+
 /** 表里最多留这么多个不同的错误，超了就只累加已有的、不再开新行。 */
 const MAX_DISTINCT_ERRORS = 500
 
@@ -52,6 +64,56 @@ export interface StoredClientError {
   lastAt: number
 }
 
+interface ErrorRecord {
+  hash: string
+  message: string
+  stack: string
+  path: string
+  buildId: string
+  locale: string
+  source: string
+}
+
+/** 同一条错误累加 count，新错误开一行；行数到顶后只累加、不再开新行。 */
+async function upsertError(db: D1Like, record: ErrorRecord): Promise<void> {
+  const existing = await db
+    .prepare('SELECT hash FROM client_errors WHERE hash = ?')
+    .bind(record.hash)
+    .first<{ hash: string }>()
+
+  const now = Date.now()
+  if (existing) {
+    await db
+      .prepare('UPDATE client_errors SET count = count + 1, last_at = ? WHERE hash = ?')
+      .bind(now, record.hash)
+      .run()
+    return
+  }
+
+  const total = await db
+    .prepare('SELECT COUNT(*) AS n FROM client_errors')
+    .first<{ n: number }>()
+  if ((total?.n ?? 0) >= MAX_DISTINCT_ERRORS) return
+
+  await db
+    .prepare(
+      `INSERT INTO client_errors (hash, message, stack, path, build_id, locale, source, count, first_at, last_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    )
+    .bind(
+      record.hash,
+      record.message,
+      cut(record.stack, 2000),
+      cut(record.path, 200),
+      cut(record.buildId, 40),
+      cut(record.locale, 12),
+      cut(record.source, 24),
+      now,
+      now,
+    )
+    .run()
+}
+
 export async function recordClientError(
   db: D1Like,
   input: ClientErrorInput,
@@ -60,44 +122,38 @@ export async function recordClientError(
   // 空消息没有诊断价值，只会占一行
   if (!message) return { ok: true }
 
-  const hash = errorHash(input)
-  const now = Date.now()
-  const existing = await db
-    .prepare('SELECT hash FROM client_errors WHERE hash = ?')
-    .bind(hash)
-    .first<{ hash: string }>()
-
-  if (existing) {
-    await db
-      .prepare('UPDATE client_errors SET count = count + 1, last_at = ? WHERE hash = ?')
-      .bind(now, hash)
-      .run()
-    return { ok: true }
-  }
-
-  const total = await db
-    .prepare('SELECT COUNT(*) AS n FROM client_errors')
-    .first<{ n: number }>()
-  if ((total?.n ?? 0) >= MAX_DISTINCT_ERRORS) return { ok: true }
-
-  await db
-    .prepare(
-      `INSERT INTO client_errors (hash, message, stack, path, build_id, locale, source, count, first_at, last_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-    )
-    .bind(
-      hash,
-      message,
-      cut(input.stack, 2000),
-      cut(input.path, 200),
-      cut(input.buildId, 40),
-      cut(input.locale, 12),
-      cut(input.source, 24),
-      now,
-      now,
-    )
-    .run()
+  await upsertError(db, {
+    hash: errorHash(input),
+    message,
+    stack: input.stack ?? '',
+    path: input.path ?? '',
+    buildId: input.buildId ?? '',
+    locale: input.locale ?? '',
+    source: input.source ?? '',
+  })
   return { ok: true }
+}
+
+/**
+ * Worker 侧错误。
+ *
+ * 哈希带 `worker|` 命名空间，保证不会和浏览器端同名的错误（比如都叫
+ * "Failed to fetch"）合并成一行 —— 两边的原因和修法完全不同。
+ * 也不掺 build：Worker 版本跟着部署走，同一处 bug 跨部署继续累加更有用。
+ */
+export async function recordWorkerError(db: D1Like, input: WorkerErrorInput): Promise<void> {
+  const message = cut(input.message, 300).trim()
+  if (!message) return
+
+  await upsertError(db, {
+    hash: fnv1a(`worker|${message}`),
+    message,
+    stack: input.stack ?? '',
+    path: input.path ?? '',
+    buildId: '',
+    locale: '',
+    source: input.source ?? 'worker',
+  })
 }
 
 interface ErrorRow {

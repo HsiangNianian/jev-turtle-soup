@@ -1,4 +1,12 @@
-import { TypeSafeClient, choice, noul, score, type EntryType } from '@typesafe-ai/sdk'
+import {
+  APIConnectionError,
+  APITimeoutError,
+  TypeSafeClient,
+  choice,
+  noul,
+  score,
+  type EntryType,
+} from '@typesafe-ai/sdk'
 import OpenAI from 'openai'
 
 import { QQ_GROUP } from './community.ts'
@@ -75,7 +83,17 @@ export type Locale = 'zh-CN' | 'en' | 'ja'
 /** 玩家会在对话里看到的报错，必须跟着界面语言走。 */
 const ASK_ERRORS: Record<
   Locale,
-  Record<'missing' | 'empty' | 'tooLong' | 'notFound' | 'notPublic' | 'locked', string>
+  Record<
+    | 'missing'
+    | 'empty'
+    | 'tooLong'
+    | 'notFound'
+    | 'notPublic'
+    | 'locked'
+    | 'timeout'
+    | 'unavailable',
+    string
+  >
 > = {
   'zh-CN': {
     missing: '这一局已经过期了，请重新生成一碗海龟汤',
@@ -84,6 +102,8 @@ const ASK_ERRORS: Record<
     notFound: '这道汤不存在',
     notPublic: '这道汤没有公开',
     locked: '今天的官方汤不能提前揭晓，明天它就会解锁。',
+    timeout: '主持人响应超时了，问题已保留，请稍后再问一次。',
+    unavailable: '暂时连不上主持人，问题已保留，请稍后再试。',
   },
   en: {
     missing: 'This case has expired — start a new one',
@@ -92,6 +112,10 @@ const ASK_ERRORS: Record<
     notFound: 'This puzzle does not exist',
     notPublic: 'This puzzle is not public',
     locked: 'Today’s official bowl cannot be unsealed early — it unlocks tomorrow.',
+    timeout:
+      'The host timed out. Your question is still in the conversation; please try again shortly.',
+    unavailable:
+      'The host is temporarily unreachable. Your question is still in the conversation; please try again shortly.',
   },
   ja: {
     missing: 'この一件は期限切れです。新しい一杯を作ってください',
@@ -100,16 +124,24 @@ const ASK_ERRORS: Record<
     notFound: 'このお題は存在しません',
     notPublic: 'このお題は公開されていません',
     locked: '本日の公式の一杯は前もって開封できません。明日になれば解放されます。',
+    timeout:
+      '司会の応答がタイムアウトしました。質問は会話に残っています。少し待ってからもう一度お試しください。',
+    unavailable:
+      '司会に接続できません。質問は会話に残っています。少し待ってからもう一度お試しください。',
   },
 }
 
 export function askError(locale: Locale, key: keyof (typeof ASK_ERRORS)['zh-CN']): ApiError {
   const status =
-    key === 'missing' || key === 'notFound'
-      ? 404
-      : key === 'notPublic' || key === 'locked'
-        ? 403
-        : 400
+    key === 'timeout'
+      ? 504
+      : key === 'unavailable'
+        ? 503
+        : key === 'missing' || key === 'notFound'
+          ? 404
+          : key === 'notPublic' || key === 'locked'
+            ? 403
+            : 400
   return new ApiError(status, ASK_ERRORS[locale][key])
 }
 
@@ -1668,11 +1700,25 @@ export async function judge(
   }
 
   const client = getClient(env)
-  const { answers, model } = await client.systemOne({
-    // 台账是 interface 数组，SDK 的 EntryType 认的是索引签名，这里收口一次
-    state: state as unknown as EntryType,
-    questions: hostQuestions(candidates, message),
-  })
+  const { answers, model } = await client
+    .systemOne(
+      {
+        // 台账是 interface 数组，SDK 的 EntryType 认的是索引签名，这里收口一次
+        state: state as unknown as EntryType,
+        questions: hostQuestions(candidates, message),
+      },
+      {
+        // Slow responses should finish instead of being cancelled at the SDK's 10s default.
+        // Two attempts plus at most 1s backoff keep the total wait bounded at about 41s.
+        timeout: 20000,
+        retry: { maxRetries: 1, backoffMaxMs: 1000, maxRetryAfterMs: 1000 },
+      },
+    )
+    .catch((error: unknown) => {
+      if (error instanceof APITimeoutError) throw askError(locale, 'timeout')
+      if (error instanceof APIConnectionError) throw askError(locale, 'unavailable')
+      throw error
+    })
 
   const replyLocale = replyLocaleFor(answers, locale)
   const turn = composeTurn(

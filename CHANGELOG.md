@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.33.3 - 2026-09-22
+
+### Fixes
+
+- Recover missing application chunks after deployment, while ignoring unrelated script failures.
+- Keep a reload cooldown across successful boots; use manual recovery when storage is blocked or progress is unsaved.
+- Let slow startup finish without an automatic refresh or a false crash report.
+- Record the failed asset path and preserve React component stacks without duplicate resource-error reports.
+- Allow slower host responses to finish, with a 20-second attempt timeout and one bounded retry; return localized errors when the service remains unavailable.
+
 ## 0.33.2 - 2026-09-22
 
 ### Fixes

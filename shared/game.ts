@@ -330,6 +330,25 @@ export interface EstablishedFact {
 const MAX_ESTABLISHED = 40
 const MAX_CANDIDATES = 5
 const VERDICT_CHOICES = ['yes', 'no', 'partly', 'irrelevant']
+
+/**
+ * 复问（原样重复）的置信度下限。
+ * 实测：真正的原样重复落在 0.99（日志里其它几条是 0.67~0.82），
+ * 而「大概是在问同一件事」的弱匹配落在 0.44 —— 弱匹配不该有否决权，
+ * 它会盖掉模型刚判出来的结论，回一句答非所问的「你之前问过了」。
+ */
+const REPEAT_FLOOR = 0.6
+
+/**
+ * 和台账明显冲突时，对新判读要求的置信度（平时是 0.35）。
+ *
+ * 注意**不能**反过来「矛盾高就采信台账」：实测「门锁是机械锁吗」的矛盾分是 0.73，
+ * 而正确答案是「不是」—— 和台账冲突的问句，答案往往是**反面**，
+ * 照抄台账会直接答错。所以这里只做一件事：提高门槛。
+ * 新判读要是本来就拿不准，就说「拿不准」，而不是给出一个自相矛盾的答案。
+ */
+const CONTRADICTION_FLOOR = 0.8
+const CONTRADICTION_VERDICT_FLOOR = 0.75
 /** 反面问题的答案：是↔不是；「是，也不是」与「无关」取反后仍是自己。 */
 const INVERTED_VERDICT: Record<string, string> = {
   yes: 'no',
@@ -1162,12 +1181,16 @@ export function composeTurn(
     // 重复提问时直接复用当时那条结论，不让模型重新判读出相反答案。
     // 问的是反面（只差一个否定词）就取反复用——这是「新娘认识陌生人」和
     // 「新娘不认识陌生人」都答「不是」的根源：字符串太像，台账当成了同一问。
-    for (const [answer, flip] of [
-      [answers.matches_earlier, false],
-      [answers.opposite_of, true],
+    for (const [answer, flip, floor] of [
+      [answers.matches_earlier, false, REPEAT_FLOOR],
+      // 反面那条**不设门槛**：证据是代码里 isNegationPair 的确定性判定
+      // （剥掉否定词后完全同句），模型的置信度本来就低（实测 0.1 上下），
+      // 拿它当门槛反而会把真正的反面问题挡掉，回到「正反同答」的老毛病。
+      [answers.opposite_of, true, 0],
     ] as const) {
       const picked = answer?.choice
       if (!picked || !picked.startsWith('fact_')) continue
+      if ((answer?.confidence ?? 0) < floor) continue
       const index = Number(picked.slice('fact_'.length))
       const fact = established[index]
       const known = candidates.some((item) => item.index === index)
@@ -1207,7 +1230,9 @@ export function composeTurn(
 
     const rawVerdict = answers.verdict.choice as string
     const confidence = answers.verdict.confidence
-    if (rawVerdict === 'cannot_answer' || confidence < 0.35 || intentConfidence < 0.4) {
+    const contradiction = answers.contradicts_earlier?.noul ?? 0
+    const verdictFloor = contradiction >= CONTRADICTION_FLOOR ? CONTRADICTION_VERDICT_FLOOR : 0.35
+    if (rawVerdict === 'cannot_answer' || confidence < verdictFloor || intentConfidence < 0.4) {
       return {
         intent,
         verdict: rawVerdict,

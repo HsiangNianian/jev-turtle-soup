@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Loader2, Lock, Unlock } from 'lucide-react'
 
 import { Button, Empty, Notice, PageShell } from '@/components/Bits'
 import { Link } from '@/components/Link'
@@ -168,17 +168,26 @@ export function DailyDetailPage({
 
   return (
     <PageShell
-      label={t('官方汤')}
-      title={daily.title}
-      meta={
-        <span className="flex flex-wrap items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-          <span>{daily.date}</span>
-          <Counts plays={daily.plays} solves={daily.solves} />
-          <LanguageNote locale={daily.locale} genreScore={daily.genreScore} />
+      // 一枚认证标记代替「官方汤」三个字：手机上那三个字会被 meta 挤成两行
+      label={
+        <span className="flex items-center gap-1.5">
+          <BadgeCheck className="size-3.5 text-stamp" aria-hidden />
+          {t('官方')}
         </span>
       }
+      title={daily.title}
     >
-      <Meta difficulty={daily.difficulty} tags={daily.tags} locked={daily.locked} />
+      {/* 日期、人数、语言、题材全部并到「难度」这一行 —— 它们本来就是同一类元信息 */}
+      <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+        <span className="border border-foreground/25 px-1.5 py-0.5">{t(daily.difficulty)}</span>
+        {daily.locked ? null : daily.tags.map((tag) => <span key={tag}>#{tag}</span>)}
+        {genreLabel(daily.genreScore, t) ? (
+          <span className="text-stamp/80">{genreLabel(daily.genreScore, t)}</span>
+        ) : null}
+        <span>{daily.date}</span>
+        <Counts plays={daily.plays} solves={daily.solves} />
+        <span>{t('这一碗是{language}的', { language: dailyLanguageLabel(daily.locale, t) })}</span>
+      </div>
       <Surface text={daily.surface} />
 
       {daily.locked ? (

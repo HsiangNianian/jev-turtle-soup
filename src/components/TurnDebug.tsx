@@ -147,9 +147,7 @@ export function TurnDebug({ debug }: { debug: DebugInfo }) {
             <span className="tabular-nums text-foreground/75">
               {debug.closeness.score.toFixed(2)} / 3
             </span>
-            <span className="tabular-nums">
-              {t('解释汤面')} {debug.explainsSurface.toFixed(2)}
-            </span>
+            <span className="tabular-nums">solved {debug.solved.toFixed(2)}</span>
             <span className="tabular-nums">
               {t(META_LABEL[debug.metaRequest.choice] ?? debug.metaRequest.choice)}
             </span>

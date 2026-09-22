@@ -328,7 +328,6 @@ export const en: Record<string, string> = {
   '官汤': 'Official',
   '你还没解开这一天。先自己问一问——结案或揭晓之后，汤底和完整故事都会回到这一页。':
     'You have not opened this one yet. Question it first — once you solve or reveal it, the truth and the full story come back to this page.',
-  '解释汤面': 'explains',
   '{count} 人问过': '{count} have asked',
   '编辑部群': 'Editorial group',
   '想直接说？进编辑部群：': 'Rather just tell us? Join the editorial group: ',

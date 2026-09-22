@@ -33,8 +33,8 @@ export interface ScoreDebug {
 export interface DebugInfo {
   intent: ChoiceDebug
   verdict: ChoiceDebug
-  /** 玩家这句话有没有解释掉汤面里那个反常（通关判定用的就是它） */
-  explainsSurface: number
+  /** 玩家是不是完整正确地说出了真相（通关判定用的就是它） */
+  solved: number
   closeness: ScoreDebug
   metaRequest: {
     choice: string

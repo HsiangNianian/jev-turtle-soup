@@ -8,7 +8,7 @@ import {
   type PuzzleStore,
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
-import { composeDaily, LOCALE_LABEL_ZH, scoreUnscoredDailies, utcDateKey } from '../shared/daily.ts'
+import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
 import {
   addComment,
@@ -39,6 +39,7 @@ import {
 import {
   askLibraryPuzzle,
   createPuzzle,
+  recordPlay,
   defaultDisplayName,
   deletePuzzle,
   ensureHandle,
@@ -110,24 +111,36 @@ const MAINTENANCE_CRON = '0 4 * * *'
 interface DailyRow {
   date: string
   puzzle_id: string
+  // 下面这些可玩字段来自 JOIN puzzles —— dailies 不再自己存一份
   title: string
   surface: string
   truth: string
-  story: string
   hint: string
   tags: string
   difficulty: string
+  genre_score: number | null
+  plays: number
+  solves: number
+  // 以下是每日独有的
+  story: string
   review_json: string | null
-  attempts: number
+  generate_attempts: number
   relaxed: number
   locale: string | null
   genre_target: number | null
-  genre_score: number | null
   created_at: number
 }
 
+/** 每日独有的列 + 从 puzzles 借来的可玩字段。 */
+const DAILY_SELECT = `SELECT d.*, p.title, p.surface, p.truth, p.hint, p.tags, p.difficulty,
+         p.genre_score, p.plays, p.solves
+    FROM dailies d JOIN puzzles p ON p.id = d.puzzle_id`
+
 function dailyByDate(db: D1Like, date: string) {
-  return db.prepare('SELECT * FROM dailies WHERE date = ?').bind(date).first<DailyRow>()
+  return db
+    .prepare(`${DAILY_SELECT} WHERE d.date = ?`)
+    .bind(date)
+    .first<DailyRow>()
 }
 
 /** 这道题是不是「今天的」官方汤——当天的汤不许提前揭晓。 */
@@ -157,6 +170,10 @@ function dailyPayload(row: DailyRow, locked: boolean) {
     locale: row.locale ?? 'zh-CN',
     /** 实际落点（0 本格 · 100 变格），没打过分就是 null */
     genreScore: row.genre_score ?? null,
+    /** 有多少人问过；今天这碗只报这个 */
+    plays: row.plays,
+    /** 解开的人数：今天那碗不给，免得提前透露难度 */
+    solves: locked ? null : row.solves,
     locked,
     relaxed: row.relaxed === 1,
     ...(locked
@@ -193,9 +210,14 @@ async function generateTodayDaily(
   const store = puzzleStore(db)
   const puzzleId = await store.create(
     { title: draft.title, surface: draft.surface, truth: draft.truth, hint: draft.hint },
-    { difficulty: draft.difficulty, createdAt: Date.now(), visibility: 'daily' },
+    {
+      difficulty: draft.difficulty,
+      createdAt: Date.now(),
+      visibility: 'daily',
+      tags: draft.tags,
+    },
   )
-  // 题库那边（滑块、卡片）读的是 puzzles.genre_score，所以同一把尺子的分数也写一份过去
+  // 题材分只存 puzzles 那一份（滑块、卡片、官汤读的都是它）
   if (draft.genreScore !== null) {
     await db
       .prepare('UPDATE puzzles SET genre_score = ? WHERE id = ?')
@@ -205,25 +227,18 @@ async function generateTodayDaily(
   await db
     .prepare(
       `INSERT INTO dailies
-         (date, puzzle_id, title, surface, truth, story, hint, tags, difficulty, review_json, attempts, relaxed, locale, genre_target, genre_score, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (date, puzzle_id, story, review_json, generate_attempts, relaxed, locale, genre_target, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       date,
       puzzleId,
-      draft.title,
-      draft.surface,
-      draft.truth,
       draft.story,
-      draft.hint,
-      JSON.stringify(draft.tags),
-      draft.difficulty,
       JSON.stringify(draft.review),
       draft.attempts,
       draft.relaxed ? 1 : 0,
       draft.locale,
       draft.genreTarget,
-      draft.genreScore,
       Date.now(),
     )
     .run()
@@ -277,8 +292,6 @@ async function runMaintenance(
   try {
     // 每次补几道题的题材分（上传时判失败、或后来才公开的）
     scored = await scoreUnscoredPuzzles(env, db)
-    // 每日汤同理：早于这个功能生成的、或当时判分失败的那些
-    scored += await scoreUnscoredDailies(env, db)
   } catch (error) {
     console.warn('[maintenance] 题材补分失败：', error)
   }
@@ -305,7 +318,7 @@ function puzzleStore(db: D1Like): PuzzleStore {
       await db
         .prepare(
           `INSERT INTO puzzles (id, owner_id, title, surface, truth, hint, difficulty, tags, visibility, plays, solves, created_at)
-           VALUES (?, '', ?, ?, ?, ?, ?, '[]', ?, 0, 0, ?)`,
+           VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`,
         )
         .bind(
           id,
@@ -314,6 +327,7 @@ function puzzleStore(db: D1Like): PuzzleStore {
           puzzle.truth,
           puzzle.hint,
           meta.difficulty,
+          JSON.stringify(meta.tags ?? []),
           meta.visibility ?? SESSION_VISIBILITY,
           meta.createdAt,
         )
@@ -669,9 +683,19 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     const today = await dailyByDate(db, utcDateKey())
     const { results } = await db
       .prepare(
-        'SELECT date, title, difficulty, tags, relaxed FROM dailies ORDER BY date DESC LIMIT 60',
+        `SELECT d.date, p.title, p.difficulty, p.tags, p.plays, p.solves, d.relaxed
+           FROM dailies d JOIN puzzles p ON p.id = d.puzzle_id
+          ORDER BY d.date DESC LIMIT 60`,
       )
-      .all<{ date: string; title: string; difficulty: string; tags: string; relaxed: number }>()
+      .all<{
+        date: string
+        title: string
+        difficulty: string
+        tags: string
+        plays: number
+        solves: number
+        relaxed: number
+      }>()
     return json(
       {
         today: today ? dailyPayload(today, true) : null,
@@ -687,6 +711,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
             title: row.title,
             difficulty: row.difficulty,
             tags,
+            plays: row.plays,
+            solves: row.solves,
             relaxed: row.relaxed === 1,
           }
         }),
@@ -750,6 +776,14 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const lockedId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
   const truthLocked = lockedId ? await isLockedDaily(db, lockedId) : false
   const turn = await askHost(env, store, body, { truthLocked })
+  // 会话路径以前完全不记 plays/solves，所以过期官汤进题库后一直是 0 / 0。
+  // 计数语义和题库那条路一样：按玩家去重，问过算 plays，解开算 solves。
+  if (lockedId) {
+    const current = await viewer(request, env)
+    const playerKey =
+      current.uid ?? (typeof body.playerKey === 'string' ? body.playerKey.slice(0, 64) : 'anon')
+    await recordPlay(db, lockedId, playerKey, turn.solved)
+  }
   await logTurn(db, {
     puzzleId: typeof body.puzzleId === 'string' ? body.puzzleId : '',
     kind: 'session',

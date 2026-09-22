@@ -18,6 +18,10 @@ export interface DailySummary {
   locale: DailyLocale
   /** 实测题材落点：0 本格 · 100 变格；没打过分为 null */
   genreScore: number | null
+  /** 有多少人问过 */
+  plays: number
+  /** 解开的人数；**今天那碗是 null**（免得提前透露有几个人解开了） */
+  solves: number | null
   relaxed: boolean
 }
 

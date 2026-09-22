@@ -1480,7 +1480,13 @@ export interface GenerateProgress {
 export interface PuzzleStore {
   create(
     puzzle: Puzzle,
-    meta: { difficulty: string; createdAt: number; visibility?: 'session' | 'daily' },
+    meta: {
+      difficulty: string
+      createdAt: number
+      visibility?: 'session' | 'daily'
+      /** 官汤也要把标签写进 puzzle 行：题库搜索读的就是这一份 */
+      tags?: string[]
+    },
   ): Promise<string>
   get(id: string): Promise<(Puzzle & { difficulty: string; visibility: string }) | null>
   sweep(olderThan: number): Promise<void>

@@ -312,31 +312,53 @@ export async function askLibraryPuzzle(
   })
 
   const now = Date.now()
+  await recordPlay(db, id, viewerKey, turn.solved, now)
+  return turn
+}
+
+/**
+ * 记一次对局。**两条路都走这里**：题库提问、以及会话路径（现在实际上就是官汤）。
+ *
+ * 语义：`plays` = 按玩家去重后「问过至少一句」的人数，`solves` = 其中解开的人数。
+ * 去重靠 `attempts` 表（`puzzle_id + player_key`）。
+ *
+ * 顺手修了一个老 bug：`solves` 原本只在「这条 attempts 已存在」的分支里加，
+ * 于是**第一句就猜中的玩家只算 plays、不算 solves**。
+ */
+export async function recordPlay(
+  db: D1Like,
+  puzzleId: string,
+  playerKey: string,
+  solved: boolean,
+  now = Date.now(),
+): Promise<void> {
   const existing = await db
     .prepare('SELECT id, solved FROM attempts WHERE puzzle_id = ? AND player_key = ?')
-    .bind(id, viewerKey)
+    .bind(puzzleId, playerKey)
     .first<{ id: string; solved: number }>()
 
   if (!existing) {
     await db
       .prepare(
-        'INSERT INTO attempts (id, puzzle_id, player_key, solved, turns, created_at, updated_at) VALUES (?, ?, ?, 0, 1, ?, ?)',
+        'INSERT INTO attempts (id, puzzle_id, player_key, solved, turns, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)',
       )
-      .bind(crypto.randomUUID(), id, viewerKey, now, now)
+      .bind(crypto.randomUUID(), puzzleId, playerKey, solved ? 1 : 0, now, now)
       .run()
-    await db.prepare('UPDATE puzzles SET plays = plays + 1 WHERE id = ?').bind(id).run()
-  } else {
-    await db
-      .prepare('UPDATE attempts SET turns = turns + 1, updated_at = ? WHERE id = ?')
-      .bind(now, existing.id)
-      .run()
-    if (turn.solved && !existing.solved) {
-      await db.prepare('UPDATE attempts SET solved = 1 WHERE id = ?').bind(existing.id).run()
-      await db.prepare('UPDATE puzzles SET solves = solves + 1 WHERE id = ?').bind(id).run()
+    await db.prepare('UPDATE puzzles SET plays = plays + 1 WHERE id = ?').bind(puzzleId).run()
+    if (solved) {
+      await db.prepare('UPDATE puzzles SET solves = solves + 1 WHERE id = ?').bind(puzzleId).run()
     }
+    return
   }
 
-  return turn
+  await db
+    .prepare('UPDATE attempts SET turns = turns + 1, updated_at = ? WHERE id = ?')
+    .bind(now, existing.id)
+    .run()
+  if (solved && !existing.solved) {
+    await db.prepare('UPDATE attempts SET solved = 1 WHERE id = ?').bind(existing.id).run()
+    await db.prepare('UPDATE puzzles SET solves = solves + 1 WHERE id = ?').bind(puzzleId).run()
+  }
 }
 
 export async function revealLibraryPuzzle(
@@ -395,8 +417,9 @@ export async function createPuzzle(
 export async function scoreUnscoredPuzzles(env: GameEnv, db: D1Like, limit = 5): Promise<number> {
   const { results } = await db
     .prepare(
+      // 官方汤（visibility='daily'）也一起补：它的题材分和题库共用同一份存储
       `SELECT id, title, surface, truth, hint, tags FROM puzzles
-        WHERE visibility = 'public' AND genre_score IS NULL
+        WHERE visibility IN ('public', 'daily') AND genre_score IS NULL
         ORDER BY created_at DESC LIMIT ?`,
     )
     .bind(Math.max(1, Math.min(Math.trunc(limit), 20)))

@@ -58,6 +58,21 @@ function Meta({
   )
 }
 
+/**
+ * 今天这碗只报「多少人在问」，不报解开人数 —— 那等于提前告诉读者这道题有多难。
+ * 过期之后 solves 才有值，就按题库卡片那样报两个数。
+ */
+function Counts({ plays, solves }: { plays: number; solves: number | null }) {
+  const { t } = useI18n()
+  return (
+    <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+      {solves === null
+        ? t('{count} 人正在问', { count: plays })
+        : t('游玩 {plays} · 解开 {solves}', { plays, solves })}
+    </span>
+  )
+}
+
 /** 这碗汤是什么语言写的；读者界面语言未必相同，所以明说一句。顺带报出题材落点。 */
 function LanguageNote({
   locale,
@@ -153,8 +168,9 @@ export function DailyDetailPage({
       label={t('官方汤')}
       title={daily.title}
       meta={
-        <span className="flex items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+        <span className="flex flex-wrap items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
           <span>{daily.date}</span>
+          <Counts plays={daily.plays} solves={daily.solves} />
           <LanguageNote locale={daily.locale} genreScore={daily.genreScore} />
         </span>
       }
@@ -290,7 +306,8 @@ export function DailyIndexPage({
           <div className="px-4 py-5 sm:px-5">
             <h2 className="font-serif text-2xl leading-snug font-semibold">{today.title}</h2>
             <Meta difficulty={today.difficulty} tags={today.tags} locked={today.locked} />
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Counts plays={today.plays} solves={today.solves} />
               <LanguageNote locale={today.locale} genreScore={today.genreScore} />
             </div>
             <div className="mt-5 border-l-2 border-brand/50 pl-4">

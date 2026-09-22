@@ -90,22 +90,18 @@ CREATE TABLE IF NOT EXISTS reports (
 
 CREATE INDEX IF NOT EXISTS idx_reports_created ON reports (created_at DESC);
 
+-- 只存「每日独有」的东西：可玩字段（标题/汤面/汤底/提示/标签/难度/题材分）
+-- 一律以 puzzles 为准，dailies 不再抄一份 —— 抄一份的代价是它会漂移
+-- （tags 就漂过一次，导致过期官汤按标签搜不到）。
 CREATE TABLE IF NOT EXISTS dailies (
   date TEXT PRIMARY KEY,          -- 'YYYY-MM-DD'（UTC）
   puzzle_id TEXT NOT NULL,        -- 可玩的那行 puzzles（visibility='daily'）
-  title TEXT NOT NULL,
-  surface TEXT NOT NULL,
-  truth TEXT NOT NULL,
   story TEXT NOT NULL,            -- 完整故事线，揭晓后展示
-  hint TEXT NOT NULL DEFAULT '',
-  tags TEXT NOT NULL DEFAULT '[]',
-  difficulty TEXT NOT NULL DEFAULT '中等',
   review_json TEXT,               -- Jev 审核的完整结果
-  attempts INTEGER NOT NULL DEFAULT 0,
+  generate_attempts INTEGER NOT NULL DEFAULT 0,  -- 生成了几轮才过审
   relaxed INTEGER NOT NULL DEFAULT 0,  -- 是否放宽阈值后发布
   locale TEXT NOT NULL DEFAULT 'zh-CN', -- 原生写作语言：zh-CN / en / ja
   genre_target INTEGER,           -- 摇到的题材坐标：0 本格 · 100 变格
-  genre_score REAL,               -- 生成后实测的落点（和题库同一把尺子）
   created_at INTEGER NOT NULL
 );
 

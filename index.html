@@ -71,26 +71,35 @@
           }
         }
 
-        function recover() {
-          report('bundle 没能启动，正在重载一次')
+        function recover(reason) {
+          // 只在**真的要重载**时上报。之前把上报放在守卫之前，
+          // 于是每次命中守卫的空操作也记一条 —— 一次测试就把计数刷到 124。
+          var first = false
           try {
-            if (sessionStorage.getItem(KEY) === '1') return
-            sessionStorage.setItem(KEY, '1')
+            if (sessionStorage.getItem(KEY) !== '1') {
+              sessionStorage.setItem(KEY, '1')
+              first = true
+            }
           } catch (error) {
             /* 隐私模式：仍然重载一次 */
           }
+          if (!first) return
+          report(reason)
           location.reload()
         }
         window.addEventListener(
           'error',
           function (event) {
             var el = event.target
-            if (el && (el.tagName === 'SCRIPT' || el.tagName === 'LINK')) recover()
+            // 只认脚本：字体 / 图片 404 不影响启动，不该触发自愈和上报
+            if (el && el.tagName === 'SCRIPT') {
+              recover('模块没能加载（多半是缓存的旧 HTML 引用了已被替换的 bundle）')
+            }
           },
           true,
         )
         window.setTimeout(function () {
-          if (!window.__tsBooted) recover()
+          if (!window.__tsBooted) recover('8 秒内 bundle 没有启动')
         }, 8000)
       })()
     </script>

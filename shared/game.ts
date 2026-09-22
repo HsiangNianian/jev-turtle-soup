@@ -1,6 +1,7 @@
 import { TypeSafeClient, choice, noul, score, type EntryType } from '@typesafe-ai/sdk'
 import OpenAI from 'openai'
 
+import { QQ_GROUP } from './community.ts'
 import { ApiError } from './errors.ts'
 
 export { ApiError }
@@ -686,6 +687,8 @@ const HOST_QUESTIONS = {
       full_answer: 'They want the truth or solution revealed.',
       how_to_play: 'They ask about the rules or how to play.',
       jrrp: 'They ask about their own luck or fortune for today (人品 / 今日人品 / 运势 / 手气), not about the story.',
+      contact:
+        'They ask how to give feedback, report a problem, or reach the people behind the game (怎么反馈 / 联系方式 / 有没有群 / 找你们).',
       none: 'The player is not talking about the game itself.',
     },
   ),
@@ -765,6 +768,8 @@ interface HostCopy {
   partlyStatement: string
   irrelevantStatement: string
   unclear: string
+  /** 被问到怎么反馈 / 怎么找我们时，把读者群报出去 */
+  contact: string
   luckMissing: string
   luck: (luck: LuckInfo) => string
 }
@@ -924,6 +929,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     partlyStatement: '一半对一半：方向是对的，细节不对。',
     irrelevantStatement: '这和真相没有关系。',
     unclear: '主持人没太听懂。你可以问一个是非题，或者直接说出你的推理。',
+    contact: `砚从桌角抽出一张纸条推过来：「有事要找我？编辑部在群里——${QQ_GROUP.name}，群号 ${QQ_GROUP.number}。链接就在下面，点一下就能进。」`,
     luckMissing:
       '主持人翻了翻手边的册子，又合上了：「今日人品得在首页那格日历上看——你刷新一下再来问我。」',
     luck: (luck) => luckLine('zh-CN', luck),
@@ -954,6 +960,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     partlyStatement: 'Half right: the direction is right, the detail is not.',
     irrelevantStatement: 'That has nothing to do with it.',
     unclear: 'The host did not quite follow. Ask a yes-or-no question, or state your theory.',
+    contact: `The host slides a slip of paper across the desk. “Want to reach us? There is an editorial group — ${QQ_GROUP.name}, number ${QQ_GROUP.number}. The link is below. Fair warning: it is a Chinese-language group.”`,
     luckMissing:
       'The host leafs through a small notebook and closes it. “Today’s luck is on the calendar on the front page — refresh and ask me again.”',
     luck: (luck) => luckLine('en', luck),
@@ -983,6 +990,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     partlyStatement: '半分正解です。方向は合っていますが、細部が違います。',
     irrelevantStatement: 'それは真相と関係ありません。',
     unclear: '司会にはよく伝わらなかったようです。はい／いいえの質問か、推理を述べてください。',
+    contact: `司会が机の端から紙切れを差し出した。「連絡したい？ 編集部のグループがある——${QQ_GROUP.name}、グループ番号 ${QQ_GROUP.number}。リンクは下にあります。ただし中国語のグループです。」`,
     luckMissing:
       '司会は手元の帳面をめくり、閉じた。「今日の運勢はホームの暦にあります。更新してもう一度訊いてください。」',
     luck: (luck) => luckLine('ja', luck),
@@ -1057,6 +1065,16 @@ function handleMeta(
       reply: copy.howToPlay,
     }
   }
+  if (kind === 'contact') {
+    return {
+      intent: 'meta',
+      verdict: 'contact',
+      solved: false,
+      revealed: false,
+      reply: copy.contact,
+    }
+  }
+
   if (kind === 'jrrp') {
     return {
       intent: 'meta',

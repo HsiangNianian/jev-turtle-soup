@@ -146,6 +146,23 @@ export function Transcript({ messages, asking }: { messages: ChatMessage[]; aski
                 </span>
               )}
             </div>
+            {/*
+              砚把群报出来的时候，顺手给一个真能点的链接。
+              回复文本里只有群名和群号（纯文本，粘不动），链接由客户端拼 —— 群数据
+              和链接样式都只有一处定义，而且走离站页（那儿有专门的客气文案）。
+            */}
+            {!isPlayer && message.verdict === 'contact' ? (
+              <p className="mt-2 flex flex-wrap items-center gap-x-3 font-mono text-[10px] tracking-[0.14em]">
+                <span className="text-muted-foreground">{t('编辑部群')}</span>
+                <ExternalLink
+                  href={QQ_GROUP.href}
+                  className="text-muted-foreground underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+                >
+                  {QQ_GROUP.number}
+                </ExternalLink>
+                <span className="text-muted-foreground/50">{QQ_GROUP.name}</span>
+              </p>
+            ) : null}
           </Row>
         )
       })}

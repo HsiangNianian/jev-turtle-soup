@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Eye, Flag, Lightbulb, Lock, Wand2 } from 'lucide-react'
 
+import { ExternalLink } from '@/components/Link'
 import { TurnDebug } from '@/components/TurnDebug'
+import { QQ_GROUP, showsGroupInvite } from '@/lib/community'
 import type { ChatMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { translateFor, useI18n } from '@/lib/i18n'
@@ -174,7 +176,7 @@ export function ChatPanel({
   onQuick,
   onReport,
 }: ChatPanelProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [input, setInput] = useState('')
   const [reporting, setReporting] = useState(false)
   const [note, setNote] = useState('')
@@ -294,6 +296,18 @@ export function ChatPanel({
             </div>
             {reportState === 'error' && reportError ? (
               <p className="mt-2 font-mono text-[10px] text-stamp">{reportError}</p>
+            ) : null}
+            {/* 玩家本来就在找我们说话，群是最快的渠道 */}
+            {showsGroupInvite(locale) ? (
+              <p className="mt-3 font-mono text-[10px] leading-6 tracking-[0.12em] text-muted-foreground/70">
+                {t('想直接说？进编辑部群：')}
+                <ExternalLink
+                  href={QQ_GROUP.href}
+                  className="text-muted-foreground underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+                >
+                  {QQ_GROUP.number}
+                </ExternalLink>
+              </p>
             ) : null}
           </div>
         ) : null}

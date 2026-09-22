@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 
 import { Button, Notice, PageShell } from '@/components/Bits'
+import { isCommunityLink, QQ_GROUP } from '@/lib/community'
 import { isInternalUrl, isSafeUrl } from '@/lib/external'
 import { useI18n } from '@/lib/i18n'
 import { navigate } from '@/lib/router'
@@ -21,6 +22,7 @@ export function LeavingPage() {
   }, [target, internal])
 
   const safe = isSafeUrl(target) && !internal
+  const community = safe && isCommunityLink(target)
 
   let host = ''
   try {
@@ -33,11 +35,20 @@ export function LeavingPage() {
     <PageShell label={t('站外链接')} title={safe ? t('即将离开本站') : t('这个链接不能用')}>
       {safe ? (
         <>
-          <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-            {t(
-              '你要去的是另一个网站，不是海龟汤调查局的一部分。我们不控制它的内容，也不对它的隐私做法负责。',
-            )}
-          </p>
+          {community ? (
+            <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
+              {t(
+                '这是本站的读者群「{group}」，只是它开在 QQ 上——那边的内容和隐私做法归腾讯管，我们控制不了。群号 {number}，也可以直接在 QQ 里搜。',
+                { group: QQ_GROUP.name, number: QQ_GROUP.number },
+              )}
+            </p>
+          ) : (
+            <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
+              {t(
+                '你要去的是另一个网站，不是海龟汤调查局的一部分。我们不控制它的内容，也不对它的隐私做法负责。',
+              )}
+            </p>
+          )}
 
           <div className="mt-5 border border-foreground/25 bg-card px-4 py-3.5">
             <div className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">

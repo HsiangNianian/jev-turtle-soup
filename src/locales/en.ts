@@ -330,4 +330,12 @@ export const en: Record<string, string> = {
     'You have not opened this one yet. Question it first — once you solve or reveal it, the truth and the full story come back to this page.',
   '解释汤面': 'explains',
   '{count} 人问过': '{count} have asked',
+  '编辑部群': 'Editorial group',
+  '想直接说？进编辑部群：': 'Rather just tell us? Join the editorial group: ',
+  '群号 {number}': 'Group {number}',
+  '点这里加入': 'Join here',
+  '这是本站的读者群「{group}」，只是它开在 QQ 上——那边的内容和隐私做法归腾讯管，我们控制不了。群号 {number}，也可以直接在 QQ 里搜。':
+    'This is the site’s reader group, “{group}”. It lives on QQ, so what happens there — content and privacy included — is Tencent’s to manage, not ours. Group {number}; you can also search for it inside QQ.',
+  '群里是写汤和玩汤的人：出题讨论、判读纠错、催更，以及「这道汤到底该怎么问」。':
+    'It is where the people who write and play these puzzles hang out: puzzle talk, judging corrections, pestering for more, and “how on earth am I supposed to ask this one”.',
 }

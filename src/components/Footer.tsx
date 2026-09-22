@@ -1,4 +1,5 @@
 import { ExternalLink, Link } from '@/components/Link'
+import { QQ_GROUP, showsGroupInvite } from '@/lib/community'
 import { useI18n } from '@/lib/i18n'
 
 const SISTER_SITES = [
@@ -16,7 +17,7 @@ const INNER_LINKS = [
 ]
 
 export function Footer() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   return (
     <footer className="mx-auto mt-16 w-full max-w-3xl px-5 pb-10 sm:px-6">
       <div className="border-t border-foreground/25 pt-6">
@@ -54,6 +55,20 @@ export function Footer() {
             {t('工作室')}
           </ExternalLink>
         </div>
+
+        {/* 读者群只给中文界面看：群是中文社区 */}
+        {showsGroupInvite(locale) ? (
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.16em]">
+            <span className="text-muted-foreground/50">{t('编辑部群')}</span>
+            <ExternalLink
+              href={QQ_GROUP.href}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {QQ_GROUP.number}
+            </ExternalLink>
+            <span className="text-muted-foreground/40">{QQ_GROUP.name}</span>
+          </div>
+        ) : null}
 
         <div className="mt-5 border-t border-dashed border-foreground/20 pt-4">
           <span className="font-mono text-[9px] tracking-[0.16em] text-muted-foreground/55">

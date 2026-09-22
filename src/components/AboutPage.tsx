@@ -1,11 +1,12 @@
 import { ExternalLink, Link } from '@/components/Link'
 import { PageShell } from '@/components/Bits'
+import { QQ_GROUP, showsGroupInvite } from '@/lib/community'
 import { useI18n } from '@/lib/i18n'
 
 const HOW_TO_PLAY = [
   {
     step: '出题',
-    body: '挑一个难度，再想想这碗汤要不要沾点鬼神，AI 就会写出一则完整的海龟汤。它分成两半：摆在你面前的怪事叫「汤面」，藏起来的真相叫「汤底」。',
+    body: '题目有两个来源：别人写好放进题库的，和每天定时熬一碗的官方汤。每则都分成两半：摆在你面前的怪事叫「汤面」，藏起来的真相叫「汤底」。',
   },
   {
     step: '盘问',
@@ -37,7 +38,7 @@ const DATA = [
 ]
 
 export function AboutPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   return (
     <PageShell
       label={t('关于')}
@@ -86,6 +87,30 @@ export function AboutPage() {
           </li>
         ))}
       </ul>
+
+      {/* 读者群只给中文界面看 */}
+      {showsGroupInvite(locale) ? (
+        <>
+          <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+            {t('编辑部群')}
+          </div>
+          <p className="mt-3 max-w-xl font-serif text-[14px] leading-7 text-foreground/80">
+            {t('群里是写汤和玩汤的人：出题讨论、判读纠错、催更，以及「这道汤到底该怎么问」。')}
+          </p>
+          <p className="mt-2 flex flex-wrap items-center gap-x-3 font-mono text-[11px] tracking-[0.14em]">
+            <span className="text-muted-foreground">
+              {t('群号 {number}', { number: QQ_GROUP.number })}
+            </span>
+            <ExternalLink
+              href={QQ_GROUP.href}
+              className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
+            >
+              {t('点这里加入')}
+            </ExternalLink>
+            <span className="text-muted-foreground/50">{QQ_GROUP.name}</span>
+          </p>
+        </>
+      ) : null}
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
         {t('我们存了什么')}

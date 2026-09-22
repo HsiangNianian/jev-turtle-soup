@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.33.1 - 2026-09-22
+
+### Fixes
+
+- Hide the synced notice after three seconds, and show it again when a new save starts syncing.
+- Keep syncing, offline, authentication, failure, and unsaved-progress notices visible until resolved.
+
 ## 0.33.0 - 2026-09-22
 
 ### Features

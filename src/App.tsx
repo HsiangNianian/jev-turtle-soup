@@ -14,6 +14,7 @@ import { CaseDrawer } from '@/components/CaseDrawer'
 import { LocaleMenu, ThemeToggle } from '@/components/Controls'
 import { Footer } from '@/components/Footer'
 import { Landing } from '@/components/Landing'
+import { SyncNotice } from '@/components/SyncNotice'
 
 /**
  * 首屏只留「打开首页真正需要的东西」：外壳、首页、页脚。
@@ -1026,40 +1027,7 @@ function GameApp({
       ) : null}
 
       {user || syncState.status === 'storage' ? (
-        <div
-          role="status"
-          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-foreground/20 px-4 py-1.5 font-mono text-[11px] sm:px-6"
-        >
-          <Cloud className="size-3.5" />
-          <span>
-            {t(
-              {
-                local: '已保存在本机',
-                syncing: '同步中',
-                synced: '已同步',
-                offline: '等待联网',
-                error: '同步失败',
-                auth: '同步失败：请重新登录',
-                storage: '进度尚未保存：本机存储不可用',
-              }[syncState.status],
-            )}
-          </span>
-          {syncState.status === 'error' ? (
-            <span>
-              {t(
-                syncState.httpStatus === 429 || (syncState.httpStatus ?? 0) >= 500
-                  ? '稍后自动重试'
-                  : '服务器拒绝存档，请重试或减少单局内容',
-              )}{' '}
-              ({syncState.httpStatus})
-            </span>
-          ) : null}
-          {['offline', 'error', 'auth', 'storage'].includes(syncState.status) ? (
-            <button type="button" onClick={onRetry} className="underline underline-offset-2">
-              {t('重试同步')}
-            </button>
-          ) : null}
-        </div>
+        <SyncNotice key={syncState.status} state={syncState} onRetry={onRetry} />
       ) : null}
 
       {synced > 0 && syncState.status !== 'storage' ? (

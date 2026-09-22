@@ -33,7 +33,8 @@ export interface ScoreDebug {
 export interface DebugInfo {
   intent: ChoiceDebug
   verdict: ChoiceDebug
-  solved: number
+  /** 玩家这句话有没有解释掉汤面里那个反常（通关判定用的就是它） */
+  explainsSurface: number
   closeness: ScoreDebug
   metaRequest: {
     choice: string
@@ -46,6 +47,8 @@ export interface DebugInfo {
   /** 一致性自查：本次回答是否与已确立的结论矛盾、是否与某条重复 */
   contradictsEarlier?: { noul: number }
   matchesEarlier?: { choice: string; confidence: number }
+  /** 问的是某条结论的反面时，复用并取反的那条 */
+  oppositeOf?: { choice: string; confidence: number }
 }
 
 export interface HostTurn {

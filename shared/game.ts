@@ -329,6 +329,16 @@ export interface EstablishedFact {
 const MAX_ESTABLISHED = 40
 const MAX_CANDIDATES = 5
 const VERDICT_CHOICES = ['yes', 'no', 'partly', 'irrelevant']
+/**
+ * 「解释掉汤面那个反常」到这个程度就算通关。
+ *
+ * 0.5 是实测出来的，不是拍的：拿日志里真实的玩家发言回放（零点零五分那一碗），
+ * 说对了的落在 0.61 / 0.63 / 0.64 / 0.89 / 0.93 / 0.94 / 0.97，
+ * 说错了的落在 0.03 ~ 0.40（最高的那条是「电子锁的时区是坏的」）。
+ * 0.5 正好落在这段空档里，两边各留约 0.1 的余量。
+ * 判赢会直接揭晓汤底，所以宁可让阈值贴着正确那侧的下沿，也不要放到错误那侧的上沿。
+ */
+const SOLVE_THRESHOLD = 0.5
 /** 反面问题的答案：是↔不是；「是，也不是」与「无关」取反后仍是自己。 */
 const INVERTED_VERDICT: Record<string, string> = {
   yes: 'no',
@@ -622,21 +632,32 @@ const HOST_QUESTIONS = {
       false: 'The key twist is missing or named incorrectly.',
     },
   ),
-  solved: noul(
+  /*
+   * 通关判定：问的是「有没有解释掉汤面里那个反常」，而不是「是不是把真相一字不差说全了」。
+   * 旧问法（fully and correctly state the core truth）会把说对了核心、但没顺带讲清
+   * 机制的答案扣成不及格 —— 实测有人答出「她加班到凌晨12:05回家自己开了门锁」
+   * （正是答案），却只拿到 0.28，于是被回了一句「还差最后一块关键拼图」，
+   * 去追一块并不存在的拼图。
+   */
+  explains_surface: noul(
     {
       question:
-        'Does `latest_player_message` fully and correctly state the core truth in `puzzle.truth`?',
-      compare: ['latest_player_message', 'puzzle.truth'],
-      focus: 'The core plot and the key twist must both be correct. Different wording is fine.',
+        'Does `latest_player_message` explain the anomaly that `puzzle.surface` describes — the one thing that makes the surface strange?',
+      compare: ['latest_player_message', 'puzzle.surface', 'puzzle.truth'],
+      focus:
+        'Judge whether the player has identified WHY the surface is strange, not whether every step and side detail is spelled out. If the player states the thing that resolves the surface’s oddity, that is a true. Wording and extra detail do not matter; a statement that only restates the surface, or explains something else, is a false.',
     },
     {
       true: {
-        what: 'The message states the core truth and the key twist correctly.',
-        examples: ['The whole explanation is right.'],
+        what: 'The message resolves the surface’s central oddity.',
+        examples: [
+          'It names the real cause of the strange event.',
+          'It gives the answer in the player’s own words, without the full mechanism.',
+        ],
       },
       false: {
-        what: 'The message misses a key fact, gets the twist wrong, or is only partly right.',
-        examples: ['Only a surface-level guess is right.'],
+        what: 'The message restates the surface, or explains something other than the oddity.',
+        examples: ['It describes the puzzle back without resolving it.'],
       },
     },
   ),
@@ -690,7 +711,7 @@ interface HostAnswers {
   motive_correct: NoulAnswer
   method_correct: NoulAnswer
   twist_correct: NoulAnswer
-  solved: NoulAnswer
+  explains_surface: NoulAnswer
   meta_request: ChoiceAnswer
 }
 
@@ -1076,7 +1097,11 @@ export function composeTurn(
     // 接近度由三个维度加权而来（反转权重最高），进度条和文案都用它
     const closeness = Math.min(1, 0.25 * motive + 0.3 * method + 0.45 * twist)
     // 通关判定：整体判断通过，或者三块都咬得很死
-    const solved = answers.solved.noul >= 0.7 || (twist >= 0.85 && motive >= 0.7 && method >= 0.5)
+    // 一条规则就够：这句话有没有解释掉那个反常。
+    // （原来还有一条「三个维度都咬得很死」的备选，实测它对正确/错误没有额外分辨力，
+    //   反而多开一个误判赢的口子，去掉。）
+    const explainsSurface = answers.explains_surface.noul
+    const solved = explainsSurface >= SOLVE_THRESHOLD
     if (solved) {
       return {
         intent,
@@ -1084,7 +1109,7 @@ export function composeTurn(
         solved: true,
         revealed: true,
         closeness,
-        confidence: answers.solved.noul,
+        confidence: explainsSurface,
         reply: copy.solved,
       }
     }
@@ -1252,7 +1277,7 @@ function buildDebug(answers: HostAnswers) {
       gap: PARTLY_NUDGE_GAP,
       partlyProbability: answers.verdict.probabilities?.partly ?? 0,
     },
-    solved: answers.solved.noul,
+    explainsSurface: answers.explains_surface.noul,
     closeness: {
       score:
         Math.round(

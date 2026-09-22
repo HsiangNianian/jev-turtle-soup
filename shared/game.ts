@@ -348,6 +348,12 @@ const REPEAT_FLOOR = 0.6
  * 新判读要是本来就拿不准，就说「拿不准」，而不是给出一个自相矛盾的答案。
  */
 const CONTRADICTION_FLOOR = 0.8
+/**
+ * 推理猜测里「说出倾向」的最低概率：领先选项占到这么多才提它。
+ * 实测那条卡住的例子是「是 44% / 不是 38%」—— 44% 该说出来，
+ * 再低就真是掷硬币了，提了反而误导。
+ */
+const LEAN_FLOOR = 0.4
 const CONTRADICTION_VERDICT_FLOOR = 0.75
 /** 反面问题的答案：是↔不是；「是，也不是」与「无关」取反后仍是自己。 */
 const INVERTED_VERDICT: Record<string, string> = {
@@ -760,6 +766,8 @@ interface HostCopy {
   closeHigh: string
   closeMid: string
   closeLow: string
+  /** 判读不够笃定、但有个明显领先的选项时：把那个倾向和冷热提示一起说 */
+  guessWithVerdict: (word: string, note: string) => string
   /** 玩家陈述的是「一个判断」而不是一套理论时，按判断本身的真假回答 */
   affirm: string
   deny: string
@@ -919,6 +927,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     hint: (hint) => `主持人压低声音说了一句提示：「${hint}」`,
     reveal: '好吧，既然你坚持——这就是真相。',
     solved: '……没错，就是这样。你完全还原了真相，这一碗被你喝到底了。',
+    guessWithVerdict: (word, note) => `${word}——${note}`,
     closeHigh: '已经很接近了！核心抓住了，但还差最后一块关键拼图。',
     closeMid: '沾到一点边了，方向可以再往关键的地方想想。',
     closeLow: '嗯……这个说法和真相差得有点远，再换条线索想想。',
@@ -950,6 +959,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     hint: (hint) => `The host lowers his voice: “${hint}”`,
     reveal: 'All right, if you insist — this is what really happened.',
     solved: '…yes, exactly. You have the whole truth; this bowl is finished.',
+    guessWithVerdict: (word, note) => `${word} — ${note}`,
     closeHigh: 'Very close! You have the core of it, but one key piece is still missing.',
     closeMid: 'You are brushing against it — steer toward the crucial detail.',
     closeLow: 'Hmm… that is rather far from the truth. Try another thread.',
@@ -980,6 +990,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     hint: (hint) => `司会が声を落として言った。「${hint}」`,
     reveal: 'わかりました、そこまで言うなら——これが真相です。',
     solved: '……そのとおり。あなたは真相を言い当てました。この一杯は飲みきられました。',
+    guessWithVerdict: (word, note) => `${word}——${note}`,
     closeHigh: 'かなり近い！芯は掴めていますが、あと一枚だけ重要なピースが足りません。',
     closeMid: '少し触れています。核心に寄せていってください。',
     closeLow: 'うーん……それは真相からだいぶ遠いですね。別の糸をたどってみては。',
@@ -1156,8 +1167,32 @@ export function composeTurn(
       }
     }
 
-    const reply =
+    const note =
       closeness >= 0.66 ? copy.closeHigh : closeness >= 0.33 ? copy.closeMid : copy.closeLow
+
+    /*
+     * 判读不够笃定（置信度 < 0.5），但概率上有个明显领先的选项时，
+     * 别把那个倾向整个丢掉、只回一句冷热 —— 玩家看着「差得有点远」，
+     * 而模型其实倾向「是」，两边读起来是打架的。
+     * 这时候说「是——嗯……差得有点远」：既是判读，也是提醒他的推理还差得远。
+     *
+     * 注意这不影响判赢（判赢看的是 solved / 三个维度），只是把回复说清楚。
+     */
+    const ranked = Object.entries(answers.verdict.probabilities ?? {}).sort((a, b) => b[1] - a[1])
+    const [leanChoice, leanProb] = ranked[0] ?? ['', 0]
+    if (VERDICT_CHOICES.includes(leanChoice) && leanProb >= LEAN_FLOOR) {
+      const word = (copy.verdict[leanChoice] ?? leanChoice).replace(/[。.]$/, '')
+      return {
+        intent,
+        verdict: 'partial',
+        solved: false,
+        revealed: false,
+        closeness,
+        confidence: closeness,
+        reply: copy.guessWithVerdict(word, note),
+      }
+    }
+
     return {
       intent,
       verdict: 'partial',
@@ -1165,7 +1200,7 @@ export function composeTurn(
       revealed: false,
       closeness,
       confidence: closeness,
-      reply,
+      reply: note,
     }
   }
 

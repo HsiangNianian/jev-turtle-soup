@@ -27,7 +27,9 @@ import {
   authorActivity,
   authorSummary,
   countAuthorSocial,
+  countUnreadActivity,
   listOwnPuzzles,
+  markActivitySeen,
   recognise,
 } from '../shared/author.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
@@ -646,6 +648,24 @@ async function routeMe(
     const current = await requireUser(request, env)
     const limit = Number(url.searchParams.get('limit') ?? '30')
     return json({ items: await authorActivity(db, current.uid, limit) })
+  }
+
+  // 未读动态数：动态看到哪了记在 users.activity_seen_at
+  if (pathname === '/api/me/notifications') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const current = await requireUser(request, env)
+    const row = await db
+      .prepare('SELECT activity_seen_at FROM users WHERE id = ?')
+      .bind(current.uid)
+      .first<{ activity_seen_at: number | null }>()
+    const unread = await countUnreadActivity(db, current.uid, row?.activity_seen_at ?? null)
+    return json({ unread })
+  }
+  if (pathname === '/api/me/notifications/seen') {
+    if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+    const current = await requireUser(request, env)
+    await markActivitySeen(db, current.uid)
+    return json({ ok: true })
   }
 
   return null

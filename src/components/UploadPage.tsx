@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
 import { Link } from '@/components/Link'
 import { navigate } from '@/lib/router'
-import { SUPERNATURAL_TAG, createPuzzle } from '@/lib/library-client'
+import { SUPERNATURAL_TAG, createPuzzle, type PuzzleIssue } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -39,8 +39,16 @@ function readDraft(): Partial<UploadDraft> | null {
   }
 }
 
+/** 体检结论的四种小标签，和《怎么写一碗好汤》里的「常见毛病」同名。 */
+const REVIEW_LABEL: Record<string, string> = {
+  spoiler: '汤面剧透',
+  unexplained: '细节没交代',
+  unsolvable: '问不出来',
+  no_unique: '没有唯一解',
+}
+
 export function UploadPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   // 只读一次草稿，用它给每个字段定初值
   const [draft] = useState(readDraft)
   const [title, setTitle] = useState(draft?.title ?? '')
@@ -54,6 +62,12 @@ export function UploadPage() {
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 发布前体检的结果：有它就先停在这一屏，让作者看一眼再走
+  const [review, setReview] = useState<{
+    id: string
+    visibility: 'public' | 'private'
+    issues: PuzzleIssue[]
+  } | null>(null)
 
   // 每次改动都存一份，随时被打断也不丢
   useEffect(() => {
@@ -95,11 +109,17 @@ export function UploadPage() {
           .map((tag) => tag.replace(/^#/, '').trim())
           .filter(Boolean),
         visibility,
+        locale,
       })
       try {
         localStorage.removeItem(DRAFT_KEY)
       } catch {
         /* 隐私模式下忽略 */
+      }
+      // 体检有问题就先展示，作者看完再决定去哪
+      if (created.review?.length) {
+        setReview({ id: created.id, visibility, issues: created.review })
+        return
       }
       navigate(visibility === 'public' ? `/library/${created.id}` : '/me')
     } catch (caught) {
@@ -107,6 +127,48 @@ export function UploadPage() {
     } finally {
       setBusy(false)
     }
+  }
+
+  // 体检结果先占一屏：看一眼再决定去哪，不让它埋进别的内容里
+  if (review) {
+    return (
+      <PageShell label={t('上传')} title={t('发布前体检')}>
+        <p className="mt-5 max-w-xl font-serif text-[15px] leading-8 text-foreground/75">
+          {t('碗已经发出去了。这是 Jev 看出来的几个小问题，下次写的时候可以参考。')}
+        </p>
+        <ul className="mt-6">
+          {review.issues.map((issue, index) => (
+            <li
+              key={`${issue.kind}-${index}`}
+              className="flex items-start gap-3 border-t border-dashed border-foreground/20 py-3"
+            >
+              <span className="shrink-0 border border-foreground/30 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.12em] text-muted-foreground">
+                {t(REVIEW_LABEL[issue.kind] ?? issue.kind)}
+              </span>
+              <span className="font-serif text-[14px] leading-7">{issue.detail}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() =>
+              navigate(review.visibility === 'public' ? `/library/${review.id}` : '/me')
+            }
+          >
+            {t('知道了，去看看')}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setReview(null)
+              navigate('/me')
+            }}
+          >
+            {t('回我的题库')}
+          </Button>
+        </div>
+      </PageShell>
+    )
   }
 
   return (

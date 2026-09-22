@@ -89,6 +89,7 @@ import {
 import { submitReport } from '@/lib/report-client'
 import {
   askLibraryPuzzle,
+  fetchUnread,
   listPuzzles,
   revealLibraryPuzzle,
   type LibraryPuzzleDetail,
@@ -133,6 +134,8 @@ export default function App() {
   const [health, setHealth] = useState<HealthInfo | null>(null)
   // 先按上次记下的登录态渲染，首屏不用等 /api/auth/me
   const [user, setUser] = useState<AuthUser | null>(() => cachedUser())
+  // 作者的未读动态：页头给一个小红点
+  const [unread, setUnread] = useState(0)
   const [games, setGames] = useState<ArchivedGame[]>(initialGames)
 
   const [session, setSession] = useState<GameSession | null>(() =>
@@ -156,6 +159,21 @@ export default function App() {
       .then(setUser)
       .catch(() => setUser(null))
   }, [])
+
+  // 未读动态：登录后拉一次；进「我的题库」时会清零。
+  // 登出时不必手动清零 —— 红点只在 user 存在时渲染，状态留着也无妨。
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    fetchUnread()
+      .then((count) => {
+        if (alive) setUnread(count)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [user])
 
   const todayLuck = useMemo(() => {
     const luck = dailyLuck(todayKey(), window.location.host, getDeviceId())
@@ -557,6 +575,8 @@ export default function App() {
     [session, locale, turnCount, closeness, solved, revealed, messages],
   )
 
+  const clearUnread = useCallback(() => setUnread(0), [])
+
   const handleLogin = useCallback((next: AuthUser) => {
     setUser(next)
     if (next) rememberUser(next)
@@ -740,6 +760,7 @@ export default function App() {
             <MePage
               handle={user.handle ?? user.name ?? user.email}
               isAdmin={Boolean(user.isAdmin)}
+              onSeen={clearUnread}
               onLogout={() => void handleLogout()}
             />
           ) : (
@@ -826,9 +847,16 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => navigate('/me')}
-                className="max-w-[4.5rem] truncate tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:tracking-[0.16em]"
+                className="relative max-w-[4.5rem] truncate tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:tracking-[0.16em]"
               >
                 {user.name || user.email}
+                {unread > 0 ? (
+                  <span
+                    aria-label={t('有新动态')}
+                    title={t('有新动态')}
+                    className="absolute -top-1 -right-2 size-1.5 rounded-full bg-stamp"
+                  />
+                ) : null}
               </button>
             ) : (
               <Link to="/login" className="opacity-80 transition-opacity hover:opacity-60">

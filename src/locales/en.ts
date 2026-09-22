@@ -320,6 +320,13 @@ export const en: Record<string, string> = {
   '百人问过': '100 players',
   '被赞过': 'Liked',
   '有留言': 'Comments',
+  '发布前体检': 'Pre-publish check',
+  '碗已经发出去了。这是 Jev 看出来的几个小问题，下次写的时候可以参考。':
+    'It is already published. These are a few small things Jev noticed — worth keeping in mind next time.',
+  '知道了，去看看': 'Got it, take a look',
+  '有新动态': 'New activity',
+  '回我的题库': 'Back to my puzzles',
+  '问不出来': 'Unaskable',
   '案卷 NO.{no}': 'Case file no. {no}',
   '游玩 {plays}': '{plays} plays',
   '游玩 {plays} · 解开 {solves}': '{plays} plays · {solves} solved',

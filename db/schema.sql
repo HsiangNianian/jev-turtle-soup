@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS users (
   -- 资料修改冷却：NULL = 从没改过（注册时自动生成的不算），随时可改
   handle_changed_at INTEGER,
   display_name_changed_at INTEGER,
-  bio_changed_at INTEGER
+  bio_changed_at INTEGER,
+  -- 动态看到哪了：算未读徽章用。NULL = 从没看过（当作没有未读）
+  activity_seen_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS puzzles (

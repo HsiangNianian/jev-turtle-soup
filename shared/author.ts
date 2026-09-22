@@ -211,6 +211,42 @@ export function recognise(counts: RecognitionCounts): Recognition {
   return { ...counts, badges: deriveBadges(counts) }
 }
 
+/**
+ * 未读动态数：和动态流同一批来源，只数「比 seen 晚」的。
+ * seen 为 null（从没看过）时返回 0 —— 上线那一刻不该给所有人弹一个红点。
+ */
+export async function countUnreadActivity(
+  db: D1Like,
+  uid: string,
+  seen: number | null,
+): Promise<number> {
+  if (!seen) return 0
+  const row = await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM attempts a JOIN puzzles p ON p.id = a.puzzle_id
+           WHERE p.owner_id = ? AND a.created_at > ?)
+       + (SELECT COUNT(*) FROM attempts a JOIN puzzles p ON p.id = a.puzzle_id
+           WHERE p.owner_id = ? AND a.solved = 1 AND a.updated_at > ?)
+       + (SELECT COUNT(*) FROM comments c JOIN puzzles p ON p.id = c.target_id
+           WHERE c.target_type = 'puzzle' AND p.owner_id = ? AND c.created_at > ?)
+       + (SELECT COUNT(*) FROM likes l JOIN puzzles p ON p.id = l.target_id
+           WHERE l.target_type = 'puzzle' AND p.owner_id = ? AND l.created_at > ?)
+       + (SELECT COUNT(*) FROM comments c
+           WHERE c.target_type = 'profile' AND c.target_id = ? AND c.created_at > ?)
+       + (SELECT COUNT(*) FROM likes l
+           WHERE l.target_type = 'profile' AND l.target_id = ? AND l.created_at > ?) AS n`,
+    )
+    .bind(uid, seen, uid, seen, uid, seen, uid, seen, uid, seen, uid, seen)
+    .first<{ n: number }>()
+  return Number(row?.n) || 0
+}
+
+/** 记下「动态看到这里了」。 */
+export async function markActivitySeen(db: D1Like, uid: string, at = Date.now()): Promise<void> {
+  await db.prepare('UPDATE users SET activity_seen_at = ? WHERE id = ?').bind(at, uid).run()
+}
+
 export async function authorActivity(
   db: D1Like,
   uid: string,

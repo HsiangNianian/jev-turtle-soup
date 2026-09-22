@@ -8,6 +8,7 @@ import {
   deletePuzzle,
   fetchAuthorActivity,
   listMyPuzzles,
+  markActivitySeen,
   updatePuzzle,
   type AuthorEvent,
   type AuthorSummary,
@@ -52,10 +53,13 @@ function StatCell({ label, value }: { label: string; value: string | number }) {
 export function MePage({
   handle,
   isAdmin = false,
+  onSeen,
   onLogout,
 }: {
   handle: string
   isAdmin?: boolean
+  /** 进到这一页就算把动态看过了：清掉页头红点 */
+  onSeen?: () => void
   onLogout: () => void
 }) {
   const { t } = useI18n()
@@ -80,7 +84,11 @@ export function MePage({
     fetchAuthorActivity()
       .then(setActivity)
       .catch(() => setActivity([]))
-  }, [t])
+    // 打开这一页就算看过动态了
+    markActivitySeen()
+      .then(() => onSeen?.())
+      .catch(() => undefined)
+  }, [t, onSeen])
 
   async function toggle(puzzle: OwnPuzzle) {
     setBusyId(puzzle.id)

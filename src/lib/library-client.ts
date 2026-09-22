@@ -143,6 +143,13 @@ export interface PuzzleInput {
   difficulty: string
   tags: string[]
   visibility: 'public' | 'private'
+  /** 上传体检按这个语言回话 */
+  locale?: string
+}
+
+export interface PuzzleIssue {
+  kind: 'spoiler' | 'unexplained' | 'unsolvable' | 'no_unique'
+  detail: string
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -261,7 +268,7 @@ export function revealLibraryPuzzle(id: string, locale: string) {
 }
 
 export function createPuzzle(input: PuzzleInput) {
-  return request<{ id: string }>('/api/library/puzzles', {
+  return request<{ id: string; review: PuzzleIssue[] | null }>('/api/library/puzzles', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -288,6 +295,16 @@ export function listMyPuzzles() {
 
 export function fetchAuthorActivity() {
   return request<{ items: AuthorEvent[] }>('/api/me/activity?limit=30').then((data) => data.items)
+}
+
+/** 未读动态数：页头红点用。 */
+export function fetchUnread() {
+  return request<{ unread: number }>('/api/me/notifications').then((data) => data.unread)
+}
+
+/** 进入「我的题库」时把动态标记为已读。 */
+export function markActivitySeen() {
+  return request<{ ok: boolean }>('/api/me/notifications/seen', { method: 'POST' })
 }
 
 export function getMyProfile() {

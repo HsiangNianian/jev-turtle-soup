@@ -2,6 +2,7 @@ import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
 import { askError, judge, readLocale, rerankCandidates, scoreGenre, type GameEnv } from './game.ts'
 import { countAuthorSocial, recognise } from './author.ts'
+import { reviewPuzzle } from './review.ts'
 import { logTurn } from './logs.ts'
 import { utcDateKey } from './daily.ts'
 
@@ -408,8 +409,13 @@ export async function createPuzzle(
     visibility: visibility(body.visibility),
   }
   const id = crypto.randomUUID()
-  // 题材坐标：发布时让 Jev 判一次，判不了就退回标签估算
-  const genreScore = (await scoreGenre(env, puzzle)) ?? genreFromTags(puzzle.tags)
+  // 两件独立的事一次并发：题材打分 + 发布前体检。串行会让上传等两倍。
+  const [genre, review] = await Promise.all([
+    scoreGenre(env, puzzle),
+    reviewPuzzle(env, puzzle, readLocale(body.locale)),
+  ])
+  // 题材坐标：判不了就退回标签估算
+  const genreScore = genre ?? genreFromTags(puzzle.tags)
   await db
     .prepare(
       `INSERT INTO puzzles (id, owner_id, title, surface, truth, hint, difficulty, tags, visibility, plays, solves, genre_score, created_at)
@@ -429,7 +435,7 @@ export async function createPuzzle(
       Date.now(),
     )
     .run()
-  return { id }
+  return { id, review }
 }
 
 /**

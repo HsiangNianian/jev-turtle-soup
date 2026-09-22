@@ -371,6 +371,19 @@ function requireDb(env: Env): D1Like {
 }
 
 /**
+ * URL 里的百分号编码可能是坏的：有人手改链接、分享被截断、爬虫乱扫。
+ * 那是客户端给了坏输入，不该变成 500 —— 而且 decodeURIComponent 抛的是
+ * URIError，落进兜底 catch 就是「服务器错误」，看着像我们的锅。
+ */
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    throw new ApiError(400, '链接格式不正确')
+  }
+}
+
+/**
  * 把 Worker 侧未处理的异常也送进错误台账。
  *
  * 以前这类错误只进 console.error —— 不 tail 就永远看不见，等玩家反馈时已经
@@ -530,7 +543,7 @@ async function routeLibrary(
   if (!pathname.startsWith('/api/library/puzzles/')) return null
   const rest = pathname.slice('/api/library/puzzles/'.length)
   const [rawId, action] = rest.split('/')
-  const id = decodeURIComponent(rawId ?? '')
+  const id = safeDecode(rawId ?? '')
   if (!id) return null
 
   if (!action) {
@@ -589,7 +602,7 @@ async function routeProfile(
 ): Promise<Response | null> {
   if (!pathname.startsWith('/api/u/')) return null
   if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
-  const handle = decodeURIComponent(pathname.slice('/api/u/'.length)).toLowerCase()
+  const handle = safeDecode(pathname.slice('/api/u/'.length)).toLowerCase()
   if (!handle) return null
   return json({ profile: await getPublicProfile(requireDb(env), handle) })
 }

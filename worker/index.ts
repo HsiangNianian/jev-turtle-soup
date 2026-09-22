@@ -540,9 +540,16 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
       .bind(defaultDisplayName(email), user.id)
       .run()
     await ensureHandle(env.DB!, user.id)
-    // 记住界面语言：作者周报要按这个语言写
+    // 记住界面语言（周报按它写）；顺便给从没看过动态的人一个起点。
+    // 没有起点的话「未读」永远是 0，那枚红点自己启动不了 ——
+    // 而且「从上次登录到现在有什么新动静」本来就是想看的东西。
     const locale = body.locale === 'en' || body.locale === 'ja' ? body.locale : 'zh-CN'
-    await env.DB!.prepare('UPDATE users SET locale = ? WHERE id = ?').bind(locale, user.id).run()
+    await env.DB!
+      .prepare(
+        'UPDATE users SET locale = ?, activity_seen_at = COALESCE(activity_seen_at, ?) WHERE id = ?',
+      )
+      .bind(locale, Date.now(), user.id)
+      .run()
     return json({ user: { email: user.email, uid: user.id, name: user.displayName } }, 200, {
       'set-cookie': sessionCookie(token),
     })

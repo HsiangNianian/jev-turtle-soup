@@ -52,7 +52,35 @@ export interface OwnPuzzle {
   visibility: 'public' | 'private'
   plays: number
   solves: number
+  /** 最近 7 天新增的问过 / 解开人数 */
+  playsThisWeek: number
+  solvesThisWeek: number
+  /** 最近一次有人问过的时间；从没人玩过就是 null */
+  lastActivityAt: number | null
   createdAt: number
+}
+
+export interface AuthorSummary {
+  total: number
+  public: number
+  plays: number
+  solves: number
+  playsThisWeek: number
+  solvesThisWeek: number
+}
+
+export type AuthorEventKind = 'play' | 'solve' | 'comment' | 'like'
+
+export interface AuthorEvent {
+  kind: AuthorEventKind
+  target: 'puzzle' | 'profile'
+  at: number
+  puzzleId: string | null
+  puzzleTitle: string
+  /** 留言正文（仅 comment） */
+  body: string
+  /** 留言者公开昵称（仅 comment） */
+  actor: string
 }
 
 export interface Profile {
@@ -238,7 +266,11 @@ export function deletePuzzle(id: string) {
 }
 
 export function listMyPuzzles() {
-  return request<{ items: OwnPuzzle[] }>('/api/me/puzzles').then((data) => data.items)
+  return request<{ items: OwnPuzzle[]; summary: AuthorSummary }>('/api/me/puzzles')
+}
+
+export function fetchAuthorActivity() {
+  return request<{ items: AuthorEvent[] }>('/api/me/activity?limit=30').then((data) => data.items)
 }
 
 export function getMyProfile() {

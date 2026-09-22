@@ -21,6 +21,7 @@ import {
   setReportStatus,
 } from '../shared/admin.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
+import { authorActivity, authorSummary, listOwnPuzzles } from '../shared/author.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
 import { listClientErrors, recordClientError, recordWorkerError } from '../shared/telemetry.ts'
 import {
@@ -59,7 +60,6 @@ import {
   getMyProfile,
   getPublicProfile,
   getPublicPuzzle,
-  listOwnPuzzles,
   listPublicPuzzles,
   searchPublicPuzzles,
   revealLibraryPuzzle,
@@ -598,7 +598,12 @@ async function routeLibrary(
   return null
 }
 
-async function routeMe(request: Request, env: Env, pathname: string): Promise<Response | null> {
+async function routeMe(
+  request: Request,
+  env: Env,
+  pathname: string,
+  url: URL,
+): Promise<Response | null> {
   const db = requireDb(env)
 
   if (pathname === '/api/me/profile') {
@@ -610,10 +615,20 @@ async function routeMe(request: Request, env: Env, pathname: string): Promise<Re
     return json({ error: '方法不被允许' }, 405)
   }
 
+  // 作者看板：自己的题 + 统计（另有 summary 让前端少算一次）
   if (pathname === '/api/me/puzzles') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
     const current = await requireUser(request, env)
-    return json({ items: await listOwnPuzzles(db, current.uid) })
+    const items = await listOwnPuzzles(db, current.uid)
+    return json({ items, summary: authorSummary(items) })
+  }
+
+  // 作者动态流：从 attempts / comments / likes 现算，不新增表
+  if (pathname === '/api/me/activity') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const current = await requireUser(request, env)
+    const limit = Number(url.searchParams.get('limit') ?? '30')
+    return json({ items: await authorActivity(db, current.uid, limit) })
   }
 
   return null
@@ -903,7 +918,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   if (library) return library
   const social = await routeSocial(request, env, pathname, url)
   if (social) return social
-  const me = await routeMe(request, env, pathname)
+  const me = await routeMe(request, env, pathname, url)
   if (me) return me
   const profile = await routeProfile(request, env, pathname)
   if (profile) return profile

@@ -527,26 +527,6 @@ export async function deletePuzzle(db: D1Like, uid: string, id: string) {
   return { ok: true }
 }
 
-export async function listOwnPuzzles(db: D1Like, uid: string) {
-  const { results } = await db
-    .prepare('SELECT * FROM puzzles WHERE owner_id = ? ORDER BY created_at DESC LIMIT 200')
-    .bind(uid)
-    .all<PuzzleRow>()
-  return (results ?? []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    surface: row.surface,
-    difficulty: row.difficulty,
-    tags: safeTags(row.tags),
-    visibility: row.visibility as Visibility,
-    plays: row.plays,
-    solves: row.solves,
-    createdAt: row.created_at,
-    truth: row.truth,
-    hint: row.hint,
-  }))
-}
-
 export interface Profile {
   uid: string
   email?: string

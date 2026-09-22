@@ -24,9 +24,15 @@ export class ErrorBoundary extends Component<
 
   componentDidCatch(error: unknown, info: ErrorInfo): void {
     console.error('[turtle-soup] 渲染出错，已兜住：', error)
+    // The pre-bundle recovery handler has already recorded this failed resource.
+    if (window.__tsAssetError && error === window.__tsAssetError) return
     // 带上组件栈，能直接指到是哪一块崩的
     const component = info.componentStack ?? ''
-    reportError(error instanceof Error ? `${error.message}\n${component}` : error, 'react')
+    if (error instanceof Error) {
+      const report = new Error(error.message)
+      report.stack = `${error.stack ?? ''}\n${component}`
+      reportError(report, 'react')
+    } else reportError(error, 'react')
   }
 
   render(): ReactNode {

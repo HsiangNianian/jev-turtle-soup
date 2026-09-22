@@ -436,6 +436,8 @@ export const en: Record<string, string> = {
     'It is where the people who write and play these puzzles hang out: puzzle talk, judging corrections, pestering for more, and “how on earth am I supposed to ask this one”.',
   '这一碗是{language}的': 'This bowl is in {language}.',
   '这一页出了点问题': 'Something went wrong on this page',
+  '已保存的案卷可在刷新后恢复；若有尚未保存的内容，请先保留。':
+    'Saved case files can be restored after reloading. Keep a copy of any unsaved work first.',
   '刷新一下就好。你的案卷存在本机，刷新不会丢。':
     'A refresh should fix it. Your case files live on this device, so refreshing loses nothing.',
   '刷新': 'Refresh',

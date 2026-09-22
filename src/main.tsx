@@ -2,20 +2,20 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { archiveStore } from '@/lib/archive-store'
 
 declare global {
   interface Window {
     __tsBooted?: boolean
+    __tsCanReload?: () => boolean
+    __tsAssetError?: unknown
   }
 }
 
-// 启动成功：清掉自愈标记，让下次部署还能触发一次恢复
+// Boot clears the slow-loading notice, but keeps the cooldown against reload loops.
 window.__tsBooted = true
-try {
-  sessionStorage.removeItem('ts-asset-recovery')
-} catch {
-  /* 隐私模式下忽略 */
-}
+window.__tsCanReload = () => !archiveStore().storageError
+window.dispatchEvent(new Event('turtle-soup:booted'))
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { installErrorReporting } from '@/lib/telemetry'
 import { I18nProvider } from '@/components/I18nProvider'

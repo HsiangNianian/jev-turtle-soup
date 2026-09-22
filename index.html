@@ -32,7 +32,7 @@
       rel="preload"
       as="style"
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400..700&family=Noto+Serif+SC:wght@400..900&display=swap"
-      onload="this.rel='stylesheet'"
+      onload="this.rel = 'stylesheet'"
     />
     <noscript>
       <link
@@ -44,15 +44,97 @@
   <body>
     <div id="root"></div>
     <script>
-      // 页面可能是缓存的旧 HTML，引用的 JS 已被新部署替换掉：
-      // 模块会 404（被 SPA 兜底当成 HTML 返回）→ 整页空白。
-      // 这里检测到就强制重载一次拿新哈希，最多一次，避免死循环。
+      // Runs before the app bundle, including when that bundle cannot be loaded.
       ;(function () {
-        var KEY = 'ts-asset-recovery'
+        var KEY = 'ts-asset-recovery:v2'
+        var NOTICE = 'ts-loading-notice'
+        var handled = false
+        var pending = false
 
-        // 整个 bundle 解析失败时，只有这段内联脚本还活着 —— 所以上报也放在这里。
-        // （bundle 里的上报钩子在这种情况下根本没机会执行。）
-        function report(message) {
+        function assetPath(value) {
+          try {
+            var url = new URL(value, location.href)
+            if (url.origin === location.origin && /^\/(assets\/|src\/)/.test(url.pathname)) {
+              return url.pathname
+            }
+          } catch (error) {}
+          return ''
+        }
+
+        function hideNotice() {
+          var notice = document.getElementById(NOTICE)
+          if (notice) notice.remove()
+        }
+
+        function showNotice(slow) {
+          if (document.getElementById(NOTICE)) return
+          var lang = document.documentElement.lang || navigator.language || 'zh-CN'
+          try {
+            lang = localStorage.getItem('turtle-soup.locale') || lang
+          } catch (error) {}
+          var copy =
+            lang.indexOf('ja') === 0
+              ? [
+                  '読み込みに時間がかかっています。',
+                  'ページを読み込めませんでした。',
+                  '通信を確認してください。未保存の内容があれば控えてから再読み込みしてください。',
+                  '再読み込み',
+                ]
+              : lang.indexOf('en') === 0
+                ? [
+                    'This is taking a little longer to load.',
+                    'This page could not finish loading.',
+                    'Check your connection. Keep a copy of any unsaved work before reloading.',
+                    'Reload',
+                  ]
+                : [
+                    '页面还在加载，请稍等。',
+                    '页面资源没能加载完成。',
+                    '请检查网络；如有尚未保存的内容，请先保留，再重新加载。',
+                    '重新加载',
+                  ]
+          var notice = document.createElement('div')
+          notice.id = NOTICE
+          notice.setAttribute('role', 'alert')
+          notice.style.cssText =
+            'position:fixed;bottom:16px;left:16px;right:16px;z-index:100;background:#f2efe6;color:#1a1812;border:1px solid #1a1812;padding:16px;font:14px/1.7 serif;box-shadow:0 4px 20px #0002'
+          var title = document.createElement('strong')
+          title.textContent = copy[slow ? 0 : 1]
+          var detail = document.createElement('p')
+          detail.textContent = copy[2]
+          var button = document.createElement('button')
+          button.type = 'button'
+          button.textContent = copy[3]
+          button.style.cssText =
+            'padding:6px 16px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer'
+          button.onclick = function () {
+            location.reload()
+          }
+          notice.appendChild(title)
+          notice.appendChild(detail)
+          notice.appendChild(button)
+          document.body.appendChild(notice)
+        }
+
+        function tryReload() {
+          if (!navigator.onLine || (window.__tsCanReload && !window.__tsCanReload())) return false
+          try {
+            var last = Number(sessionStorage.getItem(KEY))
+            if (last && Date.now() - last < 60000) return false
+            // Do not clear this on boot: a failing resource must not cause a reload loop.
+            sessionStorage.setItem(KEY, String(Date.now()))
+          } catch (error) {
+            // Without a persistent guard, offer a manual retry instead of an endless refresh.
+            return false
+          }
+          location.reload()
+          return true
+        }
+
+        function recover(message, resource) {
+          if (handled) return
+          handled = true
+          pending = true
           try {
             var meta = document.querySelector('meta[name="build"]')
             fetch('/api/errors', {
@@ -61,46 +143,59 @@
               keepalive: true,
               body: JSON.stringify({
                 message: message,
+                stack:
+                  'resource=' +
+                  (resource || 'unknown') +
+                  '; booted=' +
+                  !!window.__tsBooted +
+                  '; online=' +
+                  navigator.onLine,
                 path: location.pathname,
                 buildId: meta ? meta.getAttribute('content') : '',
                 source: 'recovery',
               }),
             }).catch(function () {})
-          } catch (error) {
-            /* 上报失败就算了 */
-          }
+          } catch (error) {}
+          if (!tryReload()) showNotice(false)
         }
 
-        function recover(reason) {
-          // 只在**真的要重载**时上报。之前把上报放在守卫之前，
-          // 于是每次命中守卫的空操作也记一条 —— 一次测试就把计数刷到 124。
-          var first = false
-          try {
-            if (sessionStorage.getItem(KEY) !== '1') {
-              sessionStorage.setItem(KEY, '1')
-              first = true
-            }
-          } catch (error) {
-            /* 隐私模式：仍然重载一次 */
-          }
-          if (!first) return
-          report(reason)
-          location.reload()
-        }
         window.addEventListener(
           'error',
           function (event) {
             var el = event.target
-            // 只认脚本：字体 / 图片 404 不影响启动，不该触发自愈和上报
-            if (el && el.tagName === 'SCRIPT') {
-              recover('模块没能加载（多半是缓存的旧 HTML 引用了已被替换的 bundle）')
-            }
+            var resource = el && el.tagName === 'SCRIPT' ? assetPath(el.src) : ''
+            // Extensions and third-party scripts cannot trigger application recovery.
+            if (resource) recover('应用入口资源加载失败', resource)
           },
           true,
         )
+
+        window.addEventListener('vite:preloadError', function (event) {
+          var error = event.payload
+          var message = error && error.message ? error.message : String(error)
+          if (
+            !/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i.test(
+              message,
+            )
+          )
+            return
+          window.__tsAssetError = error
+          var match = message.match(/https?:\/\/[^\s'"<>]+/)
+          recover('页面模块加载失败', match ? assetPath(match[0]) : '')
+          // Leave the rejection intact so React can show its fallback if recovery is blocked.
+        })
+
+        window.addEventListener('online', function () {
+          if (pending) tryReload()
+        })
+        window.addEventListener('turtle-soup:booted', function () {
+          pending = false
+          hideNotice()
+        })
         window.setTimeout(function () {
-          if (!window.__tsBooted) recover('8 秒内 bundle 没有启动')
-        }, 8000)
+          // A slow connection is not proof of failure. Never interrupt a download or report it as a crash.
+          if (!window.__tsBooted) showNotice(true)
+        }, 15000)
       })()
     </script>
     <script type="module" src="/src/main.tsx"></script>

@@ -16,7 +16,11 @@ CREATE TABLE IF NOT EXISTS users (
   display_name_changed_at INTEGER,
   bio_changed_at INTEGER,
   -- 动态看到哪了：算未读徽章用。NULL = 从没看过（当作没有未读）
-  activity_seen_at INTEGER
+  activity_seen_at INTEGER,
+  -- 作者周报：退订标记、退订令牌、界面语言
+  digest_opt_out INTEGER NOT NULL DEFAULT 0,
+  digest_token TEXT,
+  locale TEXT
 );
 
 CREATE TABLE IF NOT EXISTS puzzles (
@@ -42,6 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_puzzles_created ON puzzles (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_puzzles_visibility ON puzzles (visibility, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_puzzles_featured ON puzzles (featured, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users (handle) WHERE handle IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_digest_token ON users (digest_token) WHERE digest_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_puzzles_owner ON puzzles (owner_id);
 
 CREATE TABLE IF NOT EXISTS attempts (

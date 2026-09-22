@@ -24,6 +24,13 @@ import {
 } from '../shared/admin.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
 import {
+  DIGEST_WINDOW_MS,
+  listDigestRecipients,
+  renderDigest,
+  sendDigest,
+  unsubscribeByToken,
+} from '../shared/digest.ts'
+import {
   authorActivity,
   authorSummary,
   countAuthorSocial,
@@ -110,6 +117,20 @@ function json(body: unknown, status = 200, headers: Record<string, string> = {})
       ...headers,
     },
   })
+}
+
+/** 邮件里点进来的落地页：极小的一张 HTML，中英各一句。 */
+function htmlPage(title: string, message: string): Response {
+  return new Response(
+    `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">` +
+      `<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · 海龟汤调查局</title></head>` +
+      `<body style="font-family:ui-monospace,Menlo,monospace;line-height:1.9;color:#17150f;max-width:32rem;margin:12vh auto;padding:0 1.25rem">` +
+      `<h1 style="font-size:1.4rem">${title}</h1><p>${message}</p></body></html>`,
+    {
+      status: 200,
+      headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+    },
+  )
 }
 
 async function readJson(request: Request): Promise<Record<string, unknown>> {
@@ -519,6 +540,9 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
       .bind(defaultDisplayName(email), user.id)
       .run()
     await ensureHandle(env.DB!, user.id)
+    // 记住界面语言：作者周报要按这个语言写
+    const locale = body.locale === 'en' || body.locale === 'ja' ? body.locale : 'zh-CN'
+    await env.DB!.prepare('UPDATE users SET locale = ? WHERE id = ?').bind(locale, user.id).run()
     return json({ user: { email: user.email, uid: user.id, name: user.displayName } }, 200, {
       'set-cookie': sessionCookie(token),
     })
@@ -762,6 +786,36 @@ async function routeAdmin(
     return json({ ok: true })
   }
 
+  // 作者周报：手动触发，先预览再发。只在过去一周有动静时才发。
+  if (pathname === '/api/admin/digest') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const recipients = await listDigestRecipients(db, Date.now() - DIGEST_WINDOW_MS)
+    return json({
+      windowMs: DIGEST_WINDOW_MS,
+      recipients: recipients.map((item) => ({
+        uid: item.uid,
+        email: item.email,
+        displayName: item.displayName,
+        locale: item.locale,
+        total: item.total,
+        counts: item.counts,
+      })),
+      // 拿第一位当样例；没人符合条件就是 null
+      preview: recipients[0] ? renderDigest(recipients[0], url.origin) : null,
+    })
+  }
+  if (pathname === '/api/admin/digest/send') {
+    if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+    const recipients = await listDigestRecipients(db, Date.now() - DIGEST_WINDOW_MS)
+    let sent = 0
+    let failed = 0
+    for (const item of recipients) {
+      if (await sendDigest(env, item, url.origin)) sent += 1
+      else failed += 1
+    }
+    return json({ sent, failed, total: recipients.length })
+  }
+
   // 题库精选位：给公开题打 / 取消精选
   if (pathname === '/api/admin/puzzles') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
@@ -975,6 +1029,21 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   if (profile) return profile
   const admin = await routeAdmin(request, env, pathname, url)
   if (admin) return admin
+
+  // 周报退订：邮件里点进来的，不需要登录，凭令牌
+  if (pathname === '/api/digest/unsubscribe') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    const ok = await unsubscribeByToken(requireDb(env), url.searchParams.get('t') ?? '')
+    return ok
+      ? htmlPage(
+          '已退订',
+          '不会再收到作者周报了。<br><span lang="en">Unsubscribed from the weekly author digest.</span>',
+        )
+      : htmlPage(
+          '链接无效',
+          '这个退订链接已经失效或不对。<br><span lang="en">This unsubscribe link is invalid.</span>',
+        )
+  }
 
   if (pathname === '/api/health') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)

@@ -6,6 +6,8 @@ import { Link } from '@/components/Link'
 import {
   addAdmin,
   clearAdminErrors,
+  getAdminDigest,
+  sendAdminDigest,
   deleteAdminError,
   deleteAdminFlag,
   deleteAdminReport,
@@ -17,6 +19,7 @@ import {
   removeAdmin,
   setAdminPuzzleFeatured,
   setAdminReportStatus,
+  type AdminDigest,
   type AdminEntry,
   type AdminError,
   type AdminFlag,
@@ -52,11 +55,12 @@ function fmt(ts: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-type Tab = 'reports' | 'flags' | 'puzzles' | 'errors' | 'admins'
+type Tab = 'reports' | 'flags' | 'puzzles' | 'digest' | 'errors' | 'admins'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'reports', label: '玩家反馈' },
   { key: 'flags', label: '判读巡检' },
   { key: 'puzzles', label: '题库精选' },
+  { key: 'digest', label: '作者周报' },
   { key: 'errors', label: '客户端错误' },
   { key: 'admins', label: '管理员' },
 ]
@@ -89,6 +93,7 @@ export function AdminPage() {
         {tab === 'reports' ? <ReportsPanel /> : null}
         {tab === 'flags' ? <FlagsPanel /> : null}
         {tab === 'puzzles' ? <PuzzlesPanel /> : null}
+        {tab === 'digest' ? <DigestPanel /> : null}
         {tab === 'errors' ? <ErrorsPanel /> : null}
         {tab === 'admins' ? <AdminsPanel /> : null}
       </div>
@@ -384,6 +389,97 @@ function PuzzlesPanel() {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+function DigestPanel() {
+  const [data, setData] = useState<AdminDigest | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(() => {
+    getAdminDigest()
+      .then(setData)
+      .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : '加载失败'))
+  }, [])
+  useEffect(load, [load])
+
+  async function send() {
+    if (!data) return
+    if (!window.confirm(`给 ${data.recipients.length} 位作者发送本周周报？`)) return
+    setBusy(true)
+    setError(null)
+    setResult(null)
+    try {
+      const outcome = await sendAdminDigest()
+      setResult(`已发送 ${outcome.sent} 封，失败 ${outcome.failed} 封。`)
+      load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '发送失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (error) return <Notice tone="stamp">{error}</Notice>
+  if (!data) return <Loading />
+
+  const days = Math.round(data.windowMs / 86_400_000)
+
+  return (
+    <div>
+      <p className="max-w-2xl font-mono text-[10px] leading-6 tracking-[0.14em] text-muted-foreground">
+        只发给「有公开作品」且「最近 {days} 天有动静」的作者；退订过的不发。不会自动发送，点了才发。
+      </p>
+
+      {result ? (
+        <div className="mt-4">
+          <Notice tone="good">{result}</Notice>
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+          符合条件：{data.recipients.length} 位
+        </span>
+        <Button disabled={busy || !data.recipients.length} onClick={() => void send()}>
+          发送本周周报
+        </Button>
+      </div>
+
+      {data.recipients.length ? (
+        <ul className="mt-4 border-t border-foreground/20">
+          {data.recipients.map((item) => (
+            <li key={item.uid} className="rule-dashed flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+              <span className="min-w-0 flex-1 truncate font-serif text-[14px]">{item.displayName}</span>
+              <Meta>{item.email}</Meta>
+              <Meta>{item.locale}</Meta>
+              <Meta>
+                问 {item.counts.plays} · 解 {item.counts.solves} · 赞 {item.counts.likes} · 言{' '}
+                {item.counts.comments}
+              </Meta>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-4">
+          <Empty>这一周没有需要发送的周报。</Empty>
+        </div>
+      )}
+
+      {data.preview ? (
+        <div className="mt-8">
+          <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">样例预览</div>
+          <div className="mt-2 border border-foreground/20 bg-card p-4">
+            <div className="font-serif text-[14px] font-semibold">{data.preview.subject}</div>
+            <pre className="mt-3 overflow-auto font-mono text-[11px] leading-6 whitespace-pre-wrap text-muted-foreground">
+              {data.preview.text}
+            </pre>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

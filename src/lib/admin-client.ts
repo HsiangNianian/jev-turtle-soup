@@ -137,6 +137,38 @@ export function setAdminPuzzleFeatured(id: string, featured: boolean) {
   })
 }
 
+export interface DigestCounts {
+  plays: number
+  solves: number
+  likes: number
+  comments: number
+}
+
+export interface DigestRecipient {
+  uid: string
+  email: string
+  displayName: string
+  locale: string
+  total: number
+  counts: DigestCounts
+}
+
+export interface AdminDigest {
+  windowMs: number
+  recipients: DigestRecipient[]
+  preview: { subject: string; text: string; html: string } | null
+}
+
+export function getAdminDigest() {
+  return request<AdminDigest>('/api/admin/digest')
+}
+
+export function sendAdminDigest() {
+  return request<{ sent: number; failed: number; total: number }>('/api/admin/digest/send', {
+    method: 'POST',
+  })
+}
+
 export function removeAdmin(uid: string) {
   return request<{ ok: boolean }>(`/api/admin/admins/${encodeURIComponent(uid)}`, {
     method: 'DELETE',

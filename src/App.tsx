@@ -844,20 +844,24 @@ export default function App() {
             <ThemeToggle />
             <LocaleMenu />
             {user ? (
-              <button
-                type="button"
-                onClick={() => navigate('/me')}
-                className="relative max-w-[4.5rem] truncate tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:tracking-[0.16em]"
-              >
-                {user.name || user.email}
+              /* 红点放在按钮**外面**：按钮有 truncate（overflow:hidden），
+                 点挂在按钮内会被裁掉，等于永远不显示。 */
+              <span className="relative inline-flex shrink-0">
+                <button
+                  type="button"
+                  onClick={() => navigate('/me')}
+                  className="max-w-[4.5rem] truncate tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:tracking-[0.16em]"
+                >
+                  {user.name || user.email}
+                </button>
                 {unread > 0 ? (
                   <span
                     aria-label={t('有新动态')}
                     title={t('有新动态')}
-                    className="absolute -top-1 -right-2 size-1.5 rounded-full bg-stamp"
+                    className="pointer-events-none absolute -top-1 -right-1.5 size-2 rounded-full bg-stamp ring-2 ring-background"
                   />
                 ) : null}
-              </button>
+              </span>
             ) : (
               <Link to="/login" className="opacity-80 transition-opacity hover:opacity-60">
                 {t('登录')}

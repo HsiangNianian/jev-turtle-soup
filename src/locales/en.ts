@@ -422,7 +422,7 @@ export const en: Record<string, string> = {
   '日文': 'Japanese',
   '今天的汤是{language}的': 'Today’s bowl is in {language}.',
   '{count} 桩': '{count} open',
-  '官汤': 'Official',
+  官方: 'Official',
   '你还没解开这一天。先自己问一问——结案或揭晓之后，汤底和完整故事都会回到这一页。':
     'You have not opened this one yet. Question it first — once you solve or reveal it, the truth and the full story come back to this page.',
   '{count} 人问过': '{count} have asked',

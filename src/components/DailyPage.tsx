@@ -59,15 +59,18 @@ function Meta({
 }
 
 /**
- * 今天这碗只报「多少人在问」，不报解开人数 —— 那等于提前告诉读者这道题有多难。
+ * 今天这碗只报「多少人问过」，不报解开人数 —— 那等于提前告诉读者这道题有多难。
  * 过期之后 solves 才有值，就按题库卡片那样报两个数。
+ *
+ * 注意口径：这是**累计**人数（按设备去重，从这碗汤生成起算），不是「此刻在线」。
+ * 它只增不减，所以措辞必须是「问过」而不是「正在问」。
  */
 function Counts({ plays, solves }: { plays: number; solves: number | null }) {
   const { t } = useI18n()
   return (
     <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
       {solves === null
-        ? t('{count} 人正在问', { count: plays })
+        ? t('{count} 人问过', { count: plays })
         : t('游玩 {plays} · 解开 {solves}', { plays, solves })}
     </span>
   )

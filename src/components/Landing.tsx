@@ -182,9 +182,10 @@ export function Landing({
                 {genreLabel(todayDaily.genreScore, t) ? (
                   <span className="text-stamp/80">{genreLabel(todayDaily.genreScore, t)}</span>
                 ) : null}
-                {/* 只报「多少人在问」：解开人数对还没揭晓的汤来说是剧透 */}
+                {/* 只报「多少人问过」：解开人数对还没揭晓的汤来说是剧透。
+                    累计口径（按设备去重、只增不减），所以不是「正在问」。 */}
                 {todayDaily.plays > 0 ? (
-                  <span>{t('{count} 人正在问', { count: todayDaily.plays })}</span>
+                  <span>{t('{count} 人问过', { count: todayDaily.plays })}</span>
                 ) : null}
               </div>
               <p className="surface-prose mt-4 max-w-2xl border-l-2 border-brand/50 pl-4 font-serif text-[15px] leading-8 text-foreground/90">

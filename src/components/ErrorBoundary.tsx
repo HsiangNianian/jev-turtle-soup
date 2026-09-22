@@ -1,4 +1,6 @@
-import { Component, type ReactNode } from 'react'
+import { Component, type ErrorInfo, type ReactNode } from 'react'
+
+import { reportError } from '@/lib/telemetry'
 
 /**
  * 渲染兜底。
@@ -20,8 +22,11 @@ export class ErrorBoundary extends Component<
     return { failed: true }
   }
 
-  componentDidCatch(error: unknown): void {
+  componentDidCatch(error: unknown, info: ErrorInfo): void {
     console.error('[turtle-soup] 渲染出错，已兜住：', error)
+    // 带上组件栈，能直接指到是哪一块崩的
+    const component = info.componentStack ?? ''
+    reportError(error instanceof Error ? `${error.message}\n${component}` : error, 'react')
   }
 
   render(): ReactNode {

@@ -15,6 +15,9 @@ export function CrashNote() {
       <p className="mt-3 max-w-md font-serif text-[14px] leading-7 text-foreground/75">
         {t('刷新一下就好。你的案卷存在本机，刷新不会丢。')}
       </p>
+      <p className="mt-2 max-w-md font-mono text-[10px] leading-6 tracking-[0.12em] text-muted-foreground">
+        {t('这个错误已经自动记下来了，不用你另外反馈。')}
+      </p>
       <button
         type="button"
         onClick={() => window.location.reload()}

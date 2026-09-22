@@ -30,7 +30,20 @@ export default defineConfig(({ mode }) => {
     build: {
       target: ['es2020', 'safari15'],
     },
-    plugins: [react(), tailwindcss(), turtleSoupApi(env)],
+    plugins: [
+      react(),
+      tailwindcss(),
+      turtleSoupApi(env),
+      {
+        // 把 build id 写进 HTML：内联自愈脚本要在 bundle 之外读到它
+        name: 'inject-build-meta',
+        transformIndexHtml: (html: string) =>
+          html.replace(
+            '<!--build:meta-->',
+            `<meta name="build" content="${pkg.version}+${buildId()}" />`,
+          ),
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),

@@ -345,4 +345,6 @@ export const en: Record<string, string> = {
   '反面复用': 'opposite',
   '结案报告': 'Case closed',
   '你的结论': 'Your conclusion',
+  '这个错误已经自动记下来了，不用你另外反馈。':
+    'This error was reported automatically — no need to send anything.',
 }

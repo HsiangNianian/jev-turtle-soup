@@ -120,6 +120,22 @@ CREATE TABLE IF NOT EXISTS judge_flags (
   created_at INTEGER NOT NULL
 );
 
+-- 客户端错误上报：按「消息 + build」聚合，一行代表一个 bug
+CREATE TABLE IF NOT EXISTS client_errors (
+  hash TEXT PRIMARY KEY,
+  message TEXT NOT NULL,
+  stack TEXT NOT NULL DEFAULT '',
+  path TEXT NOT NULL DEFAULT '',
+  build_id TEXT NOT NULL DEFAULT '',
+  locale TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT '',
+  count INTEGER NOT NULL DEFAULT 1,
+  first_at INTEGER NOT NULL,
+  last_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_client_errors_count ON client_errors (count DESC);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_judge_flags_turn ON judge_flags (turn_log_id);
 CREATE INDEX IF NOT EXISTS idx_judge_flags_created ON judge_flags (created_at DESC);
 

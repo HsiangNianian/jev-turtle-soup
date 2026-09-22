@@ -10,6 +10,7 @@ import {
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
 import { inspectJudgments, listJudgeFlags, type AuditResult } from '../shared/audit.ts'
+import { listClientErrors, recordClientError } from '../shared/telemetry.ts'
 import {
   addComment,
   deleteComment,
@@ -919,6 +920,33 @@ export default {
     if (forwardedProto === 'http' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
       url.protocol = 'https:'
       return Response.redirect(url.toString(), 308)
+    }
+
+    // 客户端错误上报：公开入口（玩家崩了才用得上），按哈希聚合
+    if (url.pathname === '/api/errors') {
+      const db = requireDb(env)
+      if (request.method === 'POST') {
+        const body = await readJson(request)
+        await recordClientError(db, {
+          message: typeof body.message === 'string' ? body.message : '',
+          stack: typeof body.stack === 'string' ? body.stack : '',
+          path: typeof body.path === 'string' ? body.path : '',
+          buildId: typeof body.buildId === 'string' ? body.buildId : '',
+          locale: typeof body.locale === 'string' ? body.locale : '',
+          source: typeof body.source === 'string' ? body.source : '',
+        })
+        return json({ ok: true })
+      }
+      if (request.method === 'GET') {
+        try {
+          requireAdmin(request, env)
+        } catch (error) {
+          return json({ error: error instanceof Error ? error.message : '无权操作' }, 403)
+        }
+        const limit = Number(url.searchParams.get('limit') ?? '50')
+        return json({ items: await listClientErrors(db, limit) })
+      }
+      return json({ error: '方法不被允许' }, 405)
     }
 
     // 巡检结果：给管理用的只读出口，方便回看改判了哪些

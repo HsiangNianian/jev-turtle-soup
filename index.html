@@ -5,6 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f2efe6" />
+    <!--build:meta-->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--meta:start-->
@@ -48,7 +49,30 @@
       // 这里检测到就强制重载一次拿新哈希，最多一次，避免死循环。
       ;(function () {
         var KEY = 'ts-asset-recovery'
+
+        // 整个 bundle 解析失败时，只有这段内联脚本还活着 —— 所以上报也放在这里。
+        // （bundle 里的上报钩子在这种情况下根本没机会执行。）
+        function report(message) {
+          try {
+            var meta = document.querySelector('meta[name="build"]')
+            fetch('/api/errors', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              keepalive: true,
+              body: JSON.stringify({
+                message: message,
+                path: location.pathname,
+                buildId: meta ? meta.getAttribute('content') : '',
+                source: 'recovery',
+              }),
+            }).catch(function () {})
+          } catch (error) {
+            /* 上报失败就算了 */
+          }
+        }
+
         function recover() {
+          report('bundle 没能启动，正在重载一次')
           try {
             if (sessionStorage.getItem(KEY) === '1') return
             sessionStorage.setItem(KEY, '1')

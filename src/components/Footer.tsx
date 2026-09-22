@@ -11,6 +11,7 @@ const SISTER_SITES = [
 
 const INNER_LINKS = [
   { label: '题库', to: '/library' },
+  { label: '怎么写', to: '/guide' },
   { label: '上传新汤', to: '/upload' },
   { label: '我的题库', to: '/me' },
   { label: '关于与版本', to: '/about' },

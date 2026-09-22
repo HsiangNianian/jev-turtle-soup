@@ -256,6 +256,62 @@ export const en: Record<string, string> = {
   '{actor} 在《{title}》留言：{body}': '{actor} commented on 《{title}》: {body}',
   '有人赞了你的主页': 'Someone liked your profile',
   '{actor} 在你的主页留言：{body}': '{actor} commented on your profile: {body}',
+  '怎么写': 'How to write',
+  '怎么写一碗好汤': 'How to write a good bowl',
+  '直接去写 →': 'Start writing →',
+  '一句话：汤面写「反常」，汤底写「为什么」，而且汤底要能解释汤面里的每一个反常。剩下的都是这句话的展开。':
+    'In one line: the surface states the oddity, the truth explains why, and the truth must account for every oddity in the surface. Everything else follows from that.',
+  '三条标准': 'Three rules',
+  '一句话能说清': 'Sayable in one line',
+  '真相要能用一句话概括。如果一句话说不清，多半是谜题还没想利落——玩家也很难问到点上。':
+    'The truth should fit in one sentence. If it does not, the puzzle probably is not settled yet — and players will struggle to ask the right questions.',
+  '每个细节都有交代': 'Every detail accounted for',
+  '汤面里写下的每样东西，汤底都必须解释。为了吓人而加的红伞、半夜的猫叫，汤底没提就是耍赖。':
+    'Everything the surface mentions, the truth must explain. A red umbrella or a cat crying at midnight, added only to unsettle and never addressed, is cheating.',
+  '反转之后，回头看是合理的': 'The twist holds up in hindsight',
+  '好的反转是「原来如此」，不是「凭什么」。揭晓之后玩家回头看汤面，应该觉得线索一直都在。':
+    'A good twist makes players think "of course", not "why?". After the reveal, the surface should read as if the clues were there all along.',
+  '常见毛病': 'Common mistakes',
+  '汤面剧透': 'Surface spoils it',
+  '汤面直接写出了原因或真相，等于把谜底摆在桌上。':
+    'The surface states the cause or the truth outright — the answer is on the table.',
+  '细节没交代': 'Detail left hanging',
+  '汤面提到的东西，汤底一字未提——玩家会一直追问那个无关的细节。':
+    'Something the surface mentions is never brought up in the truth — players will keep asking about a dead end.',
+  '靠灵异兜底': 'Supernatural cop-out',
+  '真相是「鬼做的」。除非规则提前给了，否则玩家永远问不出来。':
+    'The truth is "a ghost did it". Unless the rules gave that away, no player can ever deduce it.',
+  '没有唯一解': 'No unique answer',
+  '汤底的解释只是许多种可能里的一种，玩家凭现有信息无法排除其它。':
+    'The truth is only one of many possibilities, and players cannot rule the others out with what is given.',
+  '一组对照': 'A pair of examples',
+  '好的例子': 'Good example',
+  '不好的例子': 'Bad example',
+  '男人在雨夜杀了出轨的妻子，因为看到一把红伞。':
+    'A man kills his unfaithful wife on a rainy night, because he saw a red umbrella.',
+  '他杀了妻子，因为发现她出轨。': 'He killed his wife because he found out she was unfaithful.',
+  '汤面直接写了动机（剧透）；「红伞」在汤底里没有任何解释，是个为吓人而加的细节。':
+    'The surface gives the motive outright (a spoiler), and the red umbrella is never explained — a detail added only to unsettle.',
+  '男人走进餐馆，要了一碗海龟汤，喝了一口，回家自杀了。':
+    'A man walks into a restaurant, orders turtle soup, takes one sip, then goes home and takes his own life.',
+  '他多年前海难漂流，同伴说给他喝的是海龟汤，他才活下来。今天他尝到真正的海龟汤，发现味道完全不同——他意识到当年喝的是同伴的肉，同伴为了救他而死。':
+    'Years earlier, adrift after a shipwreck, he survived only because his companion said he was giving him turtle soup. Today he tastes real turtle soup and it is nothing like it — he realises he ate his companion, who died to save him.',
+  '汤面只给反常（为什么喝一口汤就自杀），汤底一句话能说清，又解释了「喝汤」和「自杀」的关系。':
+    'The surface gives only the oddity (why would one sip end it all?), and the truth fits in a sentence while explaining how the soup and the suicide connect.',
+  '起手模板': 'Starter template',
+  '复制模板': 'Copy template',
+  '已复制': 'Copied',
+  '没有灵感？把生活里一件「说不通的小事」放大成汤面：为什么他每天绕远路，为什么她把礼物退了回去。':
+    'No idea? Blow up one small thing in life that does not add up into a surface: why does he always take the long way, why did she return the gift?',
+  '去写一碗': 'Write one',
+  '写完记得选「公开到题库」，别人才玩得到。':
+    'Remember to pick "publish to the library" so others can play it.',
+  '你也来出一碗？': 'Want to write one too?',
+  '每一碗汤都是一道题。想写却不知从哪下手，看一眼《怎么写一碗好汤》。':
+    'Every bowl is a puzzle. If you want to write one but do not know where to start, read "How to write a good bowl".',
+  '怎么写 →': 'How to write →',
+  '不会写？看看《怎么写一碗好汤》 →': 'Never written one? See "How to write a good bowl" →',
+  '草稿会自动存在这台设备上': 'Drafts are saved on this device automatically',
   '案卷 NO.{no}': 'Case file no. {no}',
   '游玩 {plays}': '{plays} plays',
   '游玩 {plays} · 解开 {solves}': '{plays} plays · {solves} solved',

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
+import { Link } from '@/components/Link'
 import { navigate } from '@/lib/router'
 import { SUPERNATURAL_TAG, createPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
@@ -10,17 +11,61 @@ import { useI18n } from '@/lib/i18n'
 const DIFFICULTIES = ['简单', '中等', '困难'] as const
 const PRESET_TAGS = [SUPERNATURAL_TAG] as const
 
+/**
+ * 草稿存在本机：写到一半被打断、误关标签页，回来还在。
+ * 上传成功后清掉。它和「可见性=只给自己」是两件事——那是发出去的私密题，
+ * 这是还没发出去的半成品。
+ */
+const DRAFT_KEY = 'turtle-soup.upload-draft'
+
+interface UploadDraft {
+  title: string
+  surface: string
+  truth: string
+  hint: string
+  difficulty: string
+  tags: string
+  visibility: 'public' | 'private'
+}
+
+function readDraft(): Partial<UploadDraft> | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    return parsed && typeof parsed === 'object' ? (parsed as Partial<UploadDraft>) : null
+  } catch {
+    return null
+  }
+}
+
 export function UploadPage() {
   const { t } = useI18n()
-  const [title, setTitle] = useState('')
-  const [surface, setSurface] = useState('')
-  const [truth, setTruth] = useState('')
-  const [hint, setHint] = useState('')
-  const [difficulty, setDifficulty] = useState<string>(t('中等'))
-  const [tags, setTags] = useState('')
-  const [visibility, setVisibility] = useState<'public' | 'private'>('public')
+  // 只读一次草稿，用它给每个字段定初值
+  const [draft] = useState(readDraft)
+  const [title, setTitle] = useState(draft?.title ?? '')
+  const [surface, setSurface] = useState(draft?.surface ?? '')
+  const [truth, setTruth] = useState(draft?.truth ?? '')
+  const [hint, setHint] = useState(draft?.hint ?? '')
+  const [difficulty, setDifficulty] = useState<string>(draft?.difficulty ?? t('中等'))
+  const [tags, setTags] = useState(draft?.tags ?? '')
+  const [visibility, setVisibility] = useState<'public' | 'private'>(
+    draft?.visibility === 'private' ? 'private' : 'public',
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 每次改动都存一份，随时被打断也不丢
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ title, surface, truth, hint, difficulty, tags, visibility }),
+      )
+    } catch {
+      /* 隐私模式下忽略 */
+    }
+  }, [title, surface, truth, hint, difficulty, tags, visibility])
 
   const ready = title.trim() && surface.trim() && truth.trim()
   const selectedTags = tags
@@ -51,6 +96,11 @@ export function UploadPage() {
           .filter(Boolean),
         visibility,
       })
+      try {
+        localStorage.removeItem(DRAFT_KEY)
+      } catch {
+        /* 隐私模式下忽略 */
+      }
       navigate(visibility === 'public' ? `/library/${created.id}` : '/me')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t('上传失败'))
@@ -64,6 +114,14 @@ export function UploadPage() {
       <p className="mt-5 max-w-xl font-serif text-[15px] leading-8 text-foreground/75">
         {t('汤面只写现象、制造悬念；汤底交代真相，并且必须能解释汤面里的每个反常细节。')}
       </p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] tracking-[0.14em]">
+        <Link to="/guide" className="text-stamp transition-opacity hover:opacity-70">
+          {t('不会写？看看《怎么写一碗好汤》 →')}
+        </Link>
+        <span className="text-muted-foreground/60">
+          {t('草稿会自动存在这台设备上')}
+        </span>
+      </div>
 
       <div className="mt-7 space-y-6">
         <Field label={t('标题')} hint={t('最多 40 字')}>

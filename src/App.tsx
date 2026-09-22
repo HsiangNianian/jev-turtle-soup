@@ -56,6 +56,9 @@ const UploadPage = lazy(() =>
 const AdminPage = lazy(() =>
   import('@/components/AdminPage').then((m) => ({ default: m.AdminPage })),
 )
+const GuidePage = lazy(() =>
+  import('@/components/GuidePage').then((m) => ({ default: m.GuidePage })),
+)
 import {
   askHost,
   fetchHealth,
@@ -658,6 +661,13 @@ export default function App() {
           ) : (
             <Missing label={t('管理后台')} message={t('无权访问。')} />
           )}
+        </ScrollArea>
+      )
+    }
+    if (path === '/guide') {
+      return (
+        <ScrollArea>
+          <GuidePage />
         </ScrollArea>
       )
     }

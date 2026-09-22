@@ -1,6 +1,7 @@
-import { Lock, Unlock } from 'lucide-react'
+import { ArrowRight, Lock, Unlock } from 'lucide-react'
 
 import type { GameSession } from '@/lib/api'
+import { Link } from '@/components/Link'
 import { cn } from '@/lib/utils'
 import { useI18n, type Locale } from '@/lib/i18n'
 
@@ -165,6 +166,33 @@ export function PuzzlePanel({
             <Unlock className="size-3.5" /> {t('汤底')}
           </div>
           <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
+
+          {/*
+            解完 / 揭晓之后是最想「我也来一个」的时刻 —— 趁热把话筒递过去。
+            只在这一刻出现，不打扰还在推理的人。
+          */}
+          <div className="mt-7 border-t border-dashed border-foreground/25 pt-5">
+            <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+              {t('你也来出一碗？')}
+            </div>
+            <p className="mt-2 max-w-md font-serif text-[13px] leading-7 text-muted-foreground">
+              {t('每一碗汤都是一道题。想写却不知从哪下手，看一眼《怎么写一碗好汤》。')}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <Link
+                to="/upload"
+                className="flex items-center gap-2 border border-foreground px-4 py-2 font-mono text-[11px] tracking-[0.16em] transition-colors hover:bg-foreground hover:text-background"
+              >
+                {t('去写一碗')} <ArrowRight className="size-3.5" />
+              </Link>
+              <Link
+                to="/guide"
+                className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {t('怎么写 →')}
+              </Link>
+            </div>
+          </div>
         </div>
       ) : null}
 

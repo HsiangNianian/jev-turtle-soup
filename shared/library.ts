@@ -272,9 +272,19 @@ async function loadPlayable(
 ): Promise<PuzzleRow> {
   const row = await db.prepare('SELECT * FROM puzzles WHERE id = ?').bind(id).first<PuzzleRow>()
   if (!row) throw askError(locale, 'notFound')
-  if (row.visibility !== 'public' && row.owner_id !== uid) {
-    throw askError(locale, 'notPublic')
-  }
+  if (row.visibility === 'public' || row.owner_id === uid) return row
+
+  /*
+   * 过期的官方汤进了题库，就得和公开的题一样能问 —— 之前漏了这一处：
+   * 列表和详情都放行了，唯独提问还只认 visibility='public'，
+   * 于是从题库点进去玩过期官汤，问第一句就被回「这道汤没有公开」。
+   * 今天的官方汤仍然不算（还没揭晓，`date < today` 把它挡在外面）。
+   */
+  const expired = await db
+    .prepare('SELECT 1 AS ok FROM dailies WHERE puzzle_id = ? AND date < ?')
+    .bind(id, utcDateKey())
+    .first<{ ok: number }>()
+  if (!expired) throw askError(locale, 'notPublic')
   return row
 }
 

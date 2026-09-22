@@ -338,4 +338,9 @@ export const en: Record<string, string> = {
   '群里是写汤和玩汤的人：出题讨论、判读纠错、催更，以及「这道汤到底该怎么问」。':
     'It is where the people who write and play these puzzles hang out: puzzle talk, judging corrections, pestering for more, and “how on earth am I supposed to ask this one”.',
   '这一碗是{language}的': 'This bowl is in {language}.',
+  '这一页出了点问题': 'Something went wrong on this page',
+  '刷新一下就好。你的案卷存在本机，刷新不会丢。':
+    'A refresh should fix it. Your case files live on this device, so refreshing loses nothing.',
+  '刷新': 'Refresh',
+  '反面复用': 'opposite',
 }

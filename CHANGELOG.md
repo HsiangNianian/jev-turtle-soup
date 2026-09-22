@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.4 - 2026-09-23
+
+### Features
+
+- Show an "Official" label beside the official-bowl verification mark on library cards, library detail, and daily pages, localized in Chinese, English, and Japanese.
+
 ## 0.33.3 - 2026-09-22
 
 ### Fixes

@@ -40,16 +40,14 @@ export function rememberUser(user: AuthUser | null): void {
   else dropCache(ME_KEY)
 }
 
-export async function fetchMe(): Promise<AuthUser | null> {
-  const response = await fetch('/api/auth/me')
+export async function fetchMe(signal?: AbortSignal): Promise<AuthUser | null> {
+  const response = await fetch('/api/auth/me', { signal })
   // 401 是明确的「没登录」：把缓存清掉，免得一直显示成已登录
   if (response.status === 401) {
-    forgetUser()
     return null
   }
-  if (!response.ok) return null
+  if (!response.ok) throw new Error(`认证暂不可用（${response.status}）`)
   const data = (await response.json()) as { user: AuthUser | null }
-  rememberUser(data.user)
   return data.user
 }
 

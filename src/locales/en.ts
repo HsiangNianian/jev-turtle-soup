@@ -18,8 +18,11 @@ export const en: Record<string, string> = {
   '中止本案？记录会留在档案室，但不能再继续讯问。':
     'Abandon this case? It stays in the archive, but you cannot keep questioning.',
   中等: 'Normal',
-  '中途离开也没关系，进度会自动留在本机':
-    'You can leave any time — your progress stays on this device.',
+  '中途离开也没关系，进度会跟着账号走，换设备也能接着玩':
+    'You can leave any time — your progress follows your account, so another device picks up where you left off.',
+  '中途离开也没关系，进度只留在本机。':
+    'You can leave any time — your progress stays on this device only.',
+  '登录后跟着账号走': 'sign in to carry it across devices',
   '主页地址': 'Handle',
   今日人品: "Today's luck",
   以后不再提示: "Don't ask again",
@@ -30,8 +33,8 @@ export const en: Record<string, string> = {
   '你只能问能用「是」或「不是」回答的问题，比如「他是自杀的吗？」。主持人砚看过汤底，只会回你「是」「不是」「无关」，或者「是，也不是」。':
     'You may only ask questions answerable with yes or no, like “was he killed?”. Ellis has read the truth and answers only yes, no, unrelated, or partly.',
   '你已经登录了。': "You're already signed in.",
-  '你玩到哪儿、以前玩过的局、今日人品，都记在你这台设备的浏览器里。换一台设备打开就是新的。':
-    'Where you left off, your past cases and today’s luck all live in this browser. Another device starts fresh.',
+  '不登录时，你玩到哪儿、以前玩过的局、今日人品，都只记在这台设备的浏览器里。登录之后，这些进度会同步到你的账号——换一台设备打开，接着玩就行。':
+    'Signed out, where you left off, your past cases and today’s luck live only in this browser. Sign in and they sync to your account — open another device and carry on.',
   '你自己写的汤面和汤底会留在我们这边。想让所有人都能玩，还是只留给自己看，由你决定。':
     'The puzzles you write stay with us. Whether everyone can play them or only you is up to you.',
   '例如：红伞': 'e.g. The Red Umbrella',
@@ -199,7 +202,7 @@ export const en: Record<string, string> = {
   '还没有开案。': 'No case open yet.',
   '这个游戏怎么玩？': 'How do I play this?',
   '这位作者把主页设为私密了。': 'This author keeps their profile private.',
-  这台设备上的记录: 'On this device',
+  你的进度: 'Your progress',
   '这里什么都没有。': 'Nothing here.',
   退出: 'Sign out',
   '选中后可以生成／筛选同题材的汤': 'Select to generate or filter the same genre',
@@ -325,6 +328,9 @@ export const en: Record<string, string> = {
     'It is already published. These are a few small things Jev noticed — worth keeping in mind next time.',
   '知道了，去看看': 'Got it, take a look',
   '有新动态': 'New activity',
+  '本机的 {count} 局进度已并入账号，换设备也能接着玩。':
+    'Merged {count} saved case(s) into your account — another device will pick them up.',
+  '知道了': 'Got it',
   '回我的题库': 'Back to my puzzles',
   '问不出来': 'Unaskable',
   '案卷 NO.{no}': 'Case file no. {no}',
@@ -438,4 +444,15 @@ export const en: Record<string, string> = {
   '你的结论': 'Your conclusion',
   '这个错误已经自动记下来了，不用你另外反馈。':
     'This error was reported automatically — no need to send anything.',
+  '已保存在本机': 'Saved on this device',
+  '同步中': 'Syncing',
+  '已同步': 'Synced',
+  '等待联网': 'Waiting for connection',
+  '同步失败': 'Sync failed',
+  '同步失败：请重新登录': 'Sync paused: sign in again',
+  '进度尚未保存：本机存储不可用': 'Progress not saved: device storage unavailable',
+  '服务器拒绝存档，请重试或减少单局内容':
+    'The server rejected this save. Retry or reduce the case size.',
+  '重试同步': 'Retry sync',
+  '稍后自动重试': 'Will retry automatically',
 }

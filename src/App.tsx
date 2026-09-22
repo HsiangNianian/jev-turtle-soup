@@ -1,5 +1,14 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Loader2, TriangleAlert } from 'lucide-react'
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import { ArrowLeft, Cloud, Loader2, TriangleAlert } from 'lucide-react'
 
 import { CaseDrawer } from '@/components/CaseDrawer'
 import { LocaleMenu, ThemeToggle } from '@/components/Controls'
@@ -78,6 +87,8 @@ import {
   type ArchivedGame,
   type GameStatus,
 } from '@/lib/archive'
+import { saveSync, type SyncState } from '@/lib/save-sync'
+import { archiveStore } from '@/lib/archive-store'
 import {
   cachedUser,
   fetchMe,
@@ -103,41 +114,159 @@ import { useI18n } from '@/lib/i18n'
 
 const VERDICTS = ['yes', 'no', 'partly', 'irrelevant']
 
-const initialGames = loadGames()
-
-/**
- * 直接刷新 /play（或从书签打开）时把上一局恢复出来。
- * 对局状态只在内存里，不恢复的话刷新后会停在「还没有开案」。
- */
-const bootGame =
-  window.location.pathname === '/play'
-    ? (initialGames.find((game) => game.status === 'active') ??
-      [...initialGames].sort((a, b) => b.updatedAt - a.updatedAt)[0] ??
-      null)
-    : null
-
 function toneFor(turn: { solved: boolean; verdict: string }): ChatMessage['tone'] {
   if (turn.solved) return 'celebrate'
   if (VERDICTS.includes(turn.verdict)) return 'verdict'
   return 'normal'
 }
 
-function persist(games: ArchivedGame[]): ArchivedGame[] {
-  saveGames(games)
-  return games
+/** Cached identity is display-only until /me confirms it. Account keys remount all play state. */
+export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(() => cachedUser())
+  const sync = saveSync()
+  const syncState = useSyncExternalStore(sync.subscribe, sync.getSnapshot)
+  const authRequest = useRef<AbortController | null>(null)
+  const authGeneration = useRef(0)
+  const confirmed = useRef(false)
+  const currentUser = useRef(user)
+
+  const applyUser = useCallback(
+    (next: AuthUser | null) => {
+      currentUser.current = next
+      confirmed.current = true
+      rememberUser(next)
+      sync.setUser(next?.uid ?? null, true)
+      setUser(next)
+    },
+    [sync],
+  )
+
+  const verifyAccount = useCallback(async () => {
+    authRequest.current?.abort()
+    const controller = new AbortController()
+    authRequest.current = controller
+    const generation = ++authGeneration.current
+    try {
+      const next = await fetchMe(controller.signal)
+      if (generation !== authGeneration.current) return
+      applyUser(next)
+      sync.retry()
+    } catch {
+      // A network failure must not move cached account progress into the guest space.
+      if (generation !== authGeneration.current) return
+      confirmed.current = false
+      sync.setUser(currentUser.current?.uid ?? null, false)
+    }
+  }, [applyUser, sync])
+
+  useEffect(() => {
+    sync.setUser(currentUser.current?.uid ?? null, false)
+    // Start authentication outside the synchronous effect; cached identity only paints the shell.
+    void Promise.resolve().then(verifyAccount)
+    const resume = () => {
+      if (document.visibilityState === 'hidden') return
+      if (!confirmed.current || sync.getSnapshot().status === 'auth') void verifyAccount()
+      else {
+        const state = sync.getSnapshot()
+        if (state.status !== 'error' || state.httpStatus === 429 || (state.httpStatus ?? 0) >= 500)
+          sync.retry()
+      }
+    }
+    window.addEventListener('online', resume)
+    document.addEventListener('visibilitychange', resume)
+    return () => {
+      // Invalidate the latest request, not only the one present at mount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      ++authGeneration.current
+      // This intentionally aborts the latest request, including retries started after mount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      authRequest.current?.abort()
+      sync.stop()
+      window.removeEventListener('online', resume)
+      document.removeEventListener('visibilitychange', resume)
+    }
+  }, [sync, verifyAccount])
+
+  const handleLogin = useCallback(
+    (next: AuthUser) => {
+      ++authGeneration.current
+      authRequest.current?.abort()
+      applyUser(next)
+      navigate('/', { replace: true })
+    },
+    [applyUser],
+  )
+
+  const handleLogout = useCallback(async () => {
+    ++authGeneration.current
+    authRequest.current?.abort()
+    sync.stop()
+    confirmed.current = false
+    currentUser.current = null
+    setUser(null)
+    forgetUser()
+    sync.setUser(null, false)
+    navigate('/')
+    // A failed logout cannot authorize cached queues; they remain paused until a later /me.
+    await logoutRequest().catch(() => undefined)
+  }, [sync])
+
+  const retry = useCallback(() => {
+    if (
+      archiveStore().storageError &&
+      !archiveStore().retryStorage(currentUser.current?.uid ?? null)
+    )
+      return
+    if (!confirmed.current || sync.getSnapshot().status === 'auth') void verifyAccount()
+    else sync.retry()
+  }, [sync, verifyAccount])
+
+  return (
+    <GameApp
+      key={user ? `user:${user.uid}` : 'guest'}
+      user={user}
+      syncState={syncState}
+      onLogin={handleLogin}
+      onLogout={handleLogout}
+      onRetry={retry}
+    />
+  )
 }
 
-export default function App() {
+function GameApp({
+  user,
+  syncState,
+  onLogin,
+  onLogout,
+  onRetry,
+}: {
+  user: AuthUser | null
+  syncState: SyncState
+  onLogin: (user: AuthUser) => void
+  onLogout: () => Promise<void>
+  onRetry: () => void
+}) {
   const { t, locale } = useI18n()
   const path = usePath()
-
+  const owner = user?.uid ?? null
+  const [initialGames] = useState(() => loadGames(owner))
+  const [bootGame] = useState(() =>
+    window.location.pathname === '/play'
+      ? (initialGames.find((game) => game.status === 'active') ?? initialGames[0] ?? null)
+      : null,
+  )
+  const persist = useCallback(
+    (next: ArchivedGame[]) => {
+      saveGames(next, owner)
+      return next
+    },
+    [owner],
+  )
   const [health, setHealth] = useState<HealthInfo | null>(null)
-  // 先按上次记下的登录态渲染，首屏不用等 /api/auth/me
-  const [user, setUser] = useState<AuthUser | null>(() => cachedUser())
-  // 作者的未读动态：页头给一个小红点
   const [unread, setUnread] = useState(0)
+  const [dismissedImports, setDismissedImports] = useState(0)
+  const synced = Math.max(0, syncState.imported - dismissedImports)
   const [games, setGames] = useState<ArchivedGame[]>(initialGames)
-
   const [session, setSession] = useState<GameSession | null>(() =>
     bootGame ? toSession(bootGame) : null,
   )
@@ -155,9 +284,6 @@ export default function App() {
     fetchHealth()
       .then(setHealth)
       .catch(() => setHealth(null))
-    fetchMe()
-      .then(setUser)
-      .catch(() => setUser(null))
   }, [])
 
   // 未读动态：登录后拉一次；进「我的题库」时会清零。
@@ -194,14 +320,15 @@ export default function App() {
   const buildEntry = useCallback(
     (status: GameStatus): ArchivedGame | null => {
       if (!session) return null
-      return {
+      const previous = games.find((game) => game.id === session.sessionId)
+      const entry: ArchivedGame = {
         id: session.sessionId,
         title: session.title,
         surface: session.surface,
         difficulty: session.difficulty,
         source: session.source,
         hostGreeting: session.hostGreeting,
-        hint: '',
+        hint: previous?.hint ?? '',
         libraryId: session.libraryId,
         dailyDate: session.dailyDate,
         createdAt: startedAt,
@@ -214,8 +341,22 @@ export default function App() {
         turnCount,
         status,
       }
+      if (
+        previous &&
+        Object.keys(entry).every(
+          (key) =>
+            key === 'updatedAt' ||
+            JSON.stringify(previous[key as keyof ArchivedGame]) ===
+              JSON.stringify(entry[key as keyof ArchivedGame]),
+        )
+      ) {
+        entry.updatedAt = previous.updatedAt
+      } else {
+        entry.updatedAt = Math.max(Date.now(), (previous?.updatedAt ?? 0) + 1)
+      }
+      return entry
     },
-    [session, startedAt, messages, revealed, truth, solved, closeness, turnCount],
+    [session, startedAt, messages, revealed, truth, solved, closeness, turnCount, games],
   )
 
   const liveEntry = useMemo(() => buildEntry(liveStatus), [buildEntry, liveStatus])
@@ -233,8 +374,8 @@ export default function App() {
   const ledger = useMemo(() => buildLedger(messages), [messages])
 
   useEffect(() => {
-    if (liveEntry) saveGames(allGames)
-  }, [liveEntry, allGames])
+    if (liveEntry) saveGames(allGames, owner)
+  }, [liveEntry, allGames, owner])
 
   const hydrate = useCallback((game: ArchivedGame) => {
     setSession(toSession(game))
@@ -246,6 +387,19 @@ export default function App() {
     setTurnCount(game.turnCount)
     setStartedAt(game.createdAt)
   }, [])
+
+  useEffect(
+    () =>
+      archiveStore().subscribe((event) => {
+        if (event.owner !== owner || event.kind !== 'remote') return
+        const next = loadGames(owner)
+        const current = liveEntry
+        const remote = current && next.find((game) => game.id === current.id)
+        if (remote && remote.updatedAt > current!.updatedAt) hydrate(remote)
+        setGames(next)
+      }),
+    [owner, hydrate, liveEntry],
+  )
 
   /** 从服务端取回汤底（会话题与题库题走同一个出口）。 */
   const fetchTruth = useCallback(async () => {
@@ -322,21 +476,24 @@ export default function App() {
   )
 
   /** 早期存档没存题库题号，恢复后会一直「过期」——按标题回查一次补上。 */
-  const repairLibraryId = useCallback(async (game: ArchivedGame) => {
-    try {
-      const items = await listPuzzles({ q: game.title })
-      const hits = items.filter((item) => item.title === game.title)
-      if (hits.length !== 1) return null
-      const libraryId = hits[0].id
-      setGames((prev) =>
-        persist(prev.map((item) => (item.id === game.id ? { ...item, libraryId } : item))),
-      )
-      setSession((prev) => (prev && prev.sessionId === game.id ? { ...prev, libraryId } : prev))
-      return libraryId
-    } catch {
-      return null
-    }
-  }, [])
+  const repairLibraryId = useCallback(
+    async (game: ArchivedGame) => {
+      try {
+        const items = await listPuzzles({ q: game.title })
+        const hits = items.filter((item) => item.title === game.title)
+        if (hits.length !== 1) return null
+        const libraryId = hits[0].id
+        setGames((prev) =>
+          persist(prev.map((item) => (item.id === game.id ? { ...item, libraryId } : item))),
+        )
+        setSession((prev) => (prev && prev.sessionId === game.id ? { ...prev, libraryId } : prev))
+        return libraryId
+      } catch {
+        return null
+      }
+    },
+    [persist],
+  )
 
   /** 把一次判读结果落进界面状态（正常路径与修复后的重试共用）。 */
   const applyTurn = useCallback(
@@ -522,7 +679,7 @@ export default function App() {
       }
       navigate('/')
     },
-    [buildEntry, session, t],
+    [buildEntry, session, t, persist],
   )
 
   const handleDeleteArchive = useCallback(
@@ -539,7 +696,7 @@ export default function App() {
       }
       setGames((prev) => persist(prev.filter((game) => game.id !== id)))
     },
-    [session],
+    [session, persist],
   )
 
   const handleReport = useCallback(
@@ -576,19 +733,6 @@ export default function App() {
   )
 
   const clearUnread = useCallback(() => setUnread(0), [])
-
-  const handleLogin = useCallback((next: AuthUser) => {
-    setUser(next)
-    if (next) rememberUser(next)
-    navigate('/', { replace: true })
-  }, [])
-
-  const handleLogout = useCallback(async () => {
-    await logoutRequest().catch(() => undefined)
-    setUser(null)
-    forgetUser()
-    navigate('/')
-  }, [])
 
   const typesafeMissing = health !== null && !health.typesafeConfigured
 
@@ -668,7 +812,7 @@ export default function App() {
           {user ? (
             <Missing label={t('登录')} message={t('你已经登录了。')} />
           ) : (
-            <LoginPage onDone={handleLogin} />
+            <LoginPage onDone={onLogin} />
           )}
         </ScrollArea>
       )
@@ -761,7 +905,7 @@ export default function App() {
               handle={user.handle ?? user.name ?? user.email}
               isAdmin={Boolean(user.isAdmin)}
               onSeen={clearUnread}
-              onLogout={() => void handleLogout()}
+              onLogout={() => void onLogout()}
             />
           ) : (
             <Missing label={t('我的题库')} message={t('请先登录。')} />
@@ -791,6 +935,7 @@ export default function App() {
         <Landing
           activeGames={activeGames}
           archives={archives}
+          signedIn={Boolean(user)}
           onStartDaily={startDailyGame}
           onContinue={handleContinue}
           onView={(id) => navigate(`/archive/${id}`)}
@@ -877,6 +1022,59 @@ export default function App() {
           <span className="min-w-0">
             {t('未检测到主持人密钥（TYPESAFE_API_KEY），砚无法工作。请配置后重启。')}
           </span>
+        </div>
+      ) : null}
+
+      {user || syncState.status === 'storage' ? (
+        <div
+          role="status"
+          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-foreground/20 px-4 py-1.5 font-mono text-[11px] sm:px-6"
+        >
+          <Cloud className="size-3.5" />
+          <span>
+            {t(
+              {
+                local: '已保存在本机',
+                syncing: '同步中',
+                synced: '已同步',
+                offline: '等待联网',
+                error: '同步失败',
+                auth: '同步失败：请重新登录',
+                storage: '进度尚未保存：本机存储不可用',
+              }[syncState.status],
+            )}
+          </span>
+          {syncState.status === 'error' ? (
+            <span>
+              {t(
+                syncState.httpStatus === 429 || (syncState.httpStatus ?? 0) >= 500
+                  ? '稍后自动重试'
+                  : '服务器拒绝存档，请重试或减少单局内容',
+              )}{' '}
+              ({syncState.httpStatus})
+            </span>
+          ) : null}
+          {['offline', 'error', 'auth', 'storage'].includes(syncState.status) ? (
+            <button type="button" onClick={onRetry} className="underline underline-offset-2">
+              {t('重试同步')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {synced > 0 && syncState.status !== 'storage' ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-foreground/20 bg-card px-4 py-2 font-mono text-[11px] tracking-wide sm:px-6">
+          <Cloud className="size-3.5 shrink-0 text-[var(--v-yes)]" />
+          <span className="min-w-0 flex-1">
+            {t('本机的 {count} 局进度已并入账号，换设备也能接着玩。', { count: synced })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setDismissedImports(syncState.imported)}
+            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t('知道了')}
+          </button>
         </div>
       ) : null}
 

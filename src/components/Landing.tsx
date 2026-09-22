@@ -66,6 +66,8 @@ function SectionHead({
 interface LandingProps {
   activeGames: ArchivedGame[]
   archives: ArchivedGame[]
+  /** 登录后进度跟着账号走；游客只留在本机，顺手邀请一下 */
+  signedIn?: boolean
   onStartDaily: (daily: DailyDetail) => void
   onContinue: (id: string) => void
   onView: (id: string) => void
@@ -80,6 +82,7 @@ interface LandingProps {
 export function Landing({
   activeGames,
   archives,
+  signedIn = false,
   onStartDaily,
   onContinue,
   onView,
@@ -389,9 +392,18 @@ export function Landing({
         </div>
       </div>
 
-      <div className="mt-10 flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">
-        <Lock className="size-3" />
-        {t('中途离开也没关系，进度会自动留在本机')}
+      <div className="mt-10 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">
+        <Lock className="size-3 shrink-0" />
+        {signedIn ? (
+          <span>{t('中途离开也没关系，进度会跟着账号走，换设备也能接着玩')}</span>
+        ) : (
+          <>
+            <span>{t('中途离开也没关系，进度只留在本机。')}</span>
+            <Link to="/login" className="text-stamp underline decoration-dotted underline-offset-4">
+              {t('登录后跟着账号走')}
+            </Link>
+          </>
+        )}
       </div>
     </div>
   )

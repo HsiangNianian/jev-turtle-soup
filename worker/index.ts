@@ -30,6 +30,7 @@ import {
   sendDigest,
   unsubscribeByToken,
 } from '../shared/digest.ts'
+import { deleteSave, importSaves, listSaves, putSave } from '../shared/saves.ts'
 import {
   authorActivity,
   authorSummary,
@@ -181,10 +182,7 @@ const DAILY_SELECT = `SELECT d.*, p.title, p.surface, p.truth, p.hint, p.tags, p
     FROM dailies d JOIN puzzles p ON p.id = d.puzzle_id`
 
 function dailyByDate(db: D1Like, date: string) {
-  return db
-    .prepare(`${DAILY_SELECT} WHERE d.date = ?`)
-    .bind(date)
-    .first<DailyRow>()
+  return db.prepare(`${DAILY_SELECT} WHERE d.date = ?`).bind(date).first<DailyRow>()
 }
 
 /** 这道题是不是「今天的」官方汤——当天的汤不许提前揭晓。 */
@@ -445,8 +443,7 @@ async function reportWorkerError(
 ): Promise<void> {
   if (!env.DB) return
   try {
-    const message =
-      error instanceof Error ? error.message || error.name : String(error)
+    const message = error instanceof Error ? error.message || error.name : String(error)
     await recordWorkerError(env.DB, {
       message,
       stack: error instanceof Error ? (error.stack ?? '') : '',
@@ -471,11 +468,23 @@ async function requireUser(request: Request, env: Env) {
   return current as { uid: string; email: string }
 }
 
+async function requireSaveOwner(request: Request, env: Env) {
+  const current = await requireUser(request, env)
+  const expected = request.headers.get('X-Save-Owner')
+  if (expected !== null && expected !== current.uid) {
+    throw new ApiError(409, '存档账号已改变，请重新登录后重试')
+  }
+  return current
+}
+
 /**
  * 管理接口的入口：必须是登录用户，且 uid 在 admins 表里。
  * 和 requireAdmin（共享口令）分开：口令是给机器/cron 调的，这个是给人用的。
  */
-async function requireAdminSession(request: Request, env: Env): Promise<{ uid: string; email: string }> {
+async function requireAdminSession(
+  request: Request,
+  env: Env,
+): Promise<{ uid: string; email: string }> {
   const current = await requireUser(request, env)
   if (!(await isAdmin(requireDb(env), current.uid))) throw new ApiError(403, '无权访问')
   return current
@@ -547,8 +556,8 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
     // 没有起点的话「未读」永远是 0，那枚红点自己启动不了 ——
     // 而且「从上次登录到现在有什么新动静」本来就是想看的东西。
     const locale = body.locale === 'en' || body.locale === 'ja' ? body.locale : 'zh-CN'
-    await env.DB!
-      .prepare(
+    await env
+      .DB!.prepare(
         'UPDATE users SET locale = ?, activity_seen_at = COALESCE(activity_seen_at, ?) WHERE id = ?',
       )
       .bind(locale, Date.now(), user.id)
@@ -682,6 +691,34 @@ async function routeMe(
     const current = await requireUser(request, env)
     const limit = Number(url.searchParams.get('limit') ?? '30')
     return json({ items: await authorActivity(db, current.uid, limit) })
+  }
+
+  // 云端存档：登录后本机进度镜像到账号
+  if (pathname === '/api/me/saves') {
+    const current = await requireSaveOwner(request, env)
+    if (request.method === 'GET') return json({ items: await listSaves(db, current.uid) })
+    if (request.method === 'POST') {
+      const body = await readJson(request)
+      return json(await importSaves(db, current.uid, body.games))
+    }
+    return json({ error: '方法不被允许' }, 405)
+  }
+  if (pathname.startsWith('/api/me/saves/')) {
+    const current = await requireSaveOwner(request, env)
+    const id = safeDecode(pathname.slice('/api/me/saves/'.length))
+    if (request.method === 'PUT') {
+      const body = await readJson(request)
+      if ((body.game as { id?: unknown } | undefined)?.id !== id) {
+        throw new ApiError(400, '存档 id 不匹配')
+      }
+      await putSave(db, current.uid, body.game)
+      return json({ ok: true })
+    }
+    if (request.method === 'DELETE') {
+      await deleteSave(db, current.uid, id)
+      return json({ ok: true })
+    }
+    return json({ error: '方法不被允许' }, 405)
   }
 
   // 未读动态数：动态看到哪了记在 users.activity_seen_at

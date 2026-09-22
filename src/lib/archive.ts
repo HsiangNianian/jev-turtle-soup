@@ -1,4 +1,5 @@
 import type { ChatMessage, GameSession } from '@/lib/api'
+import { archiveStore, type Owner } from './archive-store'
 
 export type GameStatus = 'active' | 'solved' | 'revealed' | 'abandoned'
 
@@ -25,8 +26,6 @@ export interface ArchivedGame {
   status: GameStatus
 }
 
-const STORAGE_KEY = 'turtle-soup.archive.v1'
-
 export const STATUS_LABEL: Record<GameStatus, string> = {
   active: '在办',
   solved: '已结案',
@@ -34,35 +33,12 @@ export const STATUS_LABEL: Record<GameStatus, string> = {
   abandoned: '已中止',
 }
 
-function isArchivedGame(value: unknown): value is ArchivedGame {
-  if (!value || typeof value !== 'object') return false
-  const game = value as Partial<ArchivedGame>
-  return (
-    typeof game.id === 'string' &&
-    typeof game.title === 'string' &&
-    typeof game.surface === 'string' &&
-    Array.isArray(game.messages)
-  )
+export function loadGames(owner: Owner): ArchivedGame[] {
+  return archiveStore().space(owner).games
 }
 
-export function loadGames(): ArchivedGame[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(isArchivedGame)
-  } catch {
-    return []
-  }
-}
-
-export function saveGames(games: ArchivedGame[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(games))
-  } catch {
-    /* 隐私模式或超出配额时静默失败，游戏仍可继续 */
-  }
+export function saveGames(games: ArchivedGame[], owner: Owner): boolean {
+  return archiveStore().save(owner, games)
 }
 
 export function upsertGame(games: ArchivedGame[], game: ArchivedGame): ArchivedGame[] {

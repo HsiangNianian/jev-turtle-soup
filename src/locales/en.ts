@@ -227,6 +227,7 @@ export const en: Record<string, string> = {
   '即将离开本站': 'Leaving this site',
   '发送验证码': 'Send code',
   '回答 · 置信度 {value}': 'Verdict · confidence {value}',
+  '实际回答 {value}': 'Answered {value}',
   '回车提交 · Shift + 回车换行': 'Enter to send · Shift + Enter for a new line',
   '它由 Meaningless Meaning Studio 的 {name} 制作。':
     'Made by {name} of Meaningless Meaning Studio.',

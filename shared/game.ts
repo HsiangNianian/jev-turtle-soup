@@ -422,6 +422,43 @@ export function isNegationPair(a: string, b: string): boolean {
   return Boolean(stripped) && stripped === withoutMarks(nb, mb)
 }
 
+/** bigram 重合度：取较小的一边做分母，短的完全被长的包含时得 1。 */
+function overlapCoefficient(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0
+  let shared = 0
+  for (const gram of a) if (b.has(gram)) shared += 1
+  return shared / Math.min(a.size, b.size)
+}
+
+/**
+ * `isNegationPair` 要求「剥掉否定词后逐字相同」。但玩家常顺手改一两个虚词：
+ * 把「她」写成「他」，或加个「确实」「到底」—— 两句话仍是同一命题的正反面，
+ * 只差一个否定词，可逐字比对就漏了。
+ *
+ * 漏判的后果很重：模型会把反面问句当成「同一问题又问了一遍」，把旧答案原样
+ * 抄回来，于是「有海吗→不是」「没有海吗→不是」，正反同答。
+ *
+ * 所以复用旧答案之前，用这条更宽的判定再确认一次正反：剥掉否定词后一个包含
+ * 另一个，或 bigram 重合度极高，且否定奇偶不同。仍然要求否定奇偶不同，
+ * 所以只是「放宽措辞」，没有放宽「正反」这个硬条件。
+ */
+const OPPOSITE_OVERLAP = 0.85
+function looksLikeOpposite(a: string, b: string): boolean {
+  if (isNegationPair(a, b)) return true
+  const na = normaliseForCompare(a)
+  const nb = normaliseForCompare(b)
+  if (!na || !nb || na === nb) return false
+  const ma = negationMarks(na)
+  const mb = negationMarks(nb)
+  if (Math.abs(ma.length - mb.length) % 2 === 0) return false
+  const sa = withoutMarks(na, ma)
+  const sb = withoutMarks(nb, mb)
+  if (!sa || !sb || sa === sb) return false
+  if (sa.length < 2 || sb.length < 2) return false
+  if (sa.includes(sb) || sb.includes(sa)) return true
+  return overlapCoefficient(bigrams(sa), bigrams(sb)) >= OPPOSITE_OVERLAP
+}
+
 function bigrams(value: string): Set<string> {
   const out = new Set<string>()
   for (let i = 0; i + 2 <= value.length; i += 1) out.add(value.slice(i, i + 2))
@@ -1111,6 +1148,7 @@ export function composeTurn(
   candidates: Candidate[] = [],
   truthLocked = false,
   opposites: Candidate[] = [],
+  message = '',
 ) {
   const copy = HOST_COPY[locale]
   const intentAnswer = answers.intent
@@ -1230,7 +1268,11 @@ export function composeTurn(
       const fact = established[index]
       const known = candidates.some((item) => item.index === index)
       if (!known || !fact || !VERDICT_CHOICES.includes(fact.verdict)) continue
-      const verdict = flip ? (INVERTED_VERDICT[fact.verdict] ?? fact.verdict) : fact.verdict
+      // 「原样复问」和「反面复问」会同时命中这里：模型常把反面问句判成
+      // 「和那条是同一问」（字符串太像）。所以即便走的是复用分支，也要再确认
+      // 一次正反 —— 是反面就取反，而不是把旧答案原样抄回去（正反同答）。
+      const inverted = flip || looksLikeOpposite(message, fact.question)
+      const verdict = inverted ? (INVERTED_VERDICT[fact.verdict] ?? fact.verdict) : fact.verdict
       const word = (copy.verdict[verdict] ?? verdict).replace(/[。.]$/, '')
       return {
         intent,
@@ -1239,7 +1281,7 @@ export function composeTurn(
         revealed: false,
         closeness: null,
         confidence: answer?.confidence ?? 0.9,
-        reply: flip ? copy.repeatOpposite(word) : copy.repeat(word),
+        reply: inverted ? copy.repeatOpposite(word) : copy.repeat(word),
       }
     }
 
@@ -1635,13 +1677,16 @@ export async function judge(
     candidates,
     options.truthLocked ?? false,
     opposites,
+    message,
   )
   return {
     ...turn,
     model,
     // 前端据此渲染判定徽章（可能和界面语言不同）
     replyLocale,
-    debug: buildDebug(answers),
+    // finalVerdict 是**实际回答**的结论：复问 / 反面复用会覆盖模型当场那条，
+    // 面板的摘要要显示真正答出去的，否则「回答」和明细会看起来打架。
+    debug: { ...buildDebug(answers), finalVerdict: turn.verdict, finalIntent: turn.intent },
     // 只有「这一次真的揭晓了」才把汤底一起带回去，其余一律不给
     ...(turn.revealed ? { truth: puzzle.truth } : {}),
   }

@@ -53,6 +53,9 @@ interface Debugish {
   /** 通关判定：字段名换过，两个都认 */
   solved?: number
   explainsSurface?: number
+  /** 实际答出去的结论（复问 / 反面复用会覆盖模型当场那条） */
+  finalVerdict?: string
+  finalIntent?: string
 }
 
 /** 数字统一在这里格式化：不是有限数就画「—」。 */
@@ -113,12 +116,15 @@ export function TurnDebug({ debug }: { debug: unknown }) {
   if (!intent?.choice) return null
 
   const metaChoice = d.metaRequest?.choice
+  // 摘要显示**实际答出去**的结论：复问 / 反面复用会覆盖模型当场那条，
+  // 显示模型原始那条会让「回答」和摘要看起来自相矛盾。
+  const shownVerdict = d.finalVerdict ?? d.verdict?.choice
   const tag =
     intent.choice === 'meta'
       ? t(META_LABEL[metaChoice ?? 'none'] ?? metaChoice ?? '—')
       : intent.choice === 'guess'
         ? `${Math.round(((d.closeness?.score ?? 0) / 3) * 100)}%`
-        : t(VERDICT_LABEL[d.verdict?.choice ?? ''] ?? d.verdict?.choice ?? '—')
+        : t(VERDICT_LABEL[shownVerdict ?? ''] ?? shownVerdict ?? '—')
 
   // 通关信号：新字段优先，旧存档里叫 explainsSurface 也认
   const solveSignal =
@@ -150,8 +156,15 @@ export function TurnDebug({ debug }: { debug: unknown }) {
             <Bars
               probabilities={d.verdict.probabilities}
               labels={VERDICT_LABEL}
-              highlight={d.verdict.choice}
+              highlight={d.finalVerdict ?? d.verdict.choice}
             />
+            {d.finalVerdict && d.finalVerdict !== d.verdict.choice ? (
+              <div className="font-mono text-[10px] text-muted-foreground/70">
+                {t('实际回答 {value}', {
+                  value: t(VERDICT_LABEL[d.finalVerdict] ?? d.finalVerdict),
+                })}
+              </div>
+            ) : null}
           </Section>
         ) : null}
         {d.contradictsEarlier || d.matchesEarlier || d.messageLanguage || d.oppositeOf ? (

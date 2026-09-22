@@ -226,6 +226,7 @@ export const ja: Record<string, string> = {
   '即将离开本站': 'このサイトを離れます',
   '发送验证码': 'コードを送る',
   '回答 · 置信度 {value}': '回答 VERDICT · 確信度 {value}',
+  '实际回答 {value}': '実際の回答 {value}',
   '回车提交 · Shift + 回车换行': 'Enter で送信 · Shift + Enter で改行',
   '它由 Meaningless Meaning Studio 的 {name} 制作。': '{name}（Meaningless Meaning Studio）制作。',
   '开发模式：验证码是 {code}': '開発モード：コードは {code}',

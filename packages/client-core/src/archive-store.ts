@@ -10,11 +10,11 @@ export interface PendingSave {
   readyAt: number
   imported: boolean
 }
-interface Space {
+export interface Space {
   games: ArchivedGame[]
   pending: PendingSave[]
 }
-interface ArchiveData {
+export interface ArchiveData {
   version: 2
   spaces: Record<string, Space>
   guestClaimedBy?: string
@@ -25,10 +25,12 @@ export interface ArchiveChange {
 }
 const spaceKey = (owner: Owner) => (owner === null ? 'guest' : `user:${owner}`)
 const empty = (): Space => ({ games: [], pending: [] })
-/** All spaces share one atomic localStorage write, including migration and guest transfer. */
+/** Every commit must atomically persist all spaces, including migration and guest transfer. */
 export interface StoragePort {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
+  readArchive?(): ArchiveData | null
+  writeArchive?(data: ArchiveData): void
 }
 
 export class ArchiveStore {
@@ -57,9 +59,10 @@ export class ArchiveStore {
 
   private read() {
     try {
-      const raw = this.storage.getItem(ARCHIVE_KEY)
-      if (raw) {
-        const data = JSON.parse(raw) as ArchiveData
+      const structured = this.storage.readArchive?.()
+      const raw = structured ? null : this.storage.getItem(ARCHIVE_KEY)
+      if (structured || raw) {
+        const data = structured ?? (JSON.parse(raw!) as ArchiveData)
         if (
           data.version !== 2 ||
           !data.spaces ||
@@ -127,7 +130,8 @@ export class ArchiveStore {
     }
     this.data = next // Keep unsaved edits in memory for explicit retry; never upload them yet.
     try {
-      this.storage.setItem(ARCHIVE_KEY, JSON.stringify(next))
+      if (this.storage.writeArchive) this.storage.writeArchive(next)
+      else this.storage.setItem(ARCHIVE_KEY, JSON.stringify(next))
       this.storageError = false
       this.emit(owner, kind)
       return true
@@ -191,14 +195,18 @@ export class ArchiveStore {
     const old = this.space(owner)
     const pending = new Map(old.pending.map((op) => [op.id, op]))
     const before = new Map(old.games.map((game) => [game.id, game]))
+    let changed = old.games.length !== games.length
     for (const game of games) {
-      if (JSON.stringify(before.get(game.id)) !== JSON.stringify(game)) {
+      const previous = before.get(game.id)
+      if (previous !== game && JSON.stringify(previous) !== JSON.stringify(game)) {
+        changed = true
         pending.set(game.id, this.operation(game.id, 'put', pending.get(game.id)?.imported))
       }
       before.delete(game.id)
     }
     for (const id of before.keys()) pending.set(id, this.operation(id, 'delete'))
-    if (!this.storageError && JSON.stringify(old.games) === JSON.stringify(games)) return true
+    const sameOrder = games.every((game, index) => old.games[index]?.id === game.id)
+    if (!this.storageError && !changed && sameOrder) return true
     return this.update(owner, { games, pending: [...pending.values()] }, 'local')
   }
 

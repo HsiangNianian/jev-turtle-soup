@@ -15,7 +15,7 @@
 React 19 · Vite · Tailwind CSS v4 · Cloudflare Workers · TypeSafe Jev · DeepSeek / OpenAI
 
 独立 iOS / Android 客户端的范围、迁移步骤、GitHub 云构建与本地构建脚本方案见
-[移动客户端实施计划](docs/mobile-app-plan.md)（规划中）。
+[原生移动客户端与本地构建命令](mobile/README.md) · [实施计划与验收状态](docs/mobile-app-plan.md)。
 
 ## 本地开发
 

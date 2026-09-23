@@ -1,7 +1,7 @@
 # 独立移动客户端实施计划
 
 日期：2026-09-23。代码基线：`bd055e0` / Web `v0.33.8`。
-状态：规划；本文中的目录、命令、工作流和 API 扩展尚未实现。
+状态：开发分支 `codex/mobile-app` 已实现客户端、共享核心、Bearer 会话扩展、本地 npm 构建入口及 GitHub 工作流；正在验证原生编译，尚未完成真机签名和安装验收。实际命令与配置见 [mobile/README.md](../mobile/README.md)。以下保留实施范围和验收要求。
 
 目标是在同一仓库新增可独立安装的 iOS / Android App。采用 Expo + React Native，沿用 Workers、D1、KV 和现有题库。**按最新决定，现阶段原生编译运行在 GitHub Actions 托管 runner；同时必须交付可在本地执行的完整 npm 构建脚本，CI 调用同一套脚本。本机暂以代码、JS 检查、Worker 与 Metro 开发为主。不依赖 EAS Build、EAS Submit 或 EAS Update。**
 
@@ -16,7 +16,7 @@
 | 后端     | 现有 Worker `/api/*`；客户端公开接口与服务端代码明确分包                        |
 | 样式     | 原生组件 + `StyleSheet` + 共享品牌 tokens；系统导航、菜单和弹层                 |
 | 凭据     | `expo-secure-store` 保存会话 token；服务端继续校验签名和 KV 会话                |
-| 存档     | `expo-sqlite` 持久化；首版以同步 KV 适配器保留现有原子提交语义                  |
+| 存档     | `expo-sqlite` 按局持久化；游戏、队列、账号归属在同一事务原子提交                |
 | 工作区   | npm workspaces，沿用 npm 和根 lockfile；Web 目录不搬迁                          |
 | 原生工程 | 初次 Prebuild 后将 `mobile/ios`、`mobile/android` 纳入 Git；CI 编译已提交的工程 |
 | 编译     | GitHub 托管 runner：Android 用 Linux + Gradle，iOS 用 macOS + Xcode             |
@@ -98,7 +98,7 @@ Tabs
 
 ## 4. 登录、请求与数据恢复
 
-**原生会话扩展。** 目前 `worker/index.ts` 的 `sessionToken()` 只读 Cookie，OTP verify 只通过 Set-Cookie 返回凭据。沿用当前邮箱验证码、签名 sid 和 KV 撤销机制，新增：
+**原生会话扩展。** 开发分支已在 `worker/index.ts` 实现以下扩展，沿用当前邮箱验证码、签名 sid 和 KV 撤销机制；生产服务需部署相同版本后才能供 App 登录：
 
 1. `POST /api/auth/verify` 接受可选 `sessionMode: "token"`，验证成功返回 `{ user, token, expiresAt }`，token 模式不额外设置 Cookie；未指定时保持现有 Web 行为。
 2. 统一鉴权支持 `Authorization: Bearer <token>`；明确提供 Authorization 时按该凭据校验，无效或格式错误时不回退 Cookie 身份。
@@ -108,7 +108,7 @@ Tabs
 
 所有调用经过统一 transport：API base URL、取消信号、结构化错误、Bearer、`X-Save-Owner`。默认只向配置的 API origin 发送凭据。无需为原生客户端放开浏览器的任意来源 CORS。
 
-**存档。** 首版用 SQLite KV 的同步 `getItemSync/setItemSync` 适配现有 store，让整份数据与 pending 操作一起落盘成功后才发布变更和上传。不能把异步 Promise 伪装成当前同步写入成功。[SQLite KV API](https://docs.expo.dev/versions/latest/sdk/sqlite/)
+**存档。** 原型全量 KV 序列化在 200 局、每局 300 条消息时出现明显长任务，已升级为按局 SQLite 存储，仅序列化变更的游戏；所有游戏变更、pending 操作与账号归属在同一事务提交。Web 保留原有 localStorage 适配。回归覆盖单局更新、失败回滚、游客归并、重启恢复和旧 KV 迁移。[SQLite API](https://docs.expo.dev/versions/latest/sdk/sqlite/)
 
 保留游客/各账号隔离、首次登录归并游客记录、generation 取消旧账号请求、逐条同步、退避与失败操作持久化。App 前台激活和网络恢复触发重试；进入后台及时保存，但不假设系统允许无限后台运行。离线可以阅读已有汤面和记录，模型回答仍需联网。
 
@@ -126,14 +126,14 @@ Web 的本机游客存档不会自动进入 App；需要在 Web 登录并同步�
 
 当前机器已确认 Node `22.22.2` / npm `10.9.7` 可用；完整 Xcode、Java Runtime、默认 Android SDK 和 CocoaPods 尚未检测到。**这些不作为本阶段前置条件，不安排安装。** Xcode、模拟器、SDK 兼容 JDK、Android SDK 与 CocoaPods 由 M0 在 GitHub runner 配置并锁定。
 
-拟新增根命令；以下是目标入口，当前尚不存在。**本地构建脚本是 M0 的必交付项**，不能只有 workflow 中的一段 shell。CI 调用这些同源脚本；本机暂不安装原生工具链，构建运行验证先由 CI 完成：
+以下根命令已实现。**本地构建脚本是 M0 的必交付项**，CI 调用这些同源脚本；本机暂不安装原生工具链，构建运行验证先由 CI 完成：
 
 | 命令                                   | 行为                                                               |
 | -------------------------------------- | ------------------------------------------------------------------ |
 | `npm run mobile:start`                 | 本地启动 Metro，已安装的 CI development build 通过局域网连接       |
 | `npm run mobile:android`               | 本地 Expo CLI 调试编译、安装到 Android 设备并启动 Metro            |
 | `npm run mobile:ios`                   | 本地 Expo CLI 调试编译、安装到 iOS 模拟器/已配置设备并启动 Metro   |
-| `npm run mobile:check`                 | 类型、lint、核心及平台适配测试、依赖兼容检查                       |
+| `npm run mobile:check`                 | 移动类型、客户端导入边界、全仓核心及平台适配回归测试               |
 | `npm run mobile:build:android:debug`   | 本地/CI：仅编译调试 APK，不安装、不启动 Metro                      |
 | `npm run mobile:build:android:preview` | 本地/CI：内置 JS 的内部签名 APK                                    |
 | `npm run mobile:build:android:release` | 本地/CI：正式签名 AAB                                              |
@@ -151,7 +151,7 @@ Web 的本机游客存档不会自动进入 App；需要在 Web 登录并同步�
 
 ### CI 触发与产物
 
-当前仓库没有 `.github/workflows`，需新增工作流。用 PR 和 main 的非签名构建尽早发现原生工程问题；签名出包走 `workflow_dispatch` 或移动专用 tag，首个版本拟 `mobile-v0.1.0`。Web `v*` tag 不触发移动发布，移动 tag 不改 Web 版本号。
+开发分支已新增 `mobile-checks.yml` 与 `mobile-package.yml`。用 PR 和 main 的非签名构建尽早发现原生工程问题；签名出包走 `workflow_dispatch` 或移动专用 tag，首个版本拟 `mobile-v0.1.0`。Web `v*` tag 不触发移动发布，移动 tag 不改 Web 版本号。
 
 | 触发                          | 环境/步骤                                                                                             | 产物与用途                                       |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ |

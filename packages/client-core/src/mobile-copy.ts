@@ -1,5 +1,18 @@
 /** App-specific copy; the shared web dictionary supplies existing game terminology. */
 export const mobileCopy: Record<string, [string, string]> = {
+  原作语言: ['Original language', '原文の言語'],
+  全部题材: ['All themes', 'すべての題材'],
+  偏本格: ['Realistic first', '本格寄り'],
+  偏变格: ['Surreal first', '変格寄り'],
+  题材偏好: ['Theme preference', '題材の好み'],
+  按题材接近程度排序: ['Sort by similarity to this theme', '題材の近さで並べ替え'],
+  重新加载汤底: ['Reload solution', '解答を再読み込み'],
+  怎么玩: ['How to play', '遊び方'],
+  '根据汤面提问，用是非问题缩小范围。确定的回答会进入已知结论；信息不足时主持人会请你澄清。整理出完整经过后，直接说出你的结论。':
+    [
+      'Ask yes-or-no questions about the mystery. Definite answers are added to established facts; the host may ask you to clarify. When you can explain the whole story, tell the host your conclusion.',
+      '問題文について「はい・いいえ」で答えられる質問をしましょう。確定した回答は記録され、情報が足りない場合は司会者が補足を求めます。全容が分かったら、結論を伝えてください。',
+    ],
   今日: ['Today', '今日'],
   档案: ['Archive', '記録'],
   我的: ['Me', 'マイページ'],

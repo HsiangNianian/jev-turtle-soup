@@ -9,6 +9,11 @@ on:
         description: Resolve and export initial CocoaPods / Ruby lockfiles
         type: boolean
         default: false
+      platform:
+        description: Native build to run (checks always run)
+        type: choice
+        options: [both, android, ios]
+        default: both
 permissions:
   contents: read
 concurrency:
@@ -35,6 +40,7 @@ jobs:
       - run: npm run deploy:dry-run
       - run: npm run mobile:export
   android:
+    if: inputs.platform != 'ios'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -47,6 +53,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            mobile/android/**/*.gradle*
+            mobile/android/gradle/wrapper/gradle-wrapper.properties
+            package-lock.json
       - run: npm ci
       - run: npm run mobile:build:android:debug
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -56,6 +67,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   ios:
+    if: inputs.platform != 'android'
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -81,6 +93,8 @@ jobs:
           else
             npm run mobile:build:ios:simulator
           fi
+      - name: Launch bundled app on iOS simulator
+        run: npm run mobile:smoke:ios
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -91,6 +105,7 @@ jobs:
             artifacts/mobile/*.sha256
             mobile/ios/Podfile.lock
             mobile/Gemfile.lock
+            artifacts/mobile/smoke/*
           retention-days: 14
   required:
     if: always()
@@ -100,4 +115,4 @@ jobs:
       - env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          node -e 'const jobs=JSON.parse(process.env.RESULTS); if(Object.values(jobs).some(j=>j.result!=="success"))process.exit(1)'
+          node -e 'const jobs=JSON.parse(process.env.RESULTS); if(Object.values(jobs).some(j=>!["success","skipped"].includes(j.result)))process.exit(1)'

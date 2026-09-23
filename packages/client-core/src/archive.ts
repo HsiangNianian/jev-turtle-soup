@@ -14,6 +14,7 @@ export interface ArchivedGame {
   libraryId?: string
   /** 官方每日汤才有：这道汤是哪一天的（当天不许提前揭晓） */
   dailyDate?: string
+  sourceLocale?: 'zh-CN' | 'en' | 'ja'
   createdAt: number
   updatedAt: number
   messages: ChatMessage[]

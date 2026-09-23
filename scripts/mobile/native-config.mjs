@@ -45,8 +45,12 @@ android {`,
       /(release \{\n\s*\/\/ Caution![\s\S]*?)signingConfig signingConfigs.debug/,
       '$1signingConfig signingConfigs.release',
     )
-    writeFileSync(gradlePath, gradle)
   }
+  gradle = gradle.replace(
+    'versionName "0.1.0"',
+    "versionName System.getenv('MOBILE_APP_VERSION') ?: '0.1.0'",
+  )
+  writeFileSync(gradlePath, gradle)
   const stringsPath = path.join(app, 'android/app/src/main/res/values/strings.xml')
   writeFileSync(
     stringsPath,
@@ -67,6 +71,11 @@ android {`,
   writeFileSync(
     plist,
     readFileSync(plist, 'utf8')
+      .replace('<string>turtlesoup</string>', '<string>$(MOBILE_APP_SCHEME)</string>')
+      .replace(
+        '<string>games.mmstudio.turtlesoup</string>',
+        '<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>',
+      )
       .replace(
         /(<key>CFBundleDisplayName<\/key>\s*)<string>[^<]*<\/string>/,
         '$1<string>$(MOBILE_APP_NAME)</string>',
@@ -86,6 +95,11 @@ android {`,
     text = text.replaceAll(
       'CURRENT_PROJECT_VERSION = 1;',
       'CURRENT_PROJECT_VERSION = 1;\n\t\t\t\tMOBILE_APP_NAME = "海龟汤调查局";\n\t\t\t\tMARKETING_VERSION = "0.1.0";',
+    )
+  if (!text.includes('MOBILE_APP_SCHEME ='))
+    text = text.replaceAll(
+      'CURRENT_PROJECT_VERSION = 1;',
+      'CURRENT_PROJECT_VERSION = 1;\n\t\t\t\tMOBILE_APP_SCHEME = "turtlesoup-development";',
     )
   // The first application configuration is Debug; release identity is overridden by the build script.
   const debugStart = text.indexOf('/* Debug */ = {')

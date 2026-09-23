@@ -198,9 +198,14 @@ function GameScreen({ id }: { id: string }) {
                 disabled={busy || !!pending || !text.trim() || runtime.store.storageError}
                 onPress={() => {
                   const question = text
-                  setText('')
                   atBottom.current = true
-                  void perform(() => runtime.send(id, question))
+                  void perform(async () => {
+                    // Legacy-ID lookup may fail before a question is persisted.
+                    const request = runtime.send(id, question)
+                    if (runtime.game(id)?.draft === '') setText('')
+                    await request
+                    setText(runtime.game(id)?.draft ?? question)
+                  })
                 }}
               />
             </>

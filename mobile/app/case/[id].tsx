@@ -34,6 +34,11 @@ export default function Case() {
           <View style={{ gap: 18, paddingBottom: 20 }}>
             <Title>{game.title}</Title>
             <Copy>{game.surface}</Copy>
+            {game.sourceLocale ? (
+              <Copy>
+                {t('原作语言')} · {game.sourceLocale}
+              </Copy>
+            ) : null}
             <Copy>
               {game.difficulty} · {game.turnCount} {t('轮')}
               {game.closeness !== null ? ` · ${t('接近度')} ${Math.round(game.closeness)}%` : ''}
@@ -48,6 +53,14 @@ export default function Case() {
                   </>
                 ) : null}
                 <Copy selectable>{game.truth || t('汤底暂未载入')}</Copy>
+                {!game.truth ? (
+                  <Button
+                    secondary
+                    disabled={busy}
+                    title={t('重新加载汤底')}
+                    onPress={() => void perform(() => runtime.reveal(id))}
+                  />
+                ) : null}
               </Card>
             ) : null}
             {active ? (
@@ -105,6 +118,18 @@ export default function Case() {
                 }
               />
             ) : null}
+            <Button
+              secondary
+              title={t('怎么玩')}
+              onPress={() =>
+                Alert.alert(
+                  t('怎么玩'),
+                  t(
+                    '根据汤面提问，用是非问题缩小范围。确定的回答会进入已知结论；信息不足时主持人会请你澄清。整理出完整经过后，直接说出你的结论。',
+                  ),
+                )
+              }
+            />
             <Button
               secondary
               title={t('反馈问题')}

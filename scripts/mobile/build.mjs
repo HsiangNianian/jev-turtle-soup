@@ -125,6 +125,10 @@ function manifest(artifact, signing, details = {}) {
 async function main() {
   if (!allowed[platform]?.includes(mode)) fail('Unknown platform/mode. Use --help.')
   if (!['development', 'preview', 'production'].includes(environment)) fail('Invalid --env')
+  if (mode === 'run' && environment !== 'development')
+    fail(
+      'Interactive Expo run commands use the development identity; use a build command for preview/production.',
+    )
   if (!/^[1-9]\d{0,8}$/.test(buildNumber))
     fail('Build number must be a positive integer (maximum 9 digits)')
   if (mode !== 'sync') {
@@ -152,7 +156,11 @@ async function main() {
       ['-version'],
       'Install the pinned JDK (see mobile/toolchain.json) and set JAVA_HOME.',
     )
-    if (!process.env.ANDROID_HOME && !existsSync(path.join(app, 'android/local.properties')))
+    if (
+      !process.env.ANDROID_HOME &&
+      !process.env.ANDROID_SDK_ROOT &&
+      !existsSync(path.join(app, 'android/local.properties'))
+    )
       fail(
         'Install Android SDK and set ANDROID_HOME, or configure mobile/android/local.properties.',
       )
@@ -194,6 +202,7 @@ async function main() {
       for (const key of ['MOBILE_KEYSTORE_PASSWORD', 'MOBILE_KEY_ALIAS', 'MOBILE_KEY_PASSWORD'])
         required(key)
     }
+    env.MOBILE_APP_VERSION = pkg.version
     const task =
       mode === 'release'
         ? ':app:bundleRelease'
@@ -217,7 +226,14 @@ async function main() {
     copyFileSync(path.join(artifactDir, artifactName), artifact)
     if (extension === 'aab') run('jarsigner', ['-verify', artifact])
     else {
-      const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT
+      const localProperties = path.join(app, 'android/local.properties')
+      const localSdk = existsSync(localProperties)
+        ? readFileSync(localProperties, 'utf8')
+            .match(/^sdk\.dir=(.+)$/m)?.[1]
+            .trim()
+            .replace(/\\([\\:])/g, '$1')
+        : undefined
+      const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT ?? localSdk
       if (!sdk) fail('Set ANDROID_HOME to verify APK signatures')
       const versions = readdirSync(path.join(sdk, 'build-tools')).sort((a, b) =>
         a.localeCompare(b, undefined, { numeric: true }),
@@ -235,6 +251,13 @@ async function main() {
   }
   if (process.platform !== 'darwin')
     fail('iOS builds require macOS with Xcode (local Mac or GitHub macOS runner).')
+  if (['device', 'development'].includes(mode)) {
+    secretFile('IOS_CERTIFICATE_PATH')
+    secretFile('IOS_PROFILE_PATH')
+    required('IOS_CERTIFICATE_PASSWORD')
+    if (mode === 'device' && !['ad-hoc', 'app-store'].includes(values['export-method']))
+      fail('iOS device requires --export-method ad-hoc or app-store')
+  }
   need(
     'xcodebuild',
     ['-version'],
@@ -275,6 +298,7 @@ async function main() {
     `CURRENT_PROJECT_VERSION=${buildNumber}`,
     `MARKETING_VERSION=${pkg.version}`,
     `MOBILE_APP_NAME=${environment === 'production' ? '海龟汤调查局' : '海龟汤 · 开发'}`,
+    `MOBILE_APP_SCHEME=${environment === 'production' ? 'turtlesoup' : `turtlesoup-${environment}`}`,
   ]
   if (mode === 'simulator') {
     const derived = path.join(output, 'derived-data')
@@ -361,7 +385,7 @@ async function main() {
   ])
   run('security', ['list-keychains', '-d', 'user', '-s', keychain, ...prior])
   const { homedir } = await import('node:os')
-  const profiles = path.join(homedir(), 'Library/MobileDevice/Provisioning Profiles')
+  const profiles = path.join(homedir(), 'Library/Developer/Xcode/UserData/Provisioning Profiles')
   mkdirSync(profiles, { recursive: true })
   const targetProfile = path.join(profiles, `${profileId}.mobileprovision`)
   const priorProfile = existsSync(targetProfile) ? readFileSync(targetProfile) : null

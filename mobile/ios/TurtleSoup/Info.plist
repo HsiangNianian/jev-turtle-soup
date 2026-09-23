@@ -27,8 +27,8 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>turtlesoup</string>
-          <string>games.mmstudio.turtlesoup</string>
+          <string>$(MOBILE_APP_SCHEME)</string>
+          <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
         </array>
       </dict>
       <dict>

@@ -26,7 +26,7 @@ export function newGame(
     difficulty: input.difficulty,
     source: daily ? 'daily' : 'library',
     hostGreeting: greeting,
-    ...(daily ? { dailyDate: input.date } : { libraryId: input.id }),
+    ...(daily ? { dailyDate: input.date, sourceLocale: input.locale } : { libraryId: input.id }),
     hint: '',
     createdAt: now,
     updatedAt: now,

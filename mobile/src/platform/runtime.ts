@@ -1,8 +1,10 @@
 import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
 import Storage from 'expo-sqlite/kv-store'
+import { openDatabaseSync } from 'expo-sqlite'
+import { sqliteArchiveStorage } from '@turtle-soup/client-core/sqlite-archive'
 import { getLocales } from 'expo-localization'
-import { ArchiveStore, type Owner } from '@turtle-soup/client-core/archive-store'
+import { ArchiveStore } from '@turtle-soup/client-core/archive-store'
 import { SaveSync } from '@turtle-soup/client-core/save-sync'
 import { createClient, SaveRequestError } from '@turtle-soup/client-core/transport'
 import { upsertGame, toSession, type ArchivedGame } from '@turtle-soup/client-core/archive'
@@ -46,10 +48,10 @@ export const appEnvironment = process.env.EXPO_PUBLIC_APP_ENV || 'development'
 
 export class NativeRuntime {
   store = new ArchiveStore(
-    {
+    sqliteArchiveStorage(openDatabaseSync('turtle-soup-archive.db'), {
       getItem: (key) => Storage.getItemSync(key),
       setItem: (key, value) => Storage.setItemSync(key, value),
-    },
+    }),
     UUID,
   )
   private token: string | null = null
@@ -67,7 +69,6 @@ export class NativeRuntime {
   private generation = 0
   private verification: AbortController | null = null
   private requests = new Map<string, AbortController>()
-  private hydratedOwners = new Set<Owner>()
   private started = false
   private credentialWrite: Promise<void> = Promise.resolve()
   private writeCredentials(action: () => Promise<void>) {
@@ -93,7 +94,10 @@ export class NativeRuntime {
   t = (key: string, params?: Record<string, string | number>) => translate(this.locale, key, params)
 
   constructor() {
-    this.store.subscribe(this.emit)
+    this.store.subscribe((event) => {
+      if (event.kind === 'remote' && event.owner === this.owner) this.restoreInterrupted()
+      this.emit()
+    })
     this.sync.subscribe(this.emit)
     try {
       Storage.setItemSync('native.device', JSON.stringify(this.deviceId))
@@ -123,10 +127,10 @@ export class NativeRuntime {
     if (this.token) await this.verify()
   }
   private restoreInterrupted() {
-    if (this.hydratedOwners.has(this.owner)) return
-    this.hydratedOwners.add(this.owner)
     const games = this.games.map((game) =>
-      game.pendingAsk?.state === 'sending' ? failTurn(game, game.pendingAsk.id) : game,
+      game.pendingAsk?.state === 'sending' && !this.requests.has(game.id)
+        ? failTurn(game, game.pendingAsk.id)
+        : game,
     )
     if (games.some((game, index) => game !== this.games[index])) this.store.save(this.owner, games)
   }
@@ -166,21 +170,21 @@ export class NativeRuntime {
       throw new Error(this.t('服务器尚未支持 App 登录，请更新服务端'))
     // Persist credentials before enabling an account's queue.
     await this.writeCredentials(async () => {
-      if (generation === this.generation)
-        await SecureStore.setItemAsync(SESSION, JSON.stringify(result))
+      if (generation !== this.generation) return
+      await SecureStore.setItemAsync(SESSION, JSON.stringify(result))
+      if (generation !== this.generation) return
+      this.stopRequests()
+      this.generation++
+      this.verification?.abort()
+      this.sync.stop()
+      this.token = result.token
+      this.user = result.user
+      this.confirmed = true
+      this.authError = null
+      this.restoreInterrupted()
+      this.sync.setUser(this.owner, true)
+      this.emit()
     })
-    if (generation !== this.generation) return
-    this.stopRequests()
-    this.generation++
-    this.verification?.abort()
-    this.sync.stop()
-    this.token = result.token
-    this.user = result.user
-    this.confirmed = true
-    this.authError = null
-    this.restoreInterrupted()
-    this.sync.setUser(this.owner, true)
-    this.emit()
   }
   async logout() {
     const token = this.token
@@ -191,18 +195,20 @@ export class NativeRuntime {
     // If secure deletion fails, retain a visible paused identity rather than pretending logout succeeded.
     this.confirmed = false
     try {
-      await this.writeCredentials(() => SecureStore.deleteItemAsync(SESSION))
+      await this.writeCredentials(async () => {
+        await SecureStore.deleteItemAsync(SESSION)
+        this.token = null
+        this.user = null
+        this.authError = null
+        this.restoreInterrupted()
+        this.sync.setUser(null, false)
+        this.emit()
+      })
     } catch {
       this.authError = '无法清除登录信息，请重试'
       this.emit()
       return
     }
-    this.token = null
-    this.user = null
-    this.authError = null
-    this.restoreInterrupted()
-    this.sync.setUser(null, false)
-    this.emit()
     if (token)
       await createClient({ baseUrl: apiOrigin, getToken: () => token })
         .logout()
@@ -268,14 +274,16 @@ export class NativeRuntime {
       this.save(touchGame(latest, { libraryId: matches[0].id }))
   }
   async send(id: string, text: string, retry = false) {
+    const generation = this.generation
     let game = this.game(id)
     if (!game || this.requests.has(id)) return
     if (game.source === 'library' && !game.libraryId) {
       await this.repairLibraryId(id)
+      if (generation !== this.generation) return
       game = this.game(id)
       if (!game?.libraryId) throw new Error(this.t('无法找到原题，请从题库重新打开'))
     }
-    const generation = this.generation
+    if (this.requests.has(id)) return
     const sending = beginTurn(game, text, UUID, retry)
     const controller = new AbortController()
     this.requests.set(id, controller)
@@ -332,8 +340,15 @@ export class NativeRuntime {
   async reveal(id: string) {
     const game = this.game(id)
     const generation = this.generation
-    if (!game || game.status !== 'active' || game.pendingAsk || this.requests.has(id)) return
-    if (isDailyLocked({ ...game }))
+    const recoverTruth = game?.revealed && !game.truth
+    if (
+      !game ||
+      (game.status !== 'active' && !recoverTruth) ||
+      game.pendingAsk ||
+      this.requests.has(id)
+    )
+      return
+    if (!recoverTruth && isDailyLocked(game))
       throw new Error(this.t('今天的官方汤不能提前揭晓——明天它就会解锁，到时候你随时可以翻看。'))
     const controller = new AbortController()
     this.requests.set(id, controller)
@@ -343,7 +358,8 @@ export class NativeRuntime {
       if (
         generation === this.generation &&
         !controller.signal.aborted &&
-        current?.status === 'active'
+        current &&
+        (current.status === 'active' || (current.revealed && !current.truth))
       )
         this.save(revealTurn(current, result))
     } finally {

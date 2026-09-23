@@ -291,6 +291,7 @@ fi
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				MOBILE_APP_SCHEME = "turtlesoup-development";
 				MOBILE_APP_NAME = "海龟汤调查局";
 				MARKETING_VERSION = "0.1.0";
 				ENABLE_BITCODE = NO;
@@ -328,6 +329,7 @@ fi
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				MOBILE_APP_SCHEME = "turtlesoup-development";
 				MOBILE_APP_NAME = "海龟汤调查局";
 				MARKETING_VERSION = "0.1.0";
 				INFOPLIST_FILE = TurtleSoup/Info.plist;

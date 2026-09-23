@@ -1,0 +1,95 @@
+name: Mobile package
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to package
+        type: choice
+        options: [android, ios, both]
+        default: android
+      mode:
+        description: Preview is standalone; development connects to Metro; release is store input
+        type: choice
+        options: [preview, development, release]
+        default: preview
+      api:
+        description: API origin (required except production release)
+        required: false
+        type: string
+      build_number:
+        description: Unique increasing distribution number (required; shared across local and CI builds)
+        type: string
+        required: true
+  push:
+    tags: ['mobile-v*']
+permissions:
+  contents: read
+concurrency:
+  group: mobile-package-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJSON(inputs.platform == 'android' && '["android"]' || inputs.platform == 'ios' && '["ios"]' || '["android","ios"]') }}
+    runs-on: ${{ matrix.platform == 'ios' && 'macos-15' || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    environment: mobile-${{ inputs.mode == 'development' && 'development' || inputs.mode == 'preview' && 'preview' || 'production' }}
+    env:
+      EXPO_NO_TELEMETRY: '1'
+      PACKAGE_MODE: ${{ inputs.mode || 'release' }}
+      MOBILE_ENV: ${{ inputs.mode == 'development' && 'development' || inputs.mode == 'preview' && 'preview' || 'production' }}
+      EXPO_PUBLIC_API_URL: ${{ inputs.api }}
+      MOBILE_BUILD_NUMBER: ${{ inputs.build_number || vars.MOBILE_RELEASE_BUILD_NUMBER }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: npm ci
+      - run: npm run mobile:check
+      - name: Validate release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node -e 'if(process.env.GITHUB_REF_NAME !== "mobile-v"+require("./mobile/package.json").version) throw Error("Tag and mobile version differ")'
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        if: matrix.platform == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            mobile/android/**/*.gradle*
+            mobile/android/gradle/wrapper/gradle-wrapper.properties
+            package-lock.json
+      - run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+        if: matrix.platform == 'ios'
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1
+        if: matrix.platform == 'ios'
+        with:
+          ruby-version: '3.3.12'
+          working-directory: mobile
+          bundler-cache: true
+      - name: Package with the local npm entrypoints
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+          MOBILE_KEYSTORE_BASE64: ${{ secrets.MOBILE_KEYSTORE_BASE64 }}
+          MOBILE_KEYSTORE_PASSWORD: ${{ secrets.MOBILE_KEYSTORE_PASSWORD }}
+          MOBILE_KEY_ALIAS: ${{ secrets.MOBILE_KEY_ALIAS }}
+          MOBILE_KEY_PASSWORD: ${{ secrets.MOBILE_KEY_PASSWORD }}
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+        run: node scripts/mobile/package-ci.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mobile-${{ matrix.platform }}-${{ github.sha }}-${{ env.MOBILE_BUILD_NUMBER }}
+          path: |
+            artifacts/mobile/*.apk
+            artifacts/mobile/*.aab
+            artifacts/mobile/*.ipa
+            artifacts/mobile/*.json
+            artifacts/mobile/*.sha256
+          if-no-files-found: error
+          retention-days: 14

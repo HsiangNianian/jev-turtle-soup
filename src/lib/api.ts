@@ -110,8 +110,6 @@ export interface AskContext {
   playerKey: string
   seq: number
   luck?: LuckPayload
-  /** 已经确立的结论，用来保证重复提问得到一致的回答。 */
-  established?: { question: string; verdict: string }[]
 }
 
 export function askHost(

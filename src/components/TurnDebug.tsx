@@ -53,7 +53,7 @@ interface Debugish {
   /** 通关判定：字段名换过，两个都认 */
   solved?: number
   explainsSurface?: number
-  /** 实际答出去的结论（复问 / 反面复用会覆盖模型当场那条） */
+  /** 实际答出去的结论；低置信度时会改为「无法回答」 */
   finalVerdict?: string
   finalIntent?: string
 }
@@ -116,8 +116,7 @@ export function TurnDebug({ debug }: { debug: unknown }) {
   if (!intent?.choice) return null
 
   const metaChoice = d.metaRequest?.choice
-  // 摘要显示**实际答出去**的结论：复问 / 反面复用会覆盖模型当场那条，
-  // 显示模型原始那条会让「回答」和摘要看起来自相矛盾。
+  // 摘要显示实际回答，避免把低置信度的原始判读显示成确定结论。
   const shownVerdict = d.finalVerdict ?? d.verdict?.choice
   const tag =
     intent.choice === 'meta'

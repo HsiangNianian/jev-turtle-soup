@@ -544,8 +544,6 @@ function GameApp({
         playerKey: getDeviceId(),
         seq: turnCount + 1,
         luck: todayLuck,
-        // 台账由本地 transcript 推导，服务端据此拦截重复提问
-        established: ledger.slice(-40).map(({ question, verdict }) => ({ question, verdict })),
       }
       const turns = history.map(({ role, text: body }) => ({ role, text: body }))
 
@@ -581,18 +579,7 @@ function GameApp({
         setAsking(false)
       }
     },
-    [
-      messages,
-      session,
-      todayLuck,
-      locale,
-      turnCount,
-      ledger,
-      applyTurn,
-      allGames,
-      repairLibraryId,
-      t,
-    ],
+    [messages, session, todayLuck, locale, turnCount, applyTurn, allGames, repairLibraryId, t],
   )
 
   const handleReveal = useCallback(async () => {

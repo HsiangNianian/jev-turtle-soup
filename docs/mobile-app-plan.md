@@ -1,9 +1,16 @@
 # 独立移动客户端实施计划
 
 日期：2026-09-23。代码基线：`bd055e0` / Web `v0.33.8`。
-状态：开发分支 `codex/mobile-app` 已实现客户端、共享核心、Bearer 会话扩展、本地 npm 构建入口及 GitHub 工作流；正在验证原生编译，尚未完成真机签名和安装验收。实际命令与配置见 [mobile/README.md](../mobile/README.md)。以下保留实施范围和验收要求。
+状态：开发分支 `codex/mobile-app` 已实现客户端、共享核心、Bearer 会话扩展、本地 npm 构建入口及 GitHub 工作流；Android 与 iOS 原生编译、模拟器检查已通过。实际命令与配置见 [mobile/README.md](../mobile/README.md)。以下保留后续完整功能及真机验收要求。
 
 当前验收范围（已确认）：Android 与 iOS 模拟器。iPhone 真机签名和商店分发留待后续配置，不作为本阶段完成条件；本地签名构建脚本仍保留。
+
+2026-09-24 验收记录：
+
+- **编译**：`72016fd` 在 [GitHub 原生构建](https://github.com/HsiangNianian/jev-turtle-soup/actions/runs/35885804005) 的 Android / iOS 编译步骤成功，产出移动版 `0.1.0` / build `3`。Android APK 包含 arm64-v8a / x86_64；iOS simulator `.app` 包含 arm64 / x86_64，Xcode 26.6 编译。
+- **模拟器**：[修复检查脚本后的验收](https://github.com/HsiangNianian/jev-turtle-soup/actions/runs/35889580022) 在 `068d649` 全部通过。安装包按 commit / SHA-256 / API 环境校验后复用，应用及构建源码未变。Android 覆盖内置 JS 启动、今日汤、提问/回答、杀进程后恢复 SQLite 存档和不重复发问；iOS 覆盖安装、内置 JS 启动、首页 API 加载与进程存活，保存实际截图。
+- **回归**：119 项测试、移动类型与服务端依赖隔离检查、lint、Web build、Worker dry-run、双平台 JS export 通过。本机只执行 JS/Worker 检查，未安装或使用原生编译工具链。
+- **验收范围**：此次设备检查使用本地 fixture，不调用真实 AI、邮件或玩家数据。M0 已完成；M1–M3 的实现和逻辑测试已交付，真实后端联调及下文完整设备矩阵仍待后续验收。M4 的真机签名、覆盖升级和商店分发不在本轮范围内。
 
 目标是在同一仓库新增可独立安装的 iOS / Android App。采用 Expo + React Native，沿用 Workers、D1、KV 和现有题库。**按最新决定，现阶段原生编译运行在 GitHub Actions 托管 runner；同时必须交付可在本地执行的完整 npm 构建脚本，CI 调用同一套脚本。本机暂以代码、JS 检查、Worker 与 Metro 开发为主。不依赖 EAS Build、EAS Submit 或 EAS Update。**
 

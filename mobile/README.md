@@ -4,6 +4,8 @@ Expo / React Native 独立 iOS、Android 客户端，和 Web 共用 `packages/cl
 
 本阶段先验收 Android 和 iOS 模拟器；iPhone 真机签名后续配置。
 
+本阶段检查已通过：[CI 与安装包](https://github.com/HsiangNianian/jev-turtle-soup/actions/runs/35889580022)。Android 包含提问及重启恢复检查，iOS 包含启动检查；产物为 `0.1.0` / build `3`，使用 fixture API，详细验收边界见 [实施记录](../docs/mobile-app-plan.md)。
+
 ## 开发与检查
 
 在仓库根目录执行：

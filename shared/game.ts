@@ -292,9 +292,16 @@ async function callChat(
   })
 }
 
-function correctionPrompt(issues: string[], requirements: string): string {
+function correctionPrompt(issues: string[], requirements: string, locale: Locale): string {
+  const list = issues.map((issue) => `- ${issue}`).join('\n')
+  if (locale === 'en') {
+    return `Your output failed validation:\n${list}\n\nCorrect each issue using the original requirements below. Return the complete JSON object only. Keep all content in English; preserve only explicitly required enum values.\n${requirements}`
+  }
+  if (locale === 'ja') {
+    return `出力が検証に通りませんでした：\n${list}\n\n以下の元の条件に従って各問題を修正し、完全な JSON オブジェクトだけを出力してください。内容はすべて日本語にし、指定された列挙値だけはそのまま保ってください。\n${requirements}`
+  }
   return `你刚才的输出没有通过校验，问题如下：
-${issues.map((issue) => `- ${issue}`).join('\n')}
+${list}
 
 请对照下面的原始要求逐条修正，重新输出一份完整的 json（只输出 json，不要任何解释）：
 ${requirements}`
@@ -310,12 +317,15 @@ export async function generateJson<T>(
     system: string
     user: string
     effort: Effort
+    /** 生成及纠错指令的语言；不传时保持现有中文调用的行为。 */
+    locale?: Locale
     /** 把解析出来的值变成「问题列表」；空数组表示通过 */
     check: (value: unknown) => { value?: T; issues: string[] }
     rounds?: number
     onProgress?: (progress: GenerateProgress) => void
   },
 ): Promise<T> {
+  const locale = options.locale ?? 'zh-CN'
   const requirements = `${options.system}\n\n${options.user}`
   const messages: ChatTurn[] = [
     { role: 'system', content: options.system },
@@ -336,9 +346,8 @@ export async function generateJson<T>(
       issues = result.issues
       accepted = result.value
     } catch (error) {
-      issues = [
-        `不是合法的 json：${error instanceof Error ? error.message.slice(0, 160) : '解析失败'}`,
-      ]
+      const prefix = { 'zh-CN': '不是合法的 json', en: 'Invalid JSON', ja: '無効な JSON' }[locale]
+      issues = [`${prefix}: ${error instanceof Error ? error.message.slice(0, 160) : prefix}`]
     }
 
     if (accepted !== undefined && !issues.length) return accepted
@@ -347,7 +356,7 @@ export async function generateJson<T>(
     if (round < rounds) {
       console.warn(`[turtle-soup] 输出校验未通过，回炉第 ${round} 次：`, issues.join('；'))
       messages.push({ role: 'assistant', content })
-      messages.push({ role: 'user', content: correctionPrompt(issues, requirements) })
+      messages.push({ role: 'user', content: correctionPrompt(issues, requirements, locale) })
     }
   }
 

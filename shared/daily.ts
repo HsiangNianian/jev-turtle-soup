@@ -2,6 +2,7 @@ import { TypeSafeClient, noul, score } from '@typesafe-ai/sdk'
 import { z } from 'zod'
 
 import { ApiError, generateJson, resolveLlm, scoreGenre, type GameEnv } from './game.ts'
+import { DAILY_COPY, dailyLanguageIssues, localizedGenreBrief } from './daily-language.ts'
 
 /** 每日官方汤按 UTC 换新。 */
 export function utcDateKey(now: Date = new Date()): string {
@@ -152,7 +153,7 @@ function measureStory(story: string, spec: LocaleSpec): number {
 }
 
 function storySystem(roll: DailyRoll): string {
-  const setting = genreBrief(roll)
+  const setting = localizedGenreBrief(roll) ?? genreBrief(roll)
   const lengthRule = LOCALE_SPECS[roll.locale].storyBrief
   if (roll.locale === 'en') {
     return `You are a top-tier turtle-soup (situation puzzle) writer. The first step is not to write the riddle — it is to write a **complete, self-consistent story that stands on its own**; the surface and the truth are distilled from it afterwards.
@@ -422,7 +423,7 @@ export async function reviewDaily(
   const issues: string[] = []
   for (const [key, threshold] of Object.entries(thresholds)) {
     const value = checks[key as keyof typeof checks]
-    if (value < threshold) issues.push(`${key} 只有 ${value.toFixed(2)}，要求 ≥ ${threshold}`)
+    if (value < threshold) issues.push(`${key}: ${value.toFixed(2)} < ${threshold}`)
   }
   // 综合分用于挑「最好的一次」
   const score =
@@ -435,14 +436,15 @@ export async function reviewDaily(
   return { passed: issues.length === 0, score, issues, checks, thresholds }
 }
 
-function issueBlock(issues: string[]): string {
+function issueBlock(issues: string[], locale: DailyLocale): string {
   if (!issues.length) return ''
-  return `\n\n上一轮没有通过审核，问题如下，请针对性修正：\n${issues.map((issue) => `- ${issue}`).join('\n')}`
+  return `\n\n${DAILY_COPY[locale].retry}\n${issues.map((issue) => `- ${issue}`).join('\n')}`
 }
 
 /**
  * 生成当天的官方汤：先写完整故事，再凝练汤底/汤面，再审核；
- * 不过就带着具体问题重来，并逐次放宽标准；全不过则返回最好的一次（relaxed=true）。
+ * 结构、长度和语言先硬校验；质量审核不过才逐次放宽标准，返回最好的一次（relaxed=true）。
+ * 语言不符只能回炉，不能因为质量分高或 relaxed 而发布。
  */
 export interface DailyProgress {
   stage: 'story' | 'condense' | 'review'
@@ -465,6 +467,7 @@ export async function composeDaily(
 
   const roll = options.roll ?? rollDaily()
   const spec = LOCALE_SPECS[roll.locale]
+  const copy = DAILY_COPY[roll.locale]
   console.log(
     `[daily] 摇到：${LOCALE_LABEL_ZH[roll.locale]}｜题材 ${roll.tag}｜坐标 ${roll.genreTarget}`,
   )
@@ -475,57 +478,62 @@ export async function composeDaily(
 
   for (let attempt = 1; attempt <= MAX_DAILY_ATTEMPTS; attempt += 1) {
     const avoidBlock = avoid.length
-      ? `\n\n最近几期的官方汤是这些，请换一个完全不同的场景与手法，不要相似：\n${avoid
+      ? `\n\n${copy.avoid}\n${avoid
           .slice(0, 10)
           .map((item) => `- ${item}`)
           .join('\n')}`
       : ''
-    const retryBlock = issueBlock(carryIssues)
+    const retryBlock = issueBlock(carryIssues, roll.locale)
 
     const story = await generateJson<z.infer<typeof StorySchema>>(cfg, {
-      system: storySystem(roll),
-      user: `请按上面的要求写一则完整的故事，以 json 输出。${avoidBlock}${retryBlock}`,
+      system: `${storySystem(roll)}\n\n${copy.languageRule}`,
+      user: `${copy.writeStory}${avoidBlock}${retryBlock}\n\n${copy.languageRule}`,
+      locale: roll.locale,
       effort: 'max',
       onProgress: (progress) =>
         options.onProgress?.({ stage: 'story', attempt, chars: progress.chars }),
       check: (raw) => {
         const parsed = StorySchema.safeParse(raw)
         if (!parsed.success) {
-          return { issues: [`json 结构不合法：${parsed.error.message.slice(0, 160)}`] }
+          return { issues: [`${copy.invalidSchema}: ${parsed.error.message.slice(0, 160)}`] }
         }
         const measured = measureStory(parsed.data.story, spec)
-        const issues: string[] = []
-        if (measured < spec.storyMin) {
-          issues.push(`故事太短（${measured} ${spec.unit}），至少要写清楚完整经过`)
-        }
-        if (measured > spec.storyMax) {
-          issues.push(`故事太长（${measured} ${spec.unit}），请压到 ${spec.storyBrief}`)
+        const issues = dailyLanguageIssues(roll.locale, {
+          title: parsed.data.title,
+          story: parsed.data.story,
+          key_twist: parsed.data.key_twist,
+          ...Object.fromEntries(
+            (parsed.data.tags ?? []).map((tag, index) => [`tags[${index}]`, tag]),
+          ),
+        })
+        if (measured < spec.storyMin || measured > spec.storyMax) {
+          issues.push(copy.length('story', measured, spec.storyMin, spec.storyMax, spec.unit))
         }
         return issues.length ? { issues } : { value: parsed.data, issues: [] }
       },
     })
 
     const condensed = await generateJson<z.infer<typeof CondensedSchema>>(cfg, {
-      system: condenseSystem(roll),
-      user: `故事如下：\n\n${story.story}\n\n关键反转：${story.key_twist}\n\n请凝练出汤底、汤面与提示，以 json 输出。${retryBlock}`,
+      system: `${condenseSystem(roll)}\n\n${copy.languageRule}`,
+      user: `${copy.story}:\n\n${story.story}\n\n${copy.twist}: ${story.key_twist}\n\n${copy.condense}${retryBlock}\n\n${copy.languageRule}`,
+      locale: roll.locale,
       effort: 'high',
       onProgress: (progress) =>
         options.onProgress?.({ stage: 'condense', attempt, chars: progress.chars }),
       check: (raw) => {
         const parsed = CondensedSchema.safeParse(raw)
         if (!parsed.success) {
-          return { issues: [`json 结构不合法：${parsed.error.message.slice(0, 160)}`] }
+          return { issues: [`${copy.invalidSchema}: ${parsed.error.message.slice(0, 160)}`] }
         }
-        const issues: string[] = []
+        const issues = dailyLanguageIssues(roll.locale, parsed.data)
+        const unit = roll.locale === 'en' ? 'characters' : '字'
         const stops = (parsed.data.surface.match(/[。！？!?…]/g) ?? []).length
         if (parsed.data.surface.length > spec.surfaceMax) {
-          issues.push(
-            `汤面太长（${parsed.data.surface.length} 字，要求 ${spec.surfaceMax} 字以内）`,
-          )
+          issues.push(copy.length('surface', parsed.data.surface.length, 1, spec.surfaceMax, unit))
         }
-        if (stops > 1) issues.push(`汤面必须只有一句话，现在有 ${stops} 句`)
+        if (stops > 1) issues.push(copy.sentence)
         if (parsed.data.truth.length > spec.truthMax) {
-          issues.push(`汤底太长（${parsed.data.truth.length} 字，要求 ${spec.truthMax} 字以内）`)
+          issues.push(copy.length('truth', parsed.data.truth.length, 20, spec.truthMax, unit))
         }
         return issues.length ? { issues } : { value: parsed.data, issues: [] }
       },
@@ -582,4 +590,3 @@ async function finalise(env: GameEnv, draft: DailyDraft & { score: number }): Pr
   })
   return { ...draft, genreScore }
 }
-

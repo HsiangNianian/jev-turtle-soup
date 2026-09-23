@@ -14,6 +14,9 @@
 
 React 19 · Vite · Tailwind CSS v4 · Cloudflare Workers · TypeSafe Jev · DeepSeek / OpenAI
 
+独立 iOS / Android 客户端的范围、迁移步骤、GitHub 云构建与本地构建脚本方案见
+[移动客户端实施计划](docs/mobile-app-plan.md)（规划中）。
+
 ## 本地开发
 
 使用 Node.js 22.13+（测试用内置 SQLite；也支持更新的 Node 版本）。

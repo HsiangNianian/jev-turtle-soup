@@ -145,6 +145,8 @@ async function readJson(request: Request): Promise<Record<string, unknown>> {
 }
 
 function sessionToken(request: Request): string | null {
+  const authorization = request.headers.get('authorization')
+  if (authorization !== null) return /^Bearer ([^\s]+)$/i.exec(authorization)?.[1] ?? null
   return readCookie(request.headers.get('cookie'), SESSION_COOKIE)
 }
 
@@ -542,6 +544,9 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
   if (pathname === '/api/auth/verify') {
     if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
     const body = await readJson(request)
+    if (body.sessionMode !== undefined && body.sessionMode !== 'token') {
+      throw new ApiError(400, '不支持的会话模式')
+    }
     const email = normaliseEmail(body.email)
     const code = typeof body.code === 'string' ? body.code.replace(/\D/g, '') : ''
     if (!email) throw new ApiError(400, '请输入有效的邮箱地址')
@@ -562,7 +567,15 @@ async function routeAuth(request: Request, env: Env, pathname: string): Promise<
       )
       .bind(locale, Date.now(), user.id)
       .run()
-    return json({ user: { email: user.email, uid: user.id, name: user.displayName } }, 200, {
+    const publicUser = { email: user.email, uid: user.id, name: user.displayName }
+    if (body.sessionMode === 'token') {
+      const session = await readSession(env.AUTH_KV!, env.AUTH_SECRET!, token)
+      if (!session) throw new ApiError(503, '无法创建登录会话，请重试')
+      return json({ user: publicUser, token, expiresAt: session.exp * 1000 }, 200, {
+        'cache-control': 'no-store',
+      })
+    }
+    return json({ user: publicUser }, 200, {
       'set-cookie': sessionCookie(token),
     })
   }

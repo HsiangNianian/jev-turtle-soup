@@ -1,16 +1,8 @@
 import type { ArchivedGame } from '@/lib/archive'
 
-export class SaveRequestError extends Error {
-  status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
-  }
-}
-export interface SaveRequestOptions {
-  owner: string
-  signal: AbortSignal
-}
+import { SaveRequestError, type SaveRequestOptions } from '@turtle-soup/client-core/transport'
+export { SaveRequestError } from '@turtle-soup/client-core/transport'
+export type { SaveRequestOptions } from '@turtle-soup/client-core/transport'
 async function request<T>(
   path: string,
   options: SaveRequestOptions,

@@ -1,0 +1,103 @@
+name: Mobile checks
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/mobile-app']
+  workflow_dispatch:
+    inputs:
+      bootstrap:
+        description: Resolve and export initial CocoaPods / Ruby lockfiles
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: mobile-checks-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  EXPO_NO_TELEMETRY: '1'
+  MOBILE_ENV: development
+  EXPO_PUBLIC_API_URL: http://127.0.0.1:8787
+  MOBILE_BUILD_NUMBER: ${{ github.run_number }}
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: npm ci
+      - run: npm run mobile:check
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run deploy:dry-run
+      - run: npm run mobile:export
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - run: npm run mobile:build:android:debug
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-debug-${{ github.sha }}
+          path: artifacts/mobile/*.*
+          if-no-files-found: error
+          retention-days: 14
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1
+        with:
+          ruby-version: '3.3.12'
+          working-directory: mobile
+          bundler-cache: true
+      - run: npm ci
+      - name: Compile simulator app
+        env:
+          BOOTSTRAP: ${{ inputs.bootstrap || false }}
+        run: |
+          if [ "$BOOTSTRAP" = true ] || [ ! -f mobile/ios/Podfile.lock ]; then
+            echo "::warning::Initializing native locks; download and commit them before treating the build as reproducible."
+            npm run mobile:build:ios:simulator -- --bootstrap
+          else
+            npm run mobile:build:ios:simulator
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ios-simulator-${{ github.sha }}
+          path: |
+            artifacts/mobile/*.zip
+            artifacts/mobile/*.json
+            artifacts/mobile/*.sha256
+            mobile/ios/Podfile.lock
+            mobile/Gemfile.lock
+          retention-days: 14
+  required:
+    if: always()
+    needs: [checks, android, ios]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e 'const jobs=JSON.parse(process.env.RESULTS); if(Object.values(jobs).some(j=>j.result!=="success"))process.exit(1)'

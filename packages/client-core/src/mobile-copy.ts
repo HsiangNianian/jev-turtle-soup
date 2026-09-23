@@ -1,0 +1,132 @@
+/** App-specific copy; the shared web dictionary supplies existing game terminology. */
+export const mobileCopy: Record<string, [string, string]> = {
+  今日: ['Today', '今日'],
+  档案: ['Archive', '記録'],
+  我的: ['Me', 'マイページ'],
+  今日的一碗汤: ["Today's mystery", '今日のスープ'],
+  '从一句疑问开始，慢慢靠近真相。': [
+    'One question at a time, uncover the truth.',
+    'ひとつの質問から、少しずつ真相へ。',
+  ],
+  继续上次: ['Pick up where you left off', '前回の続き'],
+  往期每日汤: ['Previous daily puzzles', '過去のデイリースープ'],
+  查看汤面: ['Read the mystery', '問題を読む'],
+  查看案卷: ['View case file', '調査記録を見る'],
+  返回档案: ['Back to archive', '記録に戻る'],
+  查看结案记录: ['View case result', '調査結果を見る'],
+  查看新消息: ['New message', '新しいメッセージ'],
+  '今天的汤还在准备中': ["Today's puzzle is being prepared", '今日のスープは準備中です'],
+  '游客进度保存在这台设备上': [
+    'Guest progress stays on this device',
+    'ゲストの進捗はこの端末に保存されます',
+  ],
+  '登录后同步到账号，随时继续或回看。': [
+    'Sign in to sync, continue, and revisit your cases.',
+    'ログインして同期すると、いつでも再開・閲覧できます。',
+  ],
+  '这里会保存你调查过的每一碗汤。': [
+    'Your investigations will appear here.',
+    '調査したスープがここに保存されます。',
+  ],
+  '删除这份档案？': ['Delete this case?', 'この記録を削除しますか？'],
+  '这会删除当前账号的这份记录。': [
+    'This deletes the case from this account.',
+    '現在のアカウントからこの記録を削除します。',
+  ],
+  '云存档暂未同步，本机进度已保留': [
+    'Cloud sync is pending. Your progress is saved locally.',
+    'クラウド同期待ちです。進捗は端末に保存されています。',
+  ],
+  '进度尚未保存，请重试': [
+    'Progress has not been saved. Please retry.',
+    '進捗を保存できませんでした。再試行してください。',
+  ],
+  搜索题目或标签: ['Search titles or tags', 'タイトル・タグを検索'],
+  还没有找到符合条件的汤: ['No matching puzzles yet', '条件に合うスープが見つかりません'],
+  加载更多: ['Load more', 'もっと見る'],
+  '登录后，在不同设备继续推理。': [
+    'Sign in to continue on another device.',
+    'ログインして別の端末でも推理を続けましょう。',
+  ],
+  '6 位验证码': ['6-digit code', '6桁の確認コード'],
+  本地验证码: ['Local test code', 'ローカルテストコード'],
+  跟随系统: ['System', 'システム設定'],
+  浅色: ['Light', 'ライト'],
+  深色: ['Dark', 'ダーク'],
+  打开网页版: ['Open website', 'ウェブ版を開く'],
+  推理中: ['Investigation', '推理中'],
+  '找不到这份档案': ['Case not found', '記録が見つかりません'],
+  汤底暂未载入: ['The solution has not loaded yet', '解答はまだ読み込まれていません'],
+  给我一点提示: ['Give me a hint', 'ヒントをください'],
+  今日汤明天解锁: ["Today's solution unlocks tomorrow", '今日の解答は明日公開されます'],
+  '揭晓汤底？': ['Reveal the solution?', '解答を公開しますか？'],
+  '揭晓后将结束本局推理。': [
+    'Revealing ends this investigation.',
+    '解答を公開すると、この調査は終了します。',
+  ],
+  '中止本案？': ['Abandon this case?', 'この調査を中止しますか？'],
+  '记录会保留，但不能继续提问。': [
+    'The record stays, but no more questions can be asked.',
+    '記録は残りますが、質問を続けることはできません。',
+  ],
+  中止: ['Abandon', '中止'],
+  分享这碗汤: ['Share this mystery', 'このスープを共有'],
+  反馈问题: ['Report a problem', '問題を報告'],
+  已知结论: ['Established facts', '判明した事実'],
+  '确定的回答会记录在这里。': [
+    'Definite answers will be recorded here.',
+    '確定した回答がここに記録されます。',
+  ],
+  '这份档案已删除或属于其他账号': [
+    'This case was deleted or belongs to another account',
+    'この記録は削除済みか、別のアカウントのものです',
+  ],
+  '上次提问已中断，问题已保留': [
+    'Your last question was interrupted and has been kept',
+    '前回の質問は中断されました。質問内容は保存されています',
+  ],
+  '主持人正在思考…': ['The host is thinking…', '司会者が考えています…'],
+  你的问题: ['Your question', 'あなたの質問'],
+  '问一个可以用是或不是回答的问题…': [
+    'Ask a yes-or-no question…',
+    '「はい・いいえ」で答えられる質問をどうぞ…',
+  ],
+  '哪里不对劲？': ['What went wrong?', 'どこに問題がありましたか？'],
+  '描述你遇到的问题，我们会附上这局的问答记录。': [
+    'Describe the issue. This case’s conversation will be attached.',
+    '問題の内容をご記入ください。この調査の会話記録を添付します。',
+  ],
+  反馈内容: ['Feedback', '報告内容'],
+  '例如：这个问题的判定似乎不符合汤面…': [
+    'For example: this answer seems inconsistent with the mystery…',
+    '例：この判定は問題文と矛盾しているようです…',
+  ],
+  提交反馈: ['Send feedback', '報告を送信'],
+  反馈已提交: ['Feedback sent', '報告を送信しました'],
+  暂时无法完成: ['Unable to complete this action', '操作を完了できません'],
+  设备信息尚未保存: ['Device information has not been saved', '端末情報を保存できませんでした'],
+  '无法读取登录信息，请重新登录': [
+    'Could not read credentials. Please sign in again.',
+    'ログイン情報を読み込めません。再ログインしてください。',
+  ],
+  '登录已过期，请重新登录；本机进度已保留': [
+    'Session expired. Sign in again; local progress is safe.',
+    'ログインの有効期限が切れました。進捗は端末に保存されています。',
+  ],
+  '网络暂不可用，进度保留在本机': [
+    'Network unavailable. Progress stays on this device.',
+    'ネットワークに接続できません。進捗は端末に保存されています。',
+  ],
+  '无法清除登录信息，请重试': [
+    'Could not clear credentials. Please retry.',
+    'ログイン情報を削除できません。再試行してください。',
+  ],
+  '服务器尚未支持 App 登录，请更新服务端': [
+    'The server needs an update to support app sign-in.',
+    'アプリでのログインにはサーバーの更新が必要です。',
+  ],
+  '无法找到原题，请从题库重新打开': [
+    'Original puzzle not found. Open it from the library.',
+    '元の問題が見つかりません。問題一覧から開き直してください。',
+  ],
+}

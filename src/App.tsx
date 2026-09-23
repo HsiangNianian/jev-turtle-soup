@@ -114,13 +114,7 @@ import { cn, uid } from '@/lib/utils'
 import { Link } from '@/components/Link'
 import { useI18n } from '@/lib/i18n'
 
-const VERDICTS = ['yes', 'no', 'partly', 'irrelevant']
-
-function toneFor(turn: { solved: boolean; verdict: string }): ChatMessage['tone'] {
-  if (turn.solved) return 'celebrate'
-  if (VERDICTS.includes(turn.verdict)) return 'verdict'
-  return 'normal'
-}
+import { toneFor } from '@turtle-soup/client-core/game'
 
 /** Cached identity is display-only until /me confirms it. Account keys remount all play state. */
 export default function App() {

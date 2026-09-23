@@ -1,0 +1,12 @@
+{
+  "node": "22.22.2",
+  "npm": "10.9.7",
+  "expo": "57.0.24",
+  "reactNative": "0.86.3",
+  "java": "17",
+  "ruby": "3.3.12",
+  "cocoapods": "1.17.0",
+  "xcode": "26.3",
+  "androidRunner": "ubuntu-24.04",
+  "iosRunner": "macos-15"
+}

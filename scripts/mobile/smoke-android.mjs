@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { fixtureState } from './fixture-client.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const apk =
@@ -25,7 +26,9 @@ function screen() {
   return adb('shell', 'cat', '/sdcard/turtle-smoke.xml')
 }
 async function until(check, description) {
+  console.log(`Android smoke: ${description}`)
   for (let i = 0; i < 30; i++) {
+    if (fixture?.exitCode !== null) throw new Error('Fixture server exited during smoke')
     if (await check()) return
     await delay(1000)
   }
@@ -66,8 +69,8 @@ try {
   })
   await until(async () => {
     if (fixture.exitCode !== null) throw new Error('Fixture server failed to start')
-    return fetch('http://127.0.0.1:8787/health')
-      .then((r) => r.ok)
+    return fixtureState()
+      .then((state) => state.ready)
       .catch(() => false)
   }, 'fixture API ready')
   adb('reverse', 'tcp:8787', 'tcp:8787')
@@ -79,8 +82,7 @@ try {
     adb('shell', 'am', 'start', '-W', '-n', `${bundle}/games.mmstudio.turtlesoup.MainActivity`)
   launch()
   await until(
-    async () =>
-      (await fetch('http://127.0.0.1:8787/health').then((r) => r.json())).dailyRequests > 0,
+    async () => (await fixtureState()).dailyRequests > 0,
     'bundled JS requests daily fixture',
   )
   await until(() => screen().includes('The Silent Bell'), 'daily puzzle rendered')
@@ -91,11 +93,7 @@ try {
   adb('shell', 'input', 'text', 'Was%sthe%sbell%svisible?')
   adb('shell', 'input', 'keyevent', '111')
   tap('send-question')
-  await until(
-    async () =>
-      (await fetch('http://127.0.0.1:8787/health').then((r) => r.json())).askRequests === 1,
-    'one question submitted',
-  )
+  await until(async () => (await fixtureState()).askRequests === 1, 'one question submitted')
   await until(() => screen().includes('host-verdict'), 'answer rendered')
   screenshot('android-game.png')
   adb('shell', 'am', 'force-stop', bundle)
@@ -109,7 +107,7 @@ try {
   screenshot('android-recovered.png')
   const pid = adb('shell', 'pidof', bundle)
   if (!pid) throw new Error('Android app process exited')
-  const state = await fetch('http://127.0.0.1:8787/health').then((r) => r.json())
+  const state = await fixtureState()
   if (state.askRequests !== 1) throw new Error('A cold restart unexpectedly resent a question')
   writeFileSync(
     path.join(output, 'android-result.json'),
@@ -134,6 +132,11 @@ try {
   process.exitCode = 1
 } finally {
   if (serial) {
+    try {
+      writeFileSync(path.join(output, 'android-final.xml'), screen())
+    } catch {
+      /* Preserve original failure. */
+    }
     const logs = spawnSync('adb', ['-s', serial, 'logcat', '-d', '-t', '1500'], {
       encoding: 'utf8',
     })

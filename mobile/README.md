@@ -94,6 +94,8 @@ CI 的 Android 检查使用 `npm run mobile:build:android:emulator -- --api http
 
 `npm run mobile:smoke:android` 在已启动的 Android 模拟器安装测试 APK，清空该模拟器的开发版应用数据，通过 fixture 验证首页、提问、回答和杀进程后的 SQLite 恢复，并保存截图/日志。`npm run mobile:smoke:ios` 创建独立 iPhone 模拟器，验证内置 JS 启动和首页 API 加载，结束后删除该模拟器。两者均不访问真实 AI、邮箱或玩家数据；当前 iOS 自动化只覆盖启动。
 
+仅修改 smoke 脚本时，可手动运行 `Mobile checks` 并传入 `reuse_native_run`。它下载该次构建的原生产物，校验 commit、SHA-256 和测试环境，并拒绝复用任何应用源码或构建输入发生变化的包。原始编译 commit 与本次检查 commit 分别记录在 artifact 清单中；默认 push/PR 仍完整编译。
+
 ## 存档与验收边界
 
 移动存档使用 SQLite 按局持久化，游戏、待同步操作、游客归属在同一事务提交；游客和账号数据隔离。凭据只放 SecureStore；冷启动校验身份后才上传。断网可看已有档案和保留草稿，AI 判读仍需联网。发送中断不自动重放，手动重试复用原问题和轮数。反馈附版本、平台及对局快照。

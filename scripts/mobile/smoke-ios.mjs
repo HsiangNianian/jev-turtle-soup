@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { fixtureState } from './fixture-client.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const app =
@@ -34,8 +35,8 @@ try {
     await delay(250)
     if (fixture.exitCode !== null) throw new Error('Fixture server failed to start')
     if (
-      await fetch('http://127.0.0.1:8787/health')
-        .then((r) => r.ok)
+      await fixtureState()
+        .then((state) => state.ready)
         .catch(() => false)
     )
       break
@@ -58,7 +59,7 @@ try {
   let loaded = false
   for (let i = 0; i < 45; i++) {
     await delay(1000)
-    const state = await fetch('http://127.0.0.1:8787/health').then((r) => r.json())
+    const state = await fixtureState()
     if (state.dailyRequests > 0) {
       loaded = true
       break

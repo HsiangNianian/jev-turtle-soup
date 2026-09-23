@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.6 - 2026-09-23
+
+### Features
+
+- Share the bowl you are playing straight from the always-visible case-file bar, using the system share sheet with a copy-link fallback.
+
 ## 0.33.5 - 2026-09-23
 
 ### Fixes

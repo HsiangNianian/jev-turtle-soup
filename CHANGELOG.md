@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.33.5 - 2026-09-23
+
+### Fixes
+
+- Keep daily story, puzzle, hint, and retry instructions in the selected Chinese, English, or Japanese language, including genre and duplicate-avoidance guidance.
+- Validate each generated content field before publication; retry language mismatches and never publish them through relaxed quality review.
+
 ## 0.33.4 - 2026-09-23
 
 ### Features

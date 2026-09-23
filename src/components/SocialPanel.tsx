@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Flag, Heart, Share2, Trash2 } from 'lucide-react'
+import { Flag, Heart, Trash2 } from 'lucide-react'
 
 import { Link } from '@/components/Link'
+import { ShareButton } from '@/components/ShareButton'
 import { cn } from '@/lib/utils'
 import { formatWhen } from '@/lib/archive'
 import {
@@ -15,43 +16,6 @@ import {
   type SocialPayload,
 } from '@/lib/social-client'
 import { useI18n } from '@/lib/i18n'
-
-/** 复制链接 + 系统分享；不引任何第三方脚本。 */
-function ShareButton({ path, title }: { path: string; title: string }) {
-  const { t } = useI18n()
-  const [copied, setCopied] = useState(false)
-
-  async function share() {
-    const url = `${window.location.origin}${path}`
-    const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> }
-    if (typeof nav.share === 'function') {
-      try {
-        await nav.share({ title, url })
-        return
-      } catch {
-        /* 用户取消分享就当作没事，继续走复制 */
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      window.prompt(t('请手动复制这个链接'), url)
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => void share()}
-      className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
-    >
-      <Share2 className="size-3.5" />
-      {copied ? t('已复制链接') : t('分享')}
-    </button>
-  )
-}
 
 function CommentRow({
   comment,

@@ -82,6 +82,7 @@ import {
   buildLedger,
   loadGames,
   saveGames,
+  shareTarget,
   toSession,
   upsertGame,
   winningConclusion,
@@ -737,6 +738,9 @@ function GameApp({
 
   const typesafeMissing = health !== null && !health.typesafeConfigured
 
+  /** 对局里的分享入口：分享的正是正在玩的这碗汤的公开链接。 */
+  const share = session ? shareTarget(session) : undefined
+
   const renderCase = (onStart?: () => void) =>
     session ? (
       <PuzzlePanel
@@ -790,6 +794,7 @@ function GameApp({
               })}
               open={drawerOpen}
               onOpenChange={setDrawerOpen}
+              share={share}
             >
               {renderCase(() => setDrawerOpen(false))}
             </CaseDrawer>

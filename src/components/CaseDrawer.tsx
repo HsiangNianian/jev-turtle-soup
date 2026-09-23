@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { ChevronUp, X } from 'lucide-react'
+import { ShareButton } from '@/components/ShareButton'
 import { useI18n } from '@/lib/i18n'
 
 interface CaseDrawerProps {
@@ -8,10 +9,12 @@ interface CaseDrawerProps {
   meta: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** 这碗汤能分享时才有：对局里始终露在外面的一枚分享入口 */
+  share?: { path: string; title: string }
   children: ReactNode
 }
 
-export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDrawerProps) {
+export function CaseDrawer({ title, meta, open, onOpenChange, share, children }: CaseDrawerProps) {
   const { t } = useI18n()
   useEffect(() => {
     if (!open || typeof window === 'undefined') return
@@ -31,26 +34,31 @@ export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDr
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => onOpenChange(true)}
-        aria-expanded={open}
-        className="flex w-full shrink-0 items-center gap-3 border-b border-foreground px-4 py-3 text-left transition-colors active:bg-foreground/[0.04]"
-      >
-        <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">
-          {t('案卷')}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-serif text-[15px] leading-6">{title}</span>
-          <span className="mt-0.5 block font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-            {meta}
+      <div className="flex w-full shrink-0 items-center gap-3 border-b border-foreground px-4 py-3">
+        <button
+          type="button"
+          onClick={() => onOpenChange(true)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors active:bg-foreground/[0.04]"
+        >
+          <span className="shrink-0 font-mono text-[10px] tracking-[0.24em] text-stamp">
+            {t('案卷')}
           </span>
-        </span>
-        <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-          {t('展开')}
-          <ChevronUp className="size-3.5" />
-        </span>
-      </button>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-serif text-[15px] leading-6">{title}</span>
+            <span className="mt-0.5 block font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+              {meta}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+            {t('展开')}
+            <ChevronUp className="size-3.5" />
+          </span>
+        </button>
+        {share ? (
+          <ShareButton iconOnly path={share.path} title={share.title} className="shrink-0" />
+        ) : null}
+      </div>
 
       {open ? (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -66,6 +74,14 @@ export function CaseDrawer({ title, meta, open, onOpenChange, children }: CaseDr
                 {t('案卷')}
               </span>
               <span className="min-w-0 flex-1 truncate font-serif text-[15px]">{title}</span>
+              {share ? (
+                <ShareButton
+                  iconOnly
+                  path={share.path}
+                  title={share.title}
+                  className="shrink-0"
+                />
+              ) : null}
               <button
                 type="button"
                 aria-label={t('收起案卷')}

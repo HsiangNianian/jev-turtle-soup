@@ -8,6 +8,7 @@ import {
   STATUS_LABEL,
   buildLedger,
   formatWhen,
+  shareTarget,
   toSession,
   winningConclusion,
   type ArchivedGame,
@@ -46,6 +47,7 @@ export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContin
           meta={`${t(STATUS_LABEL[game.status])} · ${t('已问 {turns} 轮', { turns: game.turnCount })}`}
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
+          share={shareTarget(game)}
         >
           {caseFile}
         </CaseDrawer>

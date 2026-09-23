@@ -99,6 +99,23 @@ export function findActiveDaily(games: ArchivedGame[], date: string): ArchivedGa
   )
 }
 
+/**
+ * 这碗汤能分享到哪：题库题回题库页，官方汤回当日页。
+ * 现熬的（llm / builtin）没有可打开的公开页面，返回 undefined —— 调用方据此隐藏分享入口。
+ */
+export function shareTarget(game: {
+  title: string
+  source: 'llm' | 'builtin' | 'library' | 'daily'
+  libraryId?: string
+  dailyDate?: string
+}): { path: string; title: string } | undefined {
+  if (game.libraryId) return { path: `/library/${game.libraryId}`, title: game.title }
+  if (game.source === 'daily' && game.dailyDate) {
+    return { path: `/daily/${game.dailyDate}`, title: game.title }
+  }
+  return undefined
+}
+
 export function formatWhen(timestamp: number): string {
   const date = new Date(timestamp)
   const pad = (value: number) => String(value).padStart(2, '0')

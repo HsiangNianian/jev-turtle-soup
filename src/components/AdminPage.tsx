@@ -3,6 +3,7 @@ import { Loader2, Trash2 } from 'lucide-react'
 
 import { Button, Empty, Notice, PageShell, inputClass } from '@/components/Bits'
 import { Link } from '@/components/Link'
+import { ReportSnapshot } from '@/components/ReportSnapshot'
 import {
   addAdmin,
   clearAdminErrors,
@@ -200,16 +201,7 @@ function ReportsPanel() {
             {report.targetId ? <Meta>target: {report.targetId}</Meta> : null}
           </div>
 
-          {report.snapshot ? (
-            <details>
-              <summary className="w-fit cursor-pointer font-mono text-[10px] tracking-[0.14em] text-muted-foreground/60 hover:text-muted-foreground">
-                对局快照
-              </summary>
-              <pre className="mt-2 max-h-72 overflow-auto border border-foreground/20 bg-card p-3 font-mono text-[10px] leading-5 text-muted-foreground">
-                {JSON.stringify(report.snapshot, null, 2)}
-              </pre>
-            </details>
-          ) : null}
+          <ReportSnapshot {...report} />
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {report.status === 'open' ? (

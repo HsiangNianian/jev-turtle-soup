@@ -1,8 +1,8 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
+import { serializeReportSnapshot } from './report-snapshot.ts'
 
 const MAX_NOTE_CHARS = 500
-const MAX_SNAPSHOT_CHARS = 24_000
 const MAX_MESSAGE_CHARS = 600
 
 export interface TurnLogEntry {
@@ -109,7 +109,7 @@ export async function submitReport(db: D1Like, input: ReportInput): Promise<{ id
   const note = input.note.trim()
   if (note.length < 2) throw new ApiError(400, '请简单描述一下遇到的问题')
   if (note.length > MAX_NOTE_CHARS) throw new ApiError(400, '描述太长了，精简一点再发')
-  const snapshot = json(input.snapshot, MAX_SNAPSHOT_CHARS)
+  const snapshot = serializeReportSnapshot(input.snapshot)
   if (!snapshot) throw new ApiError(400, '缺少对局快照')
 
   const id = crypto.randomUUID()

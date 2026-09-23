@@ -2,6 +2,7 @@
  * 管理后台的取数层。全部走登录态（cookie），页面不需要任何 token。
  * 类型和后端 shared/admin.ts、shared/audit.ts、shared/telemetry.ts 一一对应。
  */
+import type { ReportSnapshotRead } from '../../shared/report-snapshot'
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
@@ -21,7 +22,7 @@ export interface AdminEntry {
   createdAt: number
 }
 
-export interface AdminReport {
+export interface AdminReport extends ReportSnapshotRead {
   id: string
   puzzleId: string | null
   puzzleTitle: string | null
@@ -33,7 +34,6 @@ export interface AdminReport {
   createdAt: number
   targetType: string | null
   targetId: string | null
-  snapshot: unknown
 }
 
 export interface AdminFlag {

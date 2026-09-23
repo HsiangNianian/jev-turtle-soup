@@ -1,5 +1,6 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
+import { readReportSnapshot, type ReportSnapshotRead } from './report-snapshot.ts'
 
 /**
  * 管理后台的数据层。
@@ -11,15 +12,6 @@ import { ApiError } from './errors.ts'
 function clamp(limit: number, fallback = 100, max = 500): number {
   if (!Number.isFinite(limit)) return fallback
   return Math.max(1, Math.min(Math.trunc(limit), max))
-}
-
-function parseJson(value: unknown): unknown {
-  if (typeof value !== 'string' || !value) return null
-  try {
-    return JSON.parse(value)
-  } catch {
-    return null
-  }
 }
 
 /** 这个 uid 是不是管理员。表很小，主键查询，随便查。 */
@@ -129,7 +121,7 @@ export async function removeAdmin(db: D1Like, uid: string): Promise<void> {
 const REPORT_STATUSES = ['open', 'resolved', 'dismissed'] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
-export interface AdminReport {
+export interface AdminReport extends ReportSnapshotRead {
   id: string
   puzzleId: string | null
   puzzleTitle: string | null
@@ -141,7 +133,6 @@ export interface AdminReport {
   createdAt: number
   targetType: string | null
   targetId: string | null
-  snapshot: unknown
 }
 
 interface ReportRow {
@@ -183,7 +174,7 @@ export async function listReports(db: D1Like, limit = 100): Promise<AdminReport[
     createdAt: row.created_at,
     targetType: row.target_type,
     targetId: row.target_id,
-    snapshot: parseJson(row.snapshot_json),
+    ...readReportSnapshot(row.snapshot_json),
   }))
 }
 

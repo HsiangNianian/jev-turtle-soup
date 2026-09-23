@@ -123,6 +123,7 @@ function GameScreen({ id }: { id: string }) {
               </Copy>
               {item.tone === 'verdict' && item.verdict && verdictLabels[item.verdict] ? (
                 <Copy
+                  testID="host-verdict"
                   style={{
                     fontSize: 23,
                     fontWeight: '700',

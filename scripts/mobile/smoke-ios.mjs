@@ -48,7 +48,7 @@ try {
   device = run(
     'create',
     `TurtleSoup-Smoke-${Date.now()}`,
-    'com.apple.CoreSimulator.SimDeviceType.iPhone-16',
+    'com.apple.CoreSimulator.SimDeviceType.iPhone-17',
     runtime.identifier,
   )
   run('boot', device)

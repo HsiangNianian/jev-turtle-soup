@@ -2,6 +2,8 @@
 
 Expo / React Native 独立 iOS、Android 客户端，和 Web 共用 `packages/client-core` 与现有 Worker API。当前用 GitHub Actions 云构建；所有编译入口也是可在本地运行的 npm 脚本，不依赖 EAS。
 
+本阶段先验收 Android 和 iOS 模拟器；iPhone 真机签名后续配置。
+
 ## 开发与检查
 
 在仓库根目录执行：
@@ -28,16 +30,17 @@ EXPO_PUBLIC_API_URL=http://192.168.1.20:8787 npm run mobile:start
 
 先安装 [toolchain.json](toolchain.json) 指定的原生工具链：Android 需要 JDK、Android SDK 和 `ANDROID_HOME`；iOS 需要 macOS、完整 Xcode、Ruby/Bundler，并在 `mobile/` 执行 `bundle install`。当前不要求在开发机安装这些工具。
 
-| 根 npm 命令                    | 产物 / 行为                                     |
-| ------------------------------ | ----------------------------------------------- |
-| `mobile:android`               | development 编译、安装、启动 Metro              |
-| `mobile:ios`                   | development 编译、安装、启动 Metro              |
-| `mobile:build:android:debug`   | 调试 APK，运行时连接 Metro                      |
-| `mobile:build:android:preview` | 签名 Release APK，包含 JS，可独立运行           |
-| `mobile:build:android:release` | 签名 AAB，供商店提交，不能直接安装              |
-| `mobile:build:ios:simulator`   | Release `.app.zip`，包含 JS，仅供对应架构模拟器 |
-| `mobile:build:ios:development` | Development 签名 IPA，连接 Metro                |
-| `mobile:build:ios:device`      | Ad Hoc / App Store 签名 IPA，包含 JS            |
+| 根 npm 命令                     | 产物 / 行为                                     |
+| ------------------------------- | ----------------------------------------------- |
+| `mobile:android`                | development 编译、安装、启动 Metro              |
+| `mobile:ios`                    | development 编译、安装、启动 Metro              |
+| `mobile:build:android:debug`    | 调试 APK，运行时连接 Metro                      |
+| `mobile:build:android:emulator` | 测试签名 Release APK，内置 JS，仅限 development |
+| `mobile:build:android:preview`  | 签名 Release APK，包含 JS，可独立运行           |
+| `mobile:build:android:release`  | 签名 AAB，供商店提交，不能直接安装              |
+| `mobile:build:ios:simulator`    | Release `.app.zip`，包含 JS，仅供对应架构模拟器 |
+| `mobile:build:ios:development`  | Development 签名 IPA，连接 Metro                |
+| `mobile:build:ios:device`       | Ad Hoc / App Store 签名 IPA，包含 JS            |
 
 ```sh
 npm run mobile:build:android:debug -- --env development --api http://10.0.2.2:8787
@@ -79,11 +82,17 @@ GitHub `Mobile package` 使用 `mobile-development` / `mobile-preview` / `mobile
 
 ## GitHub 工作流
 
-`Mobile checks` 在 PR、main 与开发分支运行：Web/Worker 回归、移动类型/依赖边界检查、JS 打包、Android debug 和 iOS simulator 编译。CI 直接调用上表中的 npm 命令。
+`Mobile checks` 在 PR、main 与开发分支运行：Web/Worker 回归、移动类型/依赖边界检查、JS 打包、Android 测试 APK 和 iOS simulator 编译及模拟器检查。CI 直接调用上表中的 npm 命令。
 
 `Mobile package` 可手动选择平台、development/preview/release、API 和 build number，或推送与移动版本匹配的 `mobile-v*` 标签生成生产商店输入。标签构建需要预先设置生产环境变量 `MOBILE_RELEASE_BUILD_NUMBER` 为新的分发编号。Web 的 `v*` 标签不触发移动打包。产物在 Actions run 的 Artifacts 中保留 14 天；工作流不创建商店发布。正式分发前要下载并保存产物、校验和与签名备份。
 
 原生工程已纳入 Git。日常 CI 不运行 prebuild。修改 Expo config / 原生依赖时执行 `npm run mobile:native:sync`，审阅并提交 `ios/`、`android/` diff。首次或显式升级 Pods 时，在 CI 选择 bootstrap，回收 `Podfile.lock` / `Gemfile.lock` 并提交；常规构建使用 `pod install --deployment`。
+
+iOS 固定为 GitHub `macos-26` / Xcode `26.6`。当前 `expo-modules-jsi@57.1.0` 的构造器注解在 Xcode 26 编译失败（[上游问题 #50067](https://github.com/expo/expo/issues/50067)）；公共构建脚本在编译前应用版本和源码校验的兼容补丁，Xcode 27 保留原注解。升级 Expo 时需审阅并移除已失效的补丁。依赖锁文件已经从 CI 回收，普通构建不会自动重新解析版本。
+
+CI 的 Android 检查使用 `npm run mobile:build:android:emulator -- --api http://127.0.0.1:8787 --architectures arm64-v8a,x86_64`：Release 内置 JS、明确使用测试签名、限定 development 环境，不需要发布 keystore。该 APK 可安装，但 API 指向测试 fixture。正式 preview / release 入口仍要求签名配置。`mobile:build:android:debug` 保留为连接 Metro 的开发客户端。
+
+`npm run mobile:smoke:android` 在已启动的 Android 模拟器安装测试 APK，清空该模拟器的开发版应用数据，通过 fixture 验证首页、提问、回答和杀进程后的 SQLite 恢复，并保存截图/日志。`npm run mobile:smoke:ios` 创建独立 iPhone 模拟器，验证内置 JS 启动和首页 API 加载，结束后删除该模拟器。两者均不访问真实 AI、邮箱或玩家数据；当前 iOS 自动化只覆盖启动。
 
 ## 存档与验收边界
 

@@ -94,8 +94,9 @@ android {`,
   if (!text.includes('MOBILE_APP_NAME ='))
     text = text.replaceAll(
       'CURRENT_PROJECT_VERSION = 1;',
-      'CURRENT_PROJECT_VERSION = 1;\n\t\t\t\tMOBILE_APP_NAME = "海龟汤调查局";\n\t\t\t\tMARKETING_VERSION = "0.1.0";',
+      'CURRENT_PROJECT_VERSION = 1;\n\t\t\t\tMOBILE_APP_NAME = "海龟汤调查局";',
     )
+  text = text.replaceAll(/MARKETING_VERSION = [^;]+;/g, 'MARKETING_VERSION = "0.1.0";')
   if (!text.includes('MOBILE_APP_SCHEME ='))
     text = text.replaceAll(
       'CURRENT_PROJECT_VERSION = 1;',

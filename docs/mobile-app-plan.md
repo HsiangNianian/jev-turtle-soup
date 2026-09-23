@@ -3,6 +3,8 @@
 日期：2026-09-23。代码基线：`bd055e0` / Web `v0.33.8`。
 状态：开发分支 `codex/mobile-app` 已实现客户端、共享核心、Bearer 会话扩展、本地 npm 构建入口及 GitHub 工作流；正在验证原生编译，尚未完成真机签名和安装验收。实际命令与配置见 [mobile/README.md](../mobile/README.md)。以下保留实施范围和验收要求。
 
+当前验收范围（已确认）：Android 与 iOS 模拟器。iPhone 真机签名和商店分发留待后续配置，不作为本阶段完成条件；本地签名构建脚本仍保留。
+
 目标是在同一仓库新增可独立安装的 iOS / Android App。采用 Expo + React Native，沿用 Workers、D1、KV 和现有题库。**按最新决定，现阶段原生编译运行在 GitHub Actions 托管 runner；同时必须交付可在本地执行的完整 npm 构建脚本，CI 调用同一套脚本。本机暂以代码、JS 检查、Worker 与 Metro 开发为主。不依赖 EAS Build、EAS Submit 或 EAS Update。**
 
 首个可交付版本要完成：打开今日汤 → 提问 → 查看线索 → 保存 → 关闭 App → 恢复同一局。内部测试版进一步覆盖题库、邮箱登录、云存档与反馈。模型判读继续每次读取当前汤底独立判断，不恢复历史问句判读复用。

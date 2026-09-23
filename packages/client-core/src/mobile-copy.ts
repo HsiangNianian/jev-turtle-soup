@@ -1,5 +1,23 @@
 /** App-specific copy; the shared web dictionary supplies existing game terminology. */
 export const mobileCopy: Record<string, [string, string]> = {
+  轮: ['turns', '回'],
+  继续推理: ['Continue investigation', '推理を続ける'],
+  查看记录: ['View record', '記録を見る'],
+  官方每日汤: ['Official daily puzzle', '公式デイリースープ'],
+  搜索: ['Search', '検索'],
+  热门: ['Popular', '人気'],
+  退出登录: ['Sign out', 'ログアウト'],
+  重新发送验证码: ['Resend code', '確認コードを再送'],
+  语言: ['Language', '言語'],
+  外观: ['Appearance', '外観'],
+  玩家反馈: ['Player feedback', 'プレイヤーからの報告'],
+  揭晓汤底: ['Reveal solution', '解答を見る'],
+  提问: ['Ask', '質問する'],
+  重试: ['Retry', '再試行'],
+  '登录身份已变化，请重新登录': [
+    'Your account has changed. Sign in again.',
+    'アカウントが変更されました。再ログインしてください。',
+  ],
   原作语言: ['Original language', '原文の言語'],
   全部题材: ['All themes', 'すべての題材'],
   偏本格: ['Realistic first', '本格寄り'],

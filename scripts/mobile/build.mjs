@@ -14,6 +14,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { configureNative } from './native-config.mjs'
+import { applyExpoIosCompatibility } from './expo-ios-compat.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const app = path.join(root, 'mobile')
@@ -26,18 +27,19 @@ const { values, positionals } = parseArgs({
     output: { type: 'string' },
     'export-method': { type: 'string' },
     bootstrap: { type: 'boolean' },
+    architectures: { type: 'string' },
     help: { type: 'boolean' },
   },
 })
 const [platform, mode] = positionals
 const allowed = {
-  android: ['run', 'debug', 'preview', 'release'],
+  android: ['run', 'debug', 'emulator', 'preview', 'release'],
   ios: ['run', 'simulator', 'development', 'device'],
   native: ['sync'],
 }
 if (values.help) {
   console.log(
-    'mobile build <android|ios|native> <mode> [--env development|preview|production] [--api URL] [--build-number N] [--output DIR] [--export-method ad-hoc|app-store] [--bootstrap]',
+    'mobile build <android|ios|native> <mode> [--env development|preview|production] [--api URL] [--build-number N] [--output DIR] [--architectures arm64-v8a,x86_64] [--export-method ad-hoc|app-store] [--bootstrap]',
   )
   console.log(
     'Android signing: MOBILE_KEYSTORE, MOBILE_KEYSTORE_PASSWORD, MOBILE_KEY_ALIAS, MOBILE_KEY_PASSWORD. iOS: IOS_CERTIFICATE_PATH, IOS_CERTIFICATE_PASSWORD, IOS_PROFILE_PATH. No GitHub-specific variables required.',
@@ -52,7 +54,7 @@ const environment =
   process.env.MOBILE_ENV ??
   (mode === 'release'
     ? 'production'
-    : ['run', 'debug', 'development', 'sync'].includes(mode)
+    : ['run', 'debug', 'emulator', 'development', 'sync'].includes(mode)
       ? 'development'
       : 'preview')
 const buildNumber = values['build-number'] ?? process.env.MOBILE_BUILD_NUMBER ?? '1'
@@ -129,6 +131,16 @@ async function main() {
     fail(
       'Interactive Expo run commands use the development identity; use a build command for preview/production.',
     )
+  if (mode === 'emulator' && environment !== 'development')
+    fail('Android emulator builds use a test key and require --env development.')
+  if (
+    values.architectures &&
+    (platform !== 'android' ||
+      !values.architectures
+        .split(',')
+        .every((abi) => ['arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'].includes(abi)))
+  )
+    fail('Use --architectures with a comma-separated list of supported Android ABIs.')
   if (!/^[1-9]\d{0,8}$/.test(buildNumber))
     fail('Build number must be a positive integer (maximum 9 digits)')
   if (mode !== 'sync') {
@@ -144,7 +156,7 @@ async function main() {
   }
   mkdirSync(output, { recursive: true })
   if (platform === 'native') {
-    run('npm', ['exec', '--', 'expo', 'prebuild', '--no-install'], { cwd: app })
+    run('npm', ['exec', '--', 'expo', 'prebuild', '--no-clean', '--no-install'], { cwd: app })
     configureNative()
     return
   }
@@ -167,7 +179,7 @@ async function main() {
     if (!existsSync(path.join(app, 'android/gradlew')))
       fail('Native project missing. Run npm run mobile:native:sync first.')
     if (
-      ['run', 'debug'].includes(mode) &&
+      ['run', 'debug', 'emulator'].includes(mode) &&
       !existsSync(path.join(app, 'android/app/debug.keystore'))
     ) {
       run('keytool', [
@@ -197,7 +209,13 @@ async function main() {
       return
     }
     const signed = mode !== 'debug'
-    if (signed) {
+    if (mode === 'emulator') {
+      // An explicit test build, never a fallback for preview/store signing.
+      env.MOBILE_KEYSTORE = path.join(app, 'android/app/debug.keystore')
+      env.MOBILE_KEYSTORE_PASSWORD = 'android'
+      env.MOBILE_KEY_ALIAS = 'androiddebugkey'
+      env.MOBILE_KEY_PASSWORD = 'android'
+    } else if (signed) {
       env.MOBILE_KEYSTORE = secretFile('MOBILE_KEYSTORE')
       for (const key of ['MOBILE_KEYSTORE_PASSWORD', 'MOBILE_KEY_ALIAS', 'MOBILE_KEY_PASSWORD'])
         required(key)
@@ -211,7 +229,12 @@ async function main() {
           : ':app:assembleDebug'
     run(
       process.platform === 'win32' ? 'gradlew.bat' : './gradlew',
-      [task, '--no-daemon', '--console=plain'],
+      [
+        task,
+        '--no-daemon',
+        '--console=plain',
+        ...(values.architectures ? [`-PreactNativeArchitectures=${values.architectures}`] : []),
+      ],
       { cwd: path.join(app, 'android') },
     )
     const extension = mode === 'release' ? 'aab' : 'apk'
@@ -244,7 +267,8 @@ async function main() {
         artifact,
       ])
     }
-    manifest(artifact, signed ? 'configured-key' : 'debug', {
+    manifest(artifact, mode === 'emulator' ? 'test-key' : signed ? 'configured-key' : 'debug', {
+      architectures: values.architectures ?? 'arm64-v8a,armeabi-v7a,x86,x86_64',
       java: run('java', ['--version'], { capture: true }),
     })
     return
@@ -268,6 +292,7 @@ async function main() {
     ['--version'],
     'Install Ruby/Bundler versions from mobile/toolchain.json and run bundle install in mobile/.',
   )
+  applyExpoIosCompatibility(run('xcodebuild', ['-version'], { capture: true }))
   run('bundle', ['exec', 'pod', 'install', ...(values.bootstrap ? [] : ['--deployment'])], {
     cwd: path.join(app, 'ios'),
   })
@@ -288,6 +313,7 @@ async function main() {
     info.workspace.schemes.find((s) => !s.startsWith('Pods-'))
   if (!scheme) fail('Missing shared application scheme')
   const base = [
+    '-quiet',
     '-workspace',
     path.join(app, 'ios', workspace),
     '-scheme',

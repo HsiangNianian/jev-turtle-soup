@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.33.7 - 2026-09-23
+
+### Fixes
+
+- Judge each question afresh against the puzzle truth, using recent conversation for context without copying or inverting earlier answers.
+- Keep uncertain judgments out of yes/no badges and the fact ledger; show the clarification reply while retaining the raw model judgment in debug details.
+
 ## 0.33.6 - 2026-09-23
 
 ### Features

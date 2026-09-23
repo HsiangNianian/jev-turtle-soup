@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.33.8 - 2026-09-23
+
+### Fixes
+
+- Keep feedback snapshots valid within the storage limit by retaining recent complete messages and recording omitted content.
+- Recover complete fields and messages from legacy truncated snapshots without rewriting stored reports; show partial-recovery, damaged-content, and missing-snapshot notices in the admin page.
+
 ## 0.33.7 - 2026-09-23
 
 ### Fixes

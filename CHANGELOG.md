@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.33.9 - 2026-09-24
+
+### Fixes
+
+- Preserve the original language label for past daily puzzles, including English and Japanese bowls after the UTC date changes.
+- Return genre scores consistently in the daily index and detail APIs.
+
 ## 0.33.8 - 2026-09-23
 
 ### Fixes

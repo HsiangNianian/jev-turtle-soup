@@ -5,7 +5,6 @@ struct CommunityScreen: View {
   @EnvironmentObject private var community: CommunityStore
   @State private var items: [LibraryPuzzle] = []
   @State private var curated: [LibraryPuzzle] = []
-  @State private var query = ""
   @State private var sort = "new"
   @State private var error: String?
   @State private var loading = false
@@ -13,7 +12,6 @@ struct CommunityScreen: View {
   @State private var offset = 0
   @State private var requestID = UUID()
   @State private var showCompose = false
-  @State private var showSearch = false
 
   var body: some View {
     PaperPage {
@@ -69,23 +67,6 @@ struct CommunityScreen: View {
         }
       }
       VStack(spacing: 4) {
-        if showSearch {
-          HStack {
-            Image(systemName: "magnifyingglass").foregroundStyle(SoupTheme.muted)
-            TextField(
-              "找一碗汤", text: $query, prompt: Text("标题、汤面或标签").foregroundStyle(SoupTheme.muted)
-            )
-            .font(SoupFont.prose).autocorrectionDisabled().submitLabel(.search)
-            .accessibilityIdentifier("communitySearch")
-            Button {
-              query = ""
-              showSearch = false
-            } label: {
-              Image(systemName: "xmark").font(.system(size: 12)).frame(width: 44, height: 44)
-            }.accessibilityLabel("关闭搜索")
-          }.padding(.leading, 12).background(SoupTheme.sheet)
-            .overlay(Rectangle().stroke(SoupTheme.line, lineWidth: 0.75)).padding(.bottom, 12)
-        }
         PaperFilters(options: [("new", "最新"), ("featured", "精选"), ("hot", "热门")], selection: $sort)
         LazyVStack(spacing: 0) {
           ForEach(items) { puzzle in CommunityPuzzleCard(puzzle: puzzle) }
@@ -95,8 +76,8 @@ struct CommunityScreen: View {
       if let error { ErrorNote(message: error) { Task { await load() } } }
       if items.isEmpty && !loading && error == nil {
         CommunityEmpty(
-          title: query.isEmpty ? "这里等着第一碗汤" : "还没找到这碗汤",
-          message: query.isEmpty ? "把你的奇思妙想，留给汤友来解。" : "换个关键词，再找找看。")
+          title: "这里等着第一碗汤",
+          message: "把你的奇思妙想，留给汤友来解。")
       }
       if hasMore && !loading {
         Button("再看一些汤") { Task { await load(more: true) } }
@@ -106,12 +87,13 @@ struct CommunityScreen: View {
     .navigationTitle("海龟汤")
     .toolbar {
       ToolbarItem(placement: .topBarLeading) {
-        Button {
-          withAnimation { showSearch.toggle() }
-          if !showSearch { query = "" }
+        NavigationLink {
+          CommunitySearchScreen()
         } label: {
           Image(systemName: "magnifyingglass")
-        }.accessibilityLabel("搜索汤面")
+        }
+        .accessibilityLabel("搜索汤面")
+        .accessibilityIdentifier("communitySearchButton")
       }
       ToolbarItem(placement: .topBarTrailing) {
         Button {
@@ -123,10 +105,7 @@ struct CommunityScreen: View {
     }
     .sheet(isPresented: $showCompose) { NavigationStack { WriteSoupSheet() } }
     .scrollDismissesKeyboard(.interactively)
-    .task(id: "\(sort):\(query):\(community.publicationRevision)") {
-      do { try await Task.sleep(for: .milliseconds(query.isEmpty ? 0 : 350)) } catch { return }
-      await load(reset: true)
-    }
+    .task(id: "\(sort):\(community.publicationRevision)") { await load(reset: true) }
     .task(id: community.publicationRevision) { await loadCurated() }
     .refreshable {
       await load()
@@ -156,7 +135,7 @@ struct CommunityScreen: View {
     defer { if requestID == id { loading = false } }
     do {
       let fetched = try await SoupAPI.shared.library(
-        sort: sort, query: query, offset: more ? offset : 0)
+        sort: sort, offset: more ? offset : 0)
       guard requestID == id, !Task.isCancelled else { return }
       hasMore = fetched.count == 30
       offset = (more ? offset : 0) + fetched.count

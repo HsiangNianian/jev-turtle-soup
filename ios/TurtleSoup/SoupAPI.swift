@@ -39,7 +39,7 @@ final class SoupAPI {
     config.timeoutIntervalForRequest = 120
     config.timeoutIntervalForResource = 150
     config.httpAdditionalHeaders = [
-      "Accept": "application/json", "User-Agent": "TurtleSoup-iOS/0.4",
+      "Accept": "application/json", "User-Agent": "TurtleSoup-iOS/0.4.1",
     ]
     #if DEBUG && targetEnvironment(simulator)
       if ProcessInfo.processInfo.environment["NATIVE_UI_FIXTURE"] == "community" {

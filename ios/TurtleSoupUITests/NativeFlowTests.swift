@@ -160,6 +160,48 @@ final class NativeFlowTests: XCTestCase {
     XCTAssertEqual(app.webViews.count, 0)
   }
 
+  func testCSearchPageResultsAndRecentHistoryWithoutNetwork() throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchEnvironment["NATIVE_UI_FIXTURE"] = "community"
+    app.launch()
+    let search = app.buttons["communitySearchButton"]
+    XCTAssertTrue(search.waitForExistence(timeout: 15))
+    search.tap()
+    let field = app.textFields["communitySearchField"]
+    XCTAssertTrue(field.waitForExistence(timeout: 5))
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+    capture("17-search-history-empty")
+
+    field.typeText("窗边")
+    let result = app.buttons["communitySearchResult.fixture-puzzle"]
+    XCTAssertTrue(result.waitForExistence(timeout: 10))
+    app.buttons["communitySearchSubmit"].tap()
+    capture("18-search-results")
+    result.tap()
+    XCTAssertTrue(app.buttons["startLibrary"].waitForExistence(timeout: 5))
+    app.navigationBars.buttons.element(boundBy: 0).tap()
+    XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1))
+    app.navigationBars.buttons.element(boundBy: 0).tap()
+
+    search.tap()
+    let history = app.buttons["communitySearchHistory.窗边"]
+    XCTAssertTrue(history.waitForExistence(timeout: 5))
+    capture("19-search-recent-history")
+    history.tap()
+    XCTAssertTrue(result.waitForExistence(timeout: 10))
+    app.buttons["communitySearchClearQuery"].tap()
+    field.typeText("missing")
+    XCTAssertTrue(app.staticTexts["还没找到这碗汤"].waitForExistence(timeout: 10))
+    XCTAssertFalse(result.exists)
+    app.buttons["communitySearchClearQuery"].tap()
+    app.buttons["communitySearchClearHistory"].tap()
+    XCTAssertTrue(app.staticTexts["还没有搜索记录"].exists)
+    app.navigationBars.buttons.element(boundBy: 0).tap()
+    XCTAssertTrue(app.buttons["curated.fixture-puzzle"].exists)
+    XCTAssertTrue(app.buttons["puzzleRow.fixture-puzzle"].exists)
+  }
+
   private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
     for _ in 0..<7 {
       if element.isHittable { return }

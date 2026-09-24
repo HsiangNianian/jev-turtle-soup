@@ -25,6 +25,7 @@
 		A10000000000000000000022 /* CommunityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022; };
 		A10000000000000000000023 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023; };
 		A10000000000000000000024 /* CommunityPreviewProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024; };
+		A10000000000000000000025 /* CommunitySearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		A20000000000000000000022 /* CommunityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityView.swift; sourceTree = "<group>"; };
 		A20000000000000000000023 /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
 		A20000000000000000000024 /* CommunityPreviewProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityPreviewProtocol.swift; sourceTree = "<group>"; };
+		A20000000000000000000025 /* CommunitySearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunitySearchView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +84,7 @@
 				A20000000000000000000024 /* CommunityPreviewProtocol.swift */,
 				A20000000000000000000023 /* ComposeView.swift */,
 				A20000000000000000000022 /* CommunityView.swift */,
+				A20000000000000000000025 /* CommunitySearchView.swift */,
 				A20000000000000000000021 /* CommunityStore.swift */,
 				A20000000000000000000020 /* CommunityModels.swift */,
 				A20000000000000000000017 /* BrandStyle.swift */,
@@ -205,6 +208,7 @@
 				A10000000000000000000024 /* CommunityPreviewProtocol.swift in Sources */,
 				A10000000000000000000023 /* ComposeView.swift in Sources */,
 				A10000000000000000000022 /* CommunityView.swift in Sources */,
+				A10000000000000000000025 /* CommunitySearchView.swift in Sources */,
 				A10000000000000000000021 /* CommunityStore.swift in Sources */,
 				A10000000000000000000020 /* CommunityModels.swift in Sources */,
 				A10000000000000000000017 /* BrandStyle.swift in Sources */,
@@ -262,14 +266,14 @@
 			baseConfigurationReference = A20000000000000000000006 /* Config.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TurtleSoup/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = games.mmstudio.turtlesoup.preview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -284,14 +288,14 @@
 			baseConfigurationReference = A20000000000000000000006 /* Config.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TurtleSoup/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = games.mmstudio.turtlesoup.preview;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

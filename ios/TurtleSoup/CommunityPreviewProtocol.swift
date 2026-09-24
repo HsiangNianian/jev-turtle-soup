@@ -101,7 +101,12 @@
           ]
         )
       }
-      if path == "/api/library/puzzles" && method == "GET" { return (200, ["items": [puzzle]]) }
+      if path == "/api/library/puzzles" && method == "GET" {
+        let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+          .queryItems?.first(where: { $0.name == "q" })?.value ?? ""
+        let matches = query.isEmpty || "窗边的第四封信 林间 日常 悬念".localizedCaseInsensitiveContains(query)
+        return (200, ["items": matches ? [puzzle] : []])
+      }
       if path == "/api/library/puzzles/fixture-puzzle" { return (200, puzzle) }
       if path == "/api/library/puzzles" && method == "POST" {
         var work = body(request)

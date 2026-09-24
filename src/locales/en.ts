@@ -55,6 +55,7 @@ export const en: Record<string, string> = {
   出题: 'The puzzle',
   切换主题: 'Theme',
   切换语言: 'Language',
+  主要导航: 'Main navigation',
   删除: 'Delete',
   '删除《{title}》': 'Delete “{title}”',
   '删除《{title}》？删除后无法恢复。': 'Delete “{title}”? This cannot be undone.',

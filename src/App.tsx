@@ -965,8 +965,8 @@ function GameApp({
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-20 shrink-0 bg-bar text-bar-foreground">
-        <div className="mx-auto flex w-full min-w-0 flex-col gap-1 px-4 py-2 sm:h-12 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-0">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="mx-auto grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center px-4 sm:flex sm:h-12 sm:gap-4 sm:px-6">
+          <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 py-2.5 sm:py-0">
             {path !== '/' ? (
               <button
                 type="button"
@@ -985,35 +985,13 @@ function GameApp({
             </Link>
           </div>
 
-          <div className="flex min-w-0 items-center justify-between gap-2 font-mono text-[10px] tracking-[0.16em] sm:ml-auto sm:shrink-0 sm:justify-start sm:gap-4 sm:tracking-[0.2em]">
-            <Link
-              to="/daily"
-              className={cn(
-                'py-2 transition-opacity hover:opacity-60 sm:py-0',
-                path.startsWith('/daily') ? 'opacity-100' : 'opacity-70',
-              )}
-            >
-              {t('每日')}
-            </Link>
-            <Link
-              to="/library"
-              className={cn(
-                'py-2 transition-opacity hover:opacity-60 sm:py-0',
-                path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
-              )}
-            >
-              {t('题库')}
-            </Link>
-            <ThemeToggle className="size-9 sm:size-7" />
-            <LocaleMenu />
+          <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end pl-3 font-mono text-[10px] sm:order-3 sm:pl-0">
             {user ? (
-              /* 红点放在按钮**外面**：按钮有 truncate（overflow:hidden），
-                 点挂在按钮内会被裁掉，等于永远不显示。 */
-              <span className="relative inline-flex shrink-0">
+              <span className="inline-flex min-w-0 items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => navigate('/me')}
-                  className="max-w-[4.5rem] truncate py-2 tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:py-0 sm:tracking-[0.16em]"
+                  className="max-w-20 truncate py-2 tracking-[0.1em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-40 sm:py-0 sm:tracking-[0.16em]"
                 >
                   {user.name || user.email}
                 </button>
@@ -1021,7 +999,7 @@ function GameApp({
                   <span
                     aria-label={t('有新动态')}
                     title={t('有新动态')}
-                    className="pointer-events-none absolute -top-1 -right-1.5 size-2 rounded-full bg-stamp ring-2 ring-background"
+                    className="size-1.5 shrink-0 rounded-full bg-stamp"
                   />
                 ) : null}
               </span>
@@ -1033,6 +1011,33 @@ function GameApp({
                 {t('登录')}
               </Link>
             )}
+          </div>
+
+          <div className="col-span-2 row-start-2 flex h-10 min-w-0 items-center justify-between border-t border-bar-foreground/15 font-mono text-[11px] tracking-[0.1em] sm:order-2 sm:ml-auto sm:h-auto sm:gap-4 sm:border-0 sm:text-[10px] sm:tracking-[0.2em]">
+            <nav aria-label={t('主要导航')} className="flex items-center gap-6 sm:gap-4">
+              <Link
+                to="/daily"
+                className={cn(
+                  'flex h-10 items-center transition-opacity hover:opacity-60 sm:h-auto',
+                  path.startsWith('/daily') ? 'opacity-100' : 'opacity-70',
+                )}
+              >
+                {t('每日')}
+              </Link>
+              <Link
+                to="/library"
+                className={cn(
+                  'flex h-10 items-center transition-opacity hover:opacity-60 sm:h-auto',
+                  path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
+                )}
+              >
+                {t('题库')}
+              </Link>
+            </nav>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <ThemeToggle className="size-9 sm:size-7" />
+              <LocaleMenu />
+            </div>
           </div>
         </div>
       </header>

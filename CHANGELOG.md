@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.3 - 2026-09-25
+
+### Fixes
+
+- Group the mobile web header into a clear account row and navigation row without spreading controls across the screen.
+- Match the curated library link to the section label's type scale and keep the progress-lock icon beside its copy on narrow screens.
+
 ## 0.35.2 - 2026-09-24
 
 ### Features

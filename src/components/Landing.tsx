@@ -177,8 +177,13 @@ export function Landing({
           <SectionHead
             label="汤友原创 · 编辑精选"
             aside={
-              <Link to="/library" className="text-stamp">
-                去题库看全部 →
+              <Link
+                to="/library"
+                className="inline-flex items-center gap-1 whitespace-nowrap font-mono text-[10px] tracking-[0.1em] text-muted-foreground transition-colors hover:text-stamp"
+              >
+                <span className="sm:hidden">查看全部</span>
+                <span className="hidden sm:inline">去题库看全部</span>
+                <ArrowRight className="size-3 text-stamp" />
               </Link>
             }
           />
@@ -461,18 +466,23 @@ export function Landing({
         </div>
       </div>
 
-      <div className="mt-10 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] tracking-[0.3em] text-muted-foreground/70">
-        <Lock className="size-3 shrink-0" />
-        {signedIn ? (
-          <span>{t('中途离开也没关系，进度会跟着账号走，换设备也能接着玩')}</span>
-        ) : (
-          <>
-            <span>{t('中途离开也没关系，进度只留在本机。')}</span>
-            <Link to="/login" className="text-stamp underline decoration-dotted underline-offset-4">
-              {t('登录后跟着账号走')}
-            </Link>
-          </>
-        )}
+      <div className="mt-10 flex items-start gap-2 font-mono text-[10px] leading-5 tracking-[0.1em] text-muted-foreground/80 sm:tracking-[0.14em]">
+        <Lock className="mt-1 size-3 shrink-0" aria-hidden="true" />
+        <p className="min-w-0">
+          {signedIn ? (
+            t('中途离开也没关系，进度会跟着账号走，换设备也能接着玩')
+          ) : (
+            <>
+              {t('中途离开也没关系，进度只留在本机。')}{' '}
+              <Link
+                to="/login"
+                className="whitespace-nowrap text-stamp underline decoration-dotted underline-offset-4"
+              >
+                {t('登录后跟着账号走')}
+              </Link>
+            </>
+          )}
+        </p>
       </div>
     </div>
   )

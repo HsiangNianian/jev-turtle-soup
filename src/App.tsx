@@ -113,6 +113,7 @@ import { dailyLuck, getDeviceId, todayKey } from '@/lib/luck'
 import { cn, uid } from '@/lib/utils'
 import { trackWebEngagement } from '@/lib/engagement-client'
 import { Link } from '@/components/Link'
+import { MobileNavigation } from '@/components/MobileNavigation'
 import { useI18n } from '@/lib/i18n'
 
 const VERDICTS = ['yes', 'no', 'partly', 'irrelevant']
@@ -965,14 +966,17 @@ function GameApp({
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-20 shrink-0 bg-bar text-bar-foreground">
-        <div className="mx-auto grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center px-4 sm:flex sm:h-12 sm:gap-4 sm:px-6">
-          <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 py-2.5 sm:py-0">
+        <div className="mx-auto flex h-12 w-full min-w-0 items-center gap-2 px-4 sm:gap-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2">
             {path !== '/' ? (
               <button
                 type="button"
                 onClick={() => navigate('/')}
                 aria-label={t('返回首页')}
-                className="-ml-1.5 flex size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-60 sm:size-7"
+                className={cn(
+                  '-ml-1.5 size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-60 sm:size-7',
+                  path === '/play' ? 'flex' : 'hidden sm:flex',
+                )}
               >
                 <ArrowLeft className="size-4" />
               </button>
@@ -985,13 +989,42 @@ function GameApp({
             </Link>
           </div>
 
-          <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end pl-3 font-mono text-[10px] sm:order-3 sm:pl-0">
+          <nav
+            aria-label={t('主要导航')}
+            className="ml-auto hidden shrink-0 items-center gap-4 font-mono text-[10px] tracking-[0.2em] sm:flex"
+          >
+            <Link
+              to="/daily"
+              className={cn(
+                'transition-opacity hover:opacity-60',
+                path.startsWith('/daily') ? 'opacity-100' : 'opacity-70',
+              )}
+            >
+              {t('每日')}
+            </Link>
+            <Link
+              to="/library"
+              className={cn(
+                'transition-opacity hover:opacity-60',
+                path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
+              )}
+            >
+              {t('题库')}
+            </Link>
+          </nav>
+
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0 sm:gap-2">
+            <ThemeToggle className="size-9 sm:size-7" />
+            <LocaleMenu />
+          </div>
+
+          <div className="hidden shrink-0 items-center font-mono text-[10px] sm:flex">
             {user ? (
               <span className="inline-flex min-w-0 items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => navigate('/me')}
-                  className="max-w-20 truncate py-2 tracking-[0.1em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-40 sm:py-0 sm:tracking-[0.16em]"
+                  className="max-w-40 truncate tracking-[0.16em] opacity-80 transition-opacity hover:opacity-60"
                 >
                   {user.name || user.email}
                 </button>
@@ -1004,40 +1037,10 @@ function GameApp({
                 ) : null}
               </span>
             ) : (
-              <Link
-                to="/login"
-                className="py-2 opacity-80 transition-opacity hover:opacity-60 sm:py-0"
-              >
+              <Link to="/login" className="opacity-80 transition-opacity hover:opacity-60">
                 {t('登录')}
               </Link>
             )}
-          </div>
-
-          <div className="col-span-2 row-start-2 flex h-10 min-w-0 items-center justify-between border-t border-bar-foreground/15 font-mono text-[11px] tracking-[0.1em] sm:order-2 sm:ml-auto sm:h-auto sm:gap-4 sm:border-0 sm:text-[10px] sm:tracking-[0.2em]">
-            <nav aria-label={t('主要导航')} className="flex items-center gap-6 sm:gap-4">
-              <Link
-                to="/daily"
-                className={cn(
-                  'flex h-10 items-center transition-opacity hover:opacity-60 sm:h-auto',
-                  path.startsWith('/daily') ? 'opacity-100' : 'opacity-70',
-                )}
-              >
-                {t('每日')}
-              </Link>
-              <Link
-                to="/library"
-                className={cn(
-                  'flex h-10 items-center transition-opacity hover:opacity-60 sm:h-auto',
-                  path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
-                )}
-              >
-                {t('题库')}
-              </Link>
-            </nav>
-            <div className="flex items-center gap-1 sm:gap-2">
-              <ThemeToggle className="size-9 sm:size-7" />
-              <LocaleMenu />
-            </div>
           </div>
         </div>
       </header>
@@ -1072,6 +1075,9 @@ function GameApp({
       ) : null}
 
       <Suspense fallback={<PageFallback />}>{renderBody()}</Suspense>
+      {path !== '/play' ? (
+        <MobileNavigation path={path} signedIn={Boolean(user)} unread={unread} />
+      ) : null}
     </div>
   )
 }

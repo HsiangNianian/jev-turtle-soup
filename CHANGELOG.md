@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.4 - 2026-09-25
+
+### Improvements
+
+- Give mobile web a single-row masthead and a fixed four-tab navigation for the bureau, daily bowls, library, and account.
+- Keep the current section and unread account activity visible in the tab bar; hide it during play to preserve room for the conversation.
+
 ## 0.35.3 - 2026-09-25
 
 ### Fixes

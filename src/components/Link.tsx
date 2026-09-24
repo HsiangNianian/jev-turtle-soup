@@ -10,11 +10,13 @@ export function Link({
   children,
   onNavigate,
   prefetchOnView = false,
+  'aria-current': ariaCurrent,
 }: {
   to: string
   className?: string
   children: ReactNode
   onNavigate?: () => void
+  'aria-current'?: 'page'
   /**
    * 进入视口就预热。移动端的「悬停」——手机上没法悬停，
    * 但滚动时下一屏要什么基本可预测。只给主入口用，别给整页链接都开。
@@ -45,6 +47,7 @@ export function Link({
     <a
       ref={ref}
       href={to}
+      aria-current={ariaCurrent}
       className={className}
       onPointerEnter={() => prefetchRoute(to)}
       onPointerLeave={() => cancelPrefetch(to)}

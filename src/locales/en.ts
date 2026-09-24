@@ -105,6 +105,7 @@ export const en: Record<string, string> = {
     'When it clicks, explain the whole thing — get it right and the case is solved. Stuck? Unseal the truth, or start a different bowl.',
   '我们存了什么': 'What we store',
   我的海龟汤: 'My puzzles',
+  我的: 'Me',
   我的题库: 'My puzzles',
   打不开这一卷: 'Cannot open this case',
   '找不到这一卷。': 'This case does not exist.',
@@ -179,6 +180,7 @@ export const en: Record<string, string> = {
   '海龟汤是一种猜真相的游戏：汤友写下反常的故事，官方每日汤则由 AI 定时生成。你向主持人砚（Ellis）提出「是 / 不是」的问题，由它代替作者回答和判读。':
     'Turtle Soup is a mystery game. Players write original puzzles, while AI creates the official daily puzzle. Ask Ellis yes-or-no questions; Ellis hosts and judges on the author’s behalf.',
   海龟汤调查局: 'Turtle Soup Bureau',
+  调查局: 'Bureau',
   深色: 'dark',
   游戏请求: 'meta request',
   烤死线: 'DDL Roast',

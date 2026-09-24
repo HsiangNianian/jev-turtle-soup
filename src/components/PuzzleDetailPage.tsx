@@ -3,6 +3,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 
 import { Button, Empty, OfficialMark, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
+import { SolveTurnRecords } from '@/components/SolveTurnRecords'
 import { genreLabel } from '@/lib/library-client'
 
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
@@ -111,6 +112,8 @@ export function PuzzleDetailPage({
           {puzzle.surface}
         </p>
       </div>
+
+      <SolveTurnRecords shortest={puzzle.shortestSolveTurns} longest={puzzle.longestSolveTurns} />
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Button onClick={() => onStart(puzzle)}>

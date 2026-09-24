@@ -2,6 +2,20 @@ import XCTest
 
 @MainActor
 final class NativeFlowTests: XCTestCase {
+  func testDPublicSolveRecordsWithoutNetwork() throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchEnvironment["NATIVE_UI_FIXTURE"] = "community"
+    app.launch()
+    let puzzle = app.buttons["puzzleRow.fixture-puzzle"]
+    XCTAssertTrue(puzzle.waitForExistence(timeout: 15))
+    puzzle.tap()
+    XCTAssertTrue(app.staticTexts["最短解开"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["3 轮"].exists)
+    XCTAssertTrue(app.staticTexts["18 轮"].exists)
+    XCTAssertTrue(app.staticTexts["仅统计已解开对局，作者账号不计入"].exists)
+  }
+
   func testACommunityAndInvestigationOnPublicAPI() throws {
     continueAfterFailure = false
     let app = XCUIApplication()

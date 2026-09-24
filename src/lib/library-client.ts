@@ -29,6 +29,8 @@ export interface LibraryPuzzle {
   tags: string[]
   plays: number
   solves: number
+  shortestSolveTurns: number | null
+  longestSolveTurns: number | null
   createdAt: number
   owner: OwnerInfo
   /** 0 = 本格·逻辑推理，100 = 变格·怪力乱神；没打过分为 null */

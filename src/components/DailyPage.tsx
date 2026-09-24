@@ -3,6 +3,7 @@ import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
 import { Button, Empty, Notice, OfficialMark, PageShell } from '@/components/Bits'
 import { Link } from '@/components/Link'
+import { SolveTurnRecords } from '@/components/SolveTurnRecords'
 import { findActiveDaily, type ArchivedGame } from '@/lib/archive'
 import { genreLabel } from '@/lib/library-client'
 import {
@@ -182,6 +183,9 @@ export function DailyDetailPage({
         <span>{t('这一碗是{language}的', { language: dailyLanguageLabel(daily.locale, t) })}</span>
       </div>
       <Surface text={daily.surface} />
+      {!daily.locked ? (
+        <SolveTurnRecords shortest={daily.shortestSolveTurns} longest={daily.longestSolveTurns} />
+      ) : null}
 
       {daily.locked ? (
         <div className="mt-6">

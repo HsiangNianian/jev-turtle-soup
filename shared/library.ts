@@ -56,6 +56,9 @@ export interface PublicPuzzle {
   tags: string[]
   plays: number
   solves: number
+  /** Questions asked through the first successful solve, excluding the author's account. */
+  shortestSolveTurns: number | null
+  longestSolveTurns: number | null
   createdAt: number
   owner: OwnerInfo
   /** 0 = 本格·逻辑推理，100 = 变格·怪力乱神；没打过分为 null */
@@ -90,6 +93,41 @@ interface OwnedRow extends PuzzleRow {
   owner_name: string | null
 }
 
+interface SolveTurnRecord {
+  puzzle_id: string
+  shortest: number
+  longest: number
+}
+
+/** Read records in one query for a library page; never expose player keys. */
+async function solveTurnRecords(
+  db: D1Like,
+  puzzleIds: string[],
+): Promise<Map<string, SolveTurnRecord>> {
+  if (!puzzleIds.length) return new Map()
+  const placeholders = puzzleIds.map(() => '?').join(', ')
+  const { results } = await db
+    .prepare(
+      `SELECT a.puzzle_id, MIN(a.turns) AS shortest, MAX(a.turns) AS longest
+       FROM attempts a JOIN puzzles p ON p.id = a.puzzle_id
+       WHERE a.puzzle_id IN (${placeholders}) AND a.solved = 1 AND a.turns > 0
+         AND a.player_key IS NOT NULL AND a.player_key NOT IN ('', 'anon', 'anonymous-device')
+         AND a.player_key <> p.owner_id
+       GROUP BY a.puzzle_id`,
+    )
+    .bind(...puzzleIds)
+    .all<SolveTurnRecord>()
+  return new Map((results ?? []).map((row) => [row.puzzle_id, row]))
+}
+
+export async function getSolveTurnRecord(db: D1Like, puzzleId: string) {
+  const record = (await solveTurnRecords(db, [puzzleId])).get(puzzleId)
+  return {
+    shortestSolveTurns: record?.shortest ?? null,
+    longestSolveTurns: record?.longest ?? null,
+  }
+}
+
 function text(value: unknown, field: string, max: number, required = true): string {
   const raw = typeof value === 'string' ? value.trim() : ''
   if (required && !raw) throw new ApiError(400, `请填写${field}`)
@@ -119,6 +157,7 @@ function visibility(value: unknown, fallback: Visibility = 'public'): Visibility
 
 function toPublic(
   row: OwnedRow | (PuzzleRow & { owner_handle?: string | null; owner_name?: string | null }),
+  record?: SolveTurnRecord,
 ): PublicPuzzle {
   return {
     id: row.id,
@@ -128,6 +167,8 @@ function toPublic(
     tags: safeTags(row.tags),
     plays: row.plays,
     solves: row.solves,
+    shortestSolveTurns: record?.shortest ?? null,
+    longestSolveTurns: record?.longest ?? null,
     createdAt: row.created_at,
     owner: {
       handle: row.owner_handle ?? '',
@@ -225,7 +266,12 @@ export async function listPublicPuzzles(
     .prepare(`${OWNER_SELECT} WHERE ${filters.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`)
     .bind(...bindings)
     .all<OwnedRow>()
-  return (results ?? []).map(toPublic)
+  const rows = results ?? []
+  const records = await solveTurnRecords(
+    db,
+    rows.map((row) => row.id),
+  )
+  return rows.map((row) => toPublic(row, records.get(row.id)))
 }
 
 /** `%` `_` `\` 在 LIKE 里有特殊含义，搜索词里出现时按字面匹配。 */
@@ -283,7 +329,7 @@ export async function getPublicPuzzle(
     .prepare('SELECT bio FROM users WHERE id = ?')
     .bind(row.owner_id)
     .first<{ bio: string }>()
-  return { ...toPublic(row), ownerBio: owner?.bio ?? '' }
+  return { ...toPublic(row), ...(await getSolveTurnRecord(db, row.id)), ownerBio: owner?.bio ?? '' }
 }
 
 async function loadPlayable(
@@ -382,6 +428,10 @@ export async function recordPlay(
     }
     return
   }
+
+  // The public record is the question count at the first solve. Follow-up
+  // questions must not turn a completed run into a longer one.
+  if (existing.solved) return
 
   await db
     .prepare('UPDATE attempts SET turns = turns + 1, updated_at = ? WHERE id = ?')
@@ -757,7 +807,12 @@ export async function getPublicProfile(db: D1Like, handle: string) {
     )
     .bind(row.id)
     .all<OwnedRow>()
-  const puzzles = (results ?? []).map(toPublic)
+  const rows = results ?? []
+  const records = await solveTurnRecords(
+    db,
+    rows.map((puzzle) => puzzle.id),
+  )
+  const puzzles = rows.map((puzzle) => toPublic(puzzle, records.get(puzzle.id)))
   const social = await countAuthorSocial(db, row.id)
   return {
     ...base,

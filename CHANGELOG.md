@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.35.2 - 2026-09-24
+
+### Features
+
+- Show each soup's shortest and longest successful question counts in public web and native details, excluding the author's account. Today's official soup keeps these records hidden until it unlocks.
+
+### Fixes
+
+- Stop a solved player's later questions from increasing the recorded solve length.
+- Repair historical overcounts only when a complete turn log establishes the first solved question (`db/migrations/019-solve-turn-records.sql`).
+
 ## 0.35.1 - 2026-09-24
 
 ### Fixes

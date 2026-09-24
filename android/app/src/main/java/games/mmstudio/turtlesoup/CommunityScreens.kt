@@ -249,6 +249,23 @@ import org.json.JSONObject
     }
 }
 
+@Composable fun SolveTurnRecordsPanel(shortest: Int?, longest: Int?) {
+    Column(Modifier.fillMaxWidth().border(width = 1.dp, color = lineColor()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Mono("最短解开")
+                Prose(shortest?.let { "$it 轮" } ?: "暂无纪录", size = 20)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Mono("最长解开")
+                Prose(longest?.let { "$it 轮" } ?: "暂无纪录", size = 20)
+            }
+        }
+        Mono("仅统计已解开对局，作者账号不计入")
+    }
+}
+
 @Composable fun DailyDetailScreen(state: AppState, summary: Daily) {
     var item by remember(summary.date) { mutableStateOf(summary) }
     var loadError by remember(summary.date) { mutableStateOf("") }
@@ -262,6 +279,7 @@ import org.json.JSONObject
         Heading("官方案卷 · ${item.date}", item.title)
         PuzzleMeta(item.difficulty, item.language, item.genreScore)
         if (item.surface.isNotBlank()) Surface(item.surface)
+        if (!item.isLocked) SolveTurnRecordsPanel(item.shortestSolveTurns, item.longestSolveTurns)
         InkButton("开始推理", { state.start(item) })
         if (item.isLocked) Prose("明日解锁汤底，今天只管大胆提问。", color = mutedColor())
         else {
@@ -279,20 +297,26 @@ import org.json.JSONObject
 
 @Composable fun PuzzleDetailScreen(state: AppState, puzzle: Puzzle) {
     val context = LocalContext.current
+    var item by remember(puzzle.id) { mutableStateOf(puzzle) }
+    LaunchedEffect(puzzle.id) {
+        runCatching { Puzzle.from(state.api.request("/api/library/puzzles/${state.api.segment(puzzle.id)}")) }
+            .onSuccess { item = it }
+    }
     PageScroll {
-        if (puzzle.ownerHandle.isNotBlank() && !puzzle.official) {
-            Row(Modifier.fillMaxWidth().clickable { state.open(Page.Author(puzzle.ownerHandle)) },
+        if (item.ownerHandle.isNotBlank() && !item.official) {
+            Row(Modifier.fillMaxWidth().clickable { state.open(Page.Author(item.ownerHandle)) },
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Prose("@${puzzle.ownerName}", size = 14, weight = FontWeight.SemiBold)
+                Prose("@${item.ownerName}", size = 14, weight = FontWeight.SemiBold)
                 Mono("拜访主页 →")
             }
         } else Mono("海龟汤 · 官方", color = redColor())
-        Heading(if (puzzle.official) "往期官汤" else "汤友原创", puzzle.title)
-        PuzzleMeta(puzzle.difficulty, genreScore = puzzle.genreScore)
-        Surface(puzzle.surface)
-        if (puzzle.tags.isNotEmpty()) Mono(puzzle.tags.joinToString("  ") { "#$it" })
-        InkButton("开始推理", { state.start(puzzle) })
-        Mono("${puzzle.plays} 人问过    ${puzzle.solves} 人解开")
+        Heading(if (item.official) "往期官汤" else "汤友原创", item.title)
+        PuzzleMeta(item.difficulty, genreScore = item.genreScore)
+        Surface(item.surface)
+        if (item.tags.isNotEmpty()) Mono(item.tags.joinToString("  ") { "#$it" })
+        SolveTurnRecordsPanel(item.shortestSolveTurns, item.longestSolveTurns)
+        InkButton("开始推理", { state.start(item) })
+        Mono("${item.plays} 人问过    ${item.solves} 人解开")
         TextButton(onClick = { share(context, "https://hgt.mmstudio.games/library/${puzzle.id}") }) {
             Prose("分享这桩案件", size = 14)
         }

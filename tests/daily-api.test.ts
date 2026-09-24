@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import worker from '../worker/index'
+import { recordPlay } from '../shared/library'
 import { dailyLanguageLabel, type DailyDetail, type DailyIndex } from '../src/lib/daily-client'
 import { database } from './sqlite'
 
@@ -42,6 +43,24 @@ async function get<T>(path: string): Promise<T> {
 }
 
 describe('daily API metadata against the current schema', () => {
+  it('shows solve-turn records after unlock but keeps them hidden on the current day', async () => {
+    seed('2026-09-23', '昨日的官汤')
+    seed('2026-09-24', '今天的官汤')
+    for (let turn = 1; turn <= 4; turn++) {
+      await recordPlay(data.db, '2026-09-23', 'past-reader', turn === 4)
+    }
+    await recordPlay(data.db, '2026-09-24', 'today-reader', true)
+
+    const past = await get<{ daily: DailyDetail }>('/api/daily/2026-09-23')
+    expect(past.daily).toMatchObject({
+      shortestSolveTurns: 4,
+      longestSolveTurns: 4,
+    })
+    const today = await get<{ daily: DailyDetail }>('/api/daily/2026-09-24')
+    expect(today.daily).not.toHaveProperty('shortestSolveTurns')
+    expect(today.daily).not.toHaveProperty('longestSolveTurns')
+  })
+
   it.each([
     { storedLocale: 'en', locale: 'en', title: 'Signed Rose', label: '英文', genreScore: 20 },
     { storedLocale: 'ja', locale: 'ja', title: '署名のある薔薇', label: '日文', genreScore: 0 },

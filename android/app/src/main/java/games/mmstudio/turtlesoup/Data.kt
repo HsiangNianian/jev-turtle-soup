@@ -30,6 +30,8 @@ data class Puzzle(
     val official: Boolean,
     val featuredNote: String,
     val genreScore: Int?,
+    val shortestSolveTurns: Int?,
+    val longestSolveTurns: Int?,
 ) {
     companion object {
         fun from(o: JSONObject): Puzzle = Puzzle(
@@ -38,6 +40,8 @@ data class Puzzle(
             o.obj("owner").str("displayName", "汤友"), o.obj("owner").str("handle"),
             o.optBoolean("official"), o.str("featuredNote"),
             if (o.isNull("genreScore") || !o.has("genreScore")) null else o.optInt("genreScore"),
+            if (o.isNull("shortestSolveTurns") || !o.has("shortestSolveTurns")) null else o.optInt("shortestSolveTurns"),
+            if (o.isNull("longestSolveTurns") || !o.has("longestSolveTurns")) null else o.optInt("longestSolveTurns"),
         )
     }
 }
@@ -52,6 +56,8 @@ data class Daily(
     val genreScore: Int?,
     val truth: String,
     val story: String,
+    val shortestSolveTurns: Int?,
+    val longestSolveTurns: Int?,
 ) {
     val language: String get() = when (locale) { "en" -> "英文"; "ja" -> "日文"; else -> "中文" }
     val isLocked: Boolean get() = date >= java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
@@ -61,6 +67,8 @@ data class Daily(
             o.str("locale"), o.str("puzzleId"),
             if (o.isNull("genreScore") || !o.has("genreScore")) null else o.optInt("genreScore"),
             o.str("truth"), o.str("story"),
+            if (o.isNull("shortestSolveTurns") || !o.has("shortestSolveTurns")) null else o.optInt("shortestSolveTurns"),
+            if (o.isNull("longestSolveTurns") || !o.has("longestSolveTurns")) null else o.optInt("longestSolveTurns"),
         )
     }
 }
@@ -140,7 +148,7 @@ class SoupApi(context: Context) {
             connection.connectTimeout = 20_000
             connection.readTimeout = 150_000
             connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("User-Agent", "TurtleSoup-Android/0.1.0")
+            connection.setRequestProperty("User-Agent", "TurtleSoup-Android/0.1.2")
             prefs.getString("sessionCookie", null)?.let { connection.setRequestProperty("Cookie", it) }
             owner?.let { connection.setRequestProperty("X-Save-Owner", it) }
             if (body != null) {

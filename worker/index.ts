@@ -73,6 +73,7 @@ import {
   getMyProfile,
   getPublicProfile,
   getPublicPuzzle,
+  getSolveTurnRecord,
   listPublicPuzzles,
   searchPublicPuzzles,
   revealLibraryPuzzle,
@@ -1049,9 +1050,20 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   const dailyMatch = /^\/api\/daily\/(\d{4}-\d{2}-\d{2})$/.exec(pathname)
   if (dailyMatch) {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
-    const row = await dailyByDate(requireDb(env), dailyMatch[1])
+    const db = requireDb(env)
+    const row = await dailyByDate(db, dailyMatch[1])
     if (!row) throw new ApiError(404, '没有这一天的官方汤')
-    return json({ daily: dailyPayload(row, row.date === utcDateKey()) }, 200, BROWSER_CACHE)
+    const locked = row.date === utcDateKey()
+    return json(
+      {
+        daily: {
+          ...dailyPayload(row, locked),
+          ...(locked ? {} : await getSolveTurnRecord(db, row.puzzle_id)),
+        },
+      },
+      200,
+      BROWSER_CACHE,
+    )
   }
 
   if (pathname === '/api/reports') {

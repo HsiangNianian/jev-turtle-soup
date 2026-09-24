@@ -21,6 +21,8 @@ struct DailyPuzzle: Codable, Identifiable {
   let truth: String?
   let story: String?
   let hint: String?
+  let shortestSolveTurns: Int?
+  let longestSolveTurns: Int?
 
   var language: String {
     switch locale {
@@ -65,6 +67,8 @@ struct LibraryPuzzle: Codable, Identifiable {
   let featuredNote: String?
   let ownerBio: String?
   var createdAt: Double? = nil
+  var shortestSolveTurns: Int? = nil
+  var longestSolveTurns: Int? = nil
 }
 
 struct SoupUser: Codable, Equatable {

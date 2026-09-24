@@ -181,6 +181,9 @@ struct DailyDetailScreen: View {
         PuzzleMetadata(difficulty: item.difficulty, language: item.language, genre: item.genreScore)
         SurfaceQuote(text: item.surface ?? "")
           .textSelection(.enabled)
+        if !item.isLocked {
+          SolveTurnRecordsView(shortest: item.shortestSolveTurns, longest: item.longestSolveTurns)
+        }
         InkButton(title: "开始推理") { store.start(item) }
         if item.isLocked {
           Label("明日解锁汤底，今天只管大胆提问。", systemImage: "lock")
@@ -249,29 +252,60 @@ struct PuzzleDetailScreen: View {
   let puzzle: LibraryPuzzle
   var discussionOpen = false
   @EnvironmentObject private var store: SoupStore
+  @State private var latestPuzzle: LibraryPuzzle?
+  private var item: LibraryPuzzle { latestPuzzle ?? puzzle }
   var body: some View {
     PaperPage {
-      PuzzleAuthorLink(puzzle: puzzle)
-      Text(puzzle.title).font(SoupFont.title)
-      PuzzleMetadata(difficulty: puzzle.difficulty, genre: puzzle.genreScore)
-      SurfaceQuote(text: puzzle.surface).textSelection(
+      PuzzleAuthorLink(puzzle: item)
+      Text(item.title).font(SoupFont.title)
+      PuzzleMetadata(difficulty: item.difficulty, genre: item.genreScore)
+      SurfaceQuote(text: item.surface).textSelection(
         .enabled)
-      if !puzzle.tags.isEmpty {
-        Text(puzzle.tags.map { "#\($0)" }.joined(separator: "  ")).font(SoupFont.mono(11))
+      if !item.tags.isEmpty {
+        Text(item.tags.map { "#\($0)" }.joined(separator: "  ")).font(SoupFont.mono(11))
           .foregroundStyle(
             .secondary)
       }
-      InkButton(title: "开始推理") { store.start(puzzle) }.accessibilityIdentifier("startLibrary")
+      SolveTurnRecordsView(shortest: item.shortestSolveTurns, longest: item.longestSolveTurns)
+      InkButton(title: "开始推理") { store.start(item) }.accessibilityIdentifier("startLibrary")
       HStack {
-        Label("\(puzzle.plays) 人问过", systemImage: "bubble.left.and.bubble.right")
+        Label("\(item.plays) 人问过", systemImage: "bubble.left.and.bubble.right")
         Spacer()
-        Text("\(puzzle.solves) 人解开")
+        Text("\(item.solves) 人解开")
       }.font(SoupFont.mono(11)).foregroundStyle(SoupTheme.muted)
       ShareLink(item: URL(string: "https://hgt.mmstudio.games/library/\(puzzle.id)")!) {
         Label("分享这桩案件", systemImage: "square.and.arrow.up")
       }.font(SoupFont.serif(14))
       SocialPanel(target: SocialTarget(kind: .puzzle, id: puzzle.id), expanded: discussionOpen)
     }.navigationTitle("这碗汤")
+      .task(id: puzzle.id) {
+        latestPuzzle = try? await SoupAPI.shared.request("/api/library/puzzles/\(puzzle.id)")
+      }
+  }
+}
+
+private struct SolveTurnRecordsView: View {
+  let shortest: Int?
+  let longest: Int?
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .top, spacing: 20) {
+        turnRecord("最短解开", turns: shortest)
+        turnRecord("最长解开", turns: longest)
+      }.frame(maxWidth: .infinity, alignment: .leading)
+      Text("仅统计已解开对局，作者账号不计入")
+        .font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
+    }.padding(.vertical, 15)
+      .overlay(alignment: .top) { PaperRule() }
+      .overlay(alignment: .bottom) { PaperRule() }
+  }
+
+  private func turnRecord(_ title: String, turns: Int?) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text(title).font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
+      Text(turns.map { "\($0) 轮" } ?? "暂无纪录")
+        .font(SoupFont.serif(21)).foregroundStyle(SoupTheme.ink)
+    }.frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 

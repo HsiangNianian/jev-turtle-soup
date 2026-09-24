@@ -28,6 +28,9 @@ export interface DailySummary {
 export interface DailyDetail extends DailySummary {
   puzzleId: string
   surface: string
+  /** Past official soups expose successful non-author question-count records. */
+  shortestSolveTurns?: number | null
+  longestSolveTurns?: number | null
   /** 当天未揭晓：服务端不会下发 truth / story / hint */
   locked: boolean
   truth?: string

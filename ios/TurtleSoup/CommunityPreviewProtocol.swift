@@ -18,6 +18,7 @@
     private static let puzzle: [String: Any] = [
       "id": "fixture-puzzle", "title": "窗边的第四封信", "surface": "她每天都收到一封没有署名的信。第四天，她读完信，把一直开着的窗关上了。",
       "difficulty": "中等", "tags": ["日常", "悬念"], "plays": 12, "solves": 3,
+      "shortestSolveTurns": 3, "longestSolveTurns": 18,
       "owner": author, "genreScore": 10, "official": false, "featured": true,
       "featuredNote": "第四封信，让一扇窗有了答案。",
       "createdAt": Date().timeIntervalSince1970 * 1000 - 3_600_000,

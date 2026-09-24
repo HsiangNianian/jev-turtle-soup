@@ -1,0 +1,120 @@
+name: iOS nightly
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Replace the rolling ios-nightly prerelease after the build
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.22.2'
+          cache: npm
+      - run: npm ci
+      - run: npm run ios:test
+      - run: npm test
+      - run: npm run build
+      - name: Build unsigned iOS Simulator app
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild \
+            -project ios/TurtleSoup.xcodeproj \
+            -scheme TurtleSoup \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build/ios-simulator \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Package simulator app
+        env:
+          ARTIFACT_DIR: artifacts/ios
+          APP_PATH: .build/ios-simulator/Build/Products/Debug-iphonesimulator/TurtleSoup.app
+        run: |
+          set -euo pipefail
+          test -d "$APP_PATH"
+          mkdir -p "$ARTIFACT_DIR"
+          export ZIP_NAME="TurtleSoup-${GITHUB_SHA}-iOS-Simulator.app.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ARTIFACT_DIR/$ZIP_NAME"
+          shasum -a 256 "$ARTIFACT_DIR/$ZIP_NAME" > "$ARTIFACT_DIR/$ZIP_NAME.sha256"
+          node <<'NODE'
+          const { writeFileSync } = require('node:fs')
+          const path = require('node:path')
+          const dir = process.env.ARTIFACT_DIR
+          const zip = process.env.ZIP_NAME
+          const metadata = {
+            artifact: zip,
+            commit: process.env.GITHUB_SHA,
+            runId: process.env.GITHUB_RUN_ID,
+            ref: process.env.GITHUB_REF,
+            platform: 'ios-simulator',
+            configuration: 'Debug',
+            signed: false,
+          }
+          writeFileSync(path.join(dir, `${zip}.json`), `${JSON.stringify(metadata, null, 2)}\n`)
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ios-nightly-${{ github.sha }}
+          path: artifacts/ios/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ios-nightly-${{ github.sha }}
+          path: artifacts/ios
+      - name: Replace rolling prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_DIR: artifacts/ios
+          RELEASE_TAG: ios-nightly
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find "$RELEASE_DIR" -maxdepth 1 -type f \
+            \( -name '*.zip' -o -name '*.sha256' -o -name '*.json' \) -print | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo 'No iOS nightly assets were downloaded.' >&2
+            exit 1
+          fi
+          cat > "$RELEASE_DIR/RELEASE_NOTES.md" <<EOF
+          # iOS nightly
+
+          Built from commit ${GITHUB_SHA} by workflow run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}).
+
+          This is an unsigned iOS Simulator build. The fixed ${RELEASE_TAG} prerelease is replaced after each successful nightly build.
+          EOF
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes 2>/dev/null || true
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_TAG}" 2>/dev/null || true
+          gh release create "$RELEASE_TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title 'iOS nightly' \
+            --notes-file "$RELEASE_DIR/RELEASE_NOTES.md" \
+            --prerelease

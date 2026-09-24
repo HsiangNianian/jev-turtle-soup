@@ -108,12 +108,15 @@ export async function engagementMetrics(db: D1Like, days = 28, now = Date.now())
           SUM(CASE WHEN EXISTS (
             SELECT 1 FROM comments c
              WHERE c.target_type = 'puzzle' AND c.target_id = p.id
+               AND c.created_at >= ?
                AND c.author_id <> p.owner_id
                AND c.author_id NOT IN (SELECT uid FROM admins)
           ) THEN 1 ELSE 0 END) AS withFeedback
          FROM puzzles p WHERE p.visibility = 'public'
+           AND p.created_at >= ?
            AND p.owner_id NOT IN (SELECT uid FROM admins)`,
     )
+    .bind(since, since)
     .first<{ soups: number; withFeedback: number | null }>()
   const creators = await db
     .prepare(

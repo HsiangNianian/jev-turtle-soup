@@ -103,6 +103,39 @@ describe('first-party engagement', () => {
       { puzzle_id: 'new' },
     ])
   })
+
+  it('counts outside feedback only for newly published soups and recent comments', async () => {
+    data.sqlite
+      .prepare(
+        `INSERT INTO users (id, email, display_name, handle, created_at) VALUES
+          ('author', 'author@example.com', '作者', 'author', 1),
+          ('reader', 'reader@example.com', '读者', 'reader', 1)`,
+      )
+      .run()
+    puzzle('fresh', 'public', null, 0)
+    puzzle('old', 'public', null, 0)
+    data.sqlite
+      .prepare('UPDATE puzzles SET created_at = ? WHERE id = ?')
+      .run(now - 86_400_000, 'fresh')
+    data.sqlite
+      .prepare('UPDATE puzzles SET created_at = ? WHERE id = ?')
+      .run(now - 40 * 86_400_000, 'old')
+    const comment = data.sqlite.prepare(
+      `INSERT INTO comments (id, target_type, target_id, author_id, body, created_at)
+       VALUES (?, 'puzzle', ?, 'reader', '好汤', ?)`,
+    )
+    comment.run('old-soup-new-comment', 'old', now - 86_400_000)
+    comment.run('new-soup-old-comment', 'fresh', now - 40 * 86_400_000)
+    expect((await engagementMetrics(data.db, 28, now)).outsideFeedback).toEqual({
+      soups: 1,
+      withFeedback: 0,
+    })
+    comment.run('new-soup-new-comment', 'fresh', now - 86_400_000)
+    expect((await engagementMetrics(data.db, 28, now)).outsideFeedback).toEqual({
+      soups: 1,
+      withFeedback: 1,
+    })
+  })
 })
 
 it('keeps metrics admin-only and disables both digest endpoints', async () => {

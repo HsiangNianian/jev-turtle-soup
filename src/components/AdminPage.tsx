@@ -439,7 +439,9 @@ function MetricsPanel() {
           <strong className="mt-2 block font-serif text-2xl">{data.secondPuzzlePlayers}</strong>
         </div>
         <div className="border border-foreground/25 p-4">
-          <div className="font-mono text-[10px] text-muted-foreground">获得外部留言的原创汤</div>
+          <div className="font-mono text-[10px] text-muted-foreground">
+            近 {data.days} 天新汤获外部留言
+          </div>
           <strong className="mt-2 block font-serif text-2xl">
             {data.outsideFeedback.withFeedback} / {data.outsideFeedback.soups}
           </strong>

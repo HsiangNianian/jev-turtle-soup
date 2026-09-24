@@ -1,7 +1,7 @@
 {
   "name": "jev-turtle-soup",
   "private": true,
-  "version": "0.34.3",
+  "version": "0.35.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,8 @@
     "ios:test": "node scripts/ios.mjs test",
     "ios:build": "node scripts/ios.mjs build",
     "ios:install": "node scripts/ios.mjs install",
+    "android:build": "cd android && ./gradlew assembleDebug",
+    "android:install": "npm run android:build && adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "db:local": "wrangler d1 execute jev-turtle-soup --local --file=./db/schema.sql",
     "test": "vitest run",
     "wrangler": "wrangler",

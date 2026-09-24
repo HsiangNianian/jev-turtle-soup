@@ -24,6 +24,12 @@ React 19 · Vite · Tailwind CSS v4 · Cloudflare Workers · TypeSafe Jev · Dee
 `npm run ios:install -- --team YOURTEAMID` 自动签名、安装和启动。
 首次账号与设备准备见 [iOS 使用说明](ios/README.md)。
 
+## Android 测试 App
+
+`android/` 提供 Kotlin + Jetpack Compose 原生客户端，沿用网站与 iPhone App 的纸白、墨色、朱红及中英文品牌字体。四栏为广场、每日、动态、我的；可搜索、推理、评论点赞、写汤，并查看自己的主动揭晓数据。两端使用同一线上 API；用同一邮箱登录后同步案卷和作品。
+
+安装 JDK 17 和 Android SDK Platform 36 后，运行 `npm run android:build` 构建调试 APK。连接已开启 USB 调试的安卓设备后运行 `npm run android:install`。首次设置和 APK 路径见 [Android 使用说明](android/README.md)。
+
 ## 本地开发
 
 使用 Node.js 22.13+（测试用内置 SQLite；也支持更新的 Node 版本）。

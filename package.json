@@ -1,7 +1,7 @@
 {
   "name": "jev-turtle-soup",
   "private": true,
-  "version": "0.33.9",
+  "version": "0.34.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,11 @@
     "lint": "oxlint",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"shared/**/*.ts\" \"worker/**/*.ts\" \"server/**/*.ts\" \"*.{json,md}\"",
     "preview": "vite preview",
+    "ios:open": "node scripts/ios.mjs open",
+    "ios:doctor": "node scripts/ios.mjs doctor",
+    "ios:test": "node scripts/ios.mjs test",
+    "ios:build": "node scripts/ios.mjs build",
+    "ios:install": "node scripts/ios.mjs install",
     "db:local": "wrangler d1 execute jev-turtle-soup --local --file=./db/schema.sql",
     "test": "vitest run",
     "wrangler": "wrangler",

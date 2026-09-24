@@ -37,6 +37,7 @@ export interface LibraryPuzzle {
   official: boolean
   /** 管理员打的精选标 */
   featured: boolean
+  featuredNote?: string | null
 }
 
 export interface LibraryPuzzleDetail extends LibraryPuzzle {
@@ -202,6 +203,17 @@ export function listPuzzles(
         },
       ),
     hooks,
+  )
+}
+
+export function listCuratedPuzzles() {
+  return staleWhileRevalidate('puzzles:community-curated', PUZZLE_TTL_MS, () =>
+    request<{ items: LibraryPuzzle[] }>(
+      '/api/library/puzzles?scope=community&featuredOnly=1&limit=3',
+    ).then((data) => {
+      rememberPuzzles(data.items)
+      return data.items
+    }),
   )
 }
 

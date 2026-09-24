@@ -212,6 +212,7 @@ export interface AdminPuzzle {
   plays: number
   solves: number
   featured: boolean
+  featuredNote: string | null
   createdAt: number
 }
 
@@ -222,6 +223,7 @@ interface AdminPuzzleRow {
   plays: number
   solves: number
   featured: number
+  featured_note: string | null
   created_at: number
   owner_name: string | null
   owner_handle: string | null
@@ -231,7 +233,7 @@ interface AdminPuzzleRow {
 export async function listPuzzlesForAdmin(db: D1Like, limit = 100): Promise<AdminPuzzle[]> {
   const { results } = await db
     .prepare(
-      `SELECT p.id, p.title, p.surface, p.plays, p.solves, p.featured, p.created_at,
+      `SELECT p.id, p.title, p.surface, p.plays, p.solves, p.featured, p.featured_note, p.created_at,
               u.display_name AS owner_name, u.handle AS owner_handle
          FROM puzzles p LEFT JOIN users u ON u.id = p.owner_id
         WHERE p.visibility = 'public'
@@ -249,15 +251,32 @@ export async function listPuzzlesForAdmin(db: D1Like, limit = 100): Promise<Admi
     plays: row.plays,
     solves: row.solves,
     featured: row.featured === 1,
+    featuredNote: row.featured_note,
     createdAt: row.created_at,
   }))
 }
 
 /** 打 / 取消精选。只动公开题，私密或官汤不该出现在精选位。 */
-export async function setPuzzleFeatured(db: D1Like, id: string, featured: boolean): Promise<void> {
+export async function setPuzzleFeatured(
+  db: D1Like,
+  id: string,
+  featured: boolean,
+  featuredNote?: unknown,
+): Promise<void> {
   if (!id) throw new ApiError(400, '缺少 id')
+  if (!featured) {
+    await db
+      .prepare("UPDATE puzzles SET featured = 0 WHERE id = ? AND visibility = 'public'")
+      .bind(id)
+      .run()
+    return
+  }
+  const note = typeof featuredNote === 'string' ? featuredNote.trim() : ''
+  if (!note || note.length > 80) throw new ApiError(400, '精选推荐语需填写，最多 80 字')
   await db
-    .prepare("UPDATE puzzles SET featured = ? WHERE id = ? AND visibility = 'public'")
-    .bind(featured ? 1 : 0, id)
+    .prepare(
+      "UPDATE puzzles SET featured = 1, featured_note = ? WHERE id = ? AND visibility = 'public'",
+    )
+    .bind(note, id)
     .run()
 }

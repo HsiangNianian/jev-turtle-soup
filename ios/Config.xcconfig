@@ -1,0 +1,2 @@
+// Personal signing settings stay on this Mac; CLI --team also overrides them.
+#include? "Signing.local.xcconfig"

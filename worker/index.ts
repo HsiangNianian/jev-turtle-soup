@@ -8,6 +8,7 @@ import {
   type PuzzleStore,
 } from '../shared/game.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
+import { engagementMetrics, purgeEngagement, recordEngagement } from '../shared/engagement.ts'
 import {
   addAdmin,
   clearClientErrors,
@@ -23,13 +24,7 @@ import {
   setReportStatus,
 } from '../shared/admin.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
-import {
-  DIGEST_WINDOW_MS,
-  listDigestRecipients,
-  renderDigest,
-  sendDigest,
-  unsubscribeByToken,
-} from '../shared/digest.ts'
+import { unsubscribeByToken } from '../shared/digest.ts'
 import { deleteSave, importSaves, listSaves, putSave } from '../shared/saves.ts'
 import {
   authorActivity,
@@ -321,6 +316,7 @@ async function runMaintenance(
 
   try {
     await purgeOldLogs(db)
+    await purgeEngagement(db)
     purged = true
   } catch (error) {
     console.warn('[maintenance] 清理旧日志失败：', error)
@@ -588,6 +584,8 @@ async function routeLibrary(
         offset: Number(url.searchParams.get('offset') ?? 0),
         query: url.searchParams.get('q') ?? '',
         genre: Number.isFinite(genre) ? genre : undefined,
+        scope: url.searchParams.get('scope') === 'community' ? 'community' : undefined,
+        featuredOnly: url.searchParams.get('featuredOnly') === '1',
       })
       return json({ items }, 200, SHORT_BROWSER_CACHE)
     }
@@ -833,34 +831,14 @@ async function routeAdmin(
     return json({ ok: true })
   }
 
-  // 作者周报：手动触发，先预览再发。只在过去一周有动静时才发。
-  if (pathname === '/api/admin/digest') {
-    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
-    const recipients = await listDigestRecipients(db, Date.now() - DIGEST_WINDOW_MS)
-    return json({
-      windowMs: DIGEST_WINDOW_MS,
-      recipients: recipients.map((item) => ({
-        uid: item.uid,
-        email: item.email,
-        displayName: item.displayName,
-        locale: item.locale,
-        total: item.total,
-        counts: item.counts,
-      })),
-      // 拿第一位当样例；没人符合条件就是 null
-      preview: recipients[0] ? renderDigest(recipients[0], url.origin) : null,
-    })
+  // 作者周报暂不发送。保留退订接口，以便此前收到过邮件的用户仍可退订。
+  if (pathname === '/api/admin/digest' || pathname === '/api/admin/digest/send') {
+    return json({ error: '作者周报暂未启用' }, 410)
   }
-  if (pathname === '/api/admin/digest/send') {
-    if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
-    const recipients = await listDigestRecipients(db, Date.now() - DIGEST_WINDOW_MS)
-    let sent = 0
-    let failed = 0
-    for (const item of recipients) {
-      if (await sendDigest(env, item, url.origin)) sent += 1
-      else failed += 1
-    }
-    return json({ sent, failed, total: recipients.length })
+
+  if (pathname === '/api/admin/metrics') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    return json(await engagementMetrics(db, Number(url.searchParams.get('days') ?? 28)))
   }
 
   // 题库精选位：给公开题打 / 取消精选
@@ -873,7 +851,7 @@ async function routeAdmin(
     if (request.method !== 'PATCH') return json({ error: '方法不被允许' }, 405)
     const id = safeDecode(pathname.slice('/api/admin/puzzles/'.length))
     const body = await readJson(request)
-    await setPuzzleFeatured(db, id, Boolean(body.featured))
+    await setPuzzleFeatured(db, id, Boolean(body.featured), body.featuredNote)
     return json({ ok: true })
   }
 
@@ -996,6 +974,18 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
   if (pathname.startsWith('/api/auth/')) {
     const handled = await routeAuth(request, env, pathname)
     return handled ?? json({ error: '未知接口' }, 404)
+  }
+  if (pathname === '/api/engagement') {
+    if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+    if (Number(request.headers.get('content-length') ?? 0) > 1024) {
+      return json({ error: '请求体过长' }, 413)
+    }
+    const db = requireDb(env)
+    const body = await readJson(request)
+    const current = await viewer(request, env)
+    const internal = Boolean(body.internal) || (await isAdmin(db, current.uid))
+    await recordEngagement(db, body, internal)
+    return json({ ok: true }, 202)
   }
   if (pathname === '/api/daily') {
     if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)

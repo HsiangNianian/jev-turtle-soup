@@ -123,6 +123,7 @@ export interface AdminPuzzle {
   plays: number
   solves: number
   featured: boolean
+  featuredNote: string | null
   createdAt: number
 }
 
@@ -130,11 +131,24 @@ export function listAdminPuzzles() {
   return request<{ items: AdminPuzzle[] }>('/api/admin/puzzles?limit=200').then((d) => d.items)
 }
 
-export function setAdminPuzzleFeatured(id: string, featured: boolean) {
+export function setAdminPuzzleFeatured(id: string, featured: boolean, featuredNote?: string) {
   return request<{ ok: boolean }>(`/api/admin/puzzles/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    body: JSON.stringify({ featured }),
+    body: JSON.stringify({ featured, featuredNote }),
   })
+}
+
+export interface AdminMetrics {
+  days: number
+  daily: { day: string; platform: string; event: string; count: number }[]
+  sources: { source: string; platform: string; entries: number }[]
+  secondPuzzlePlayers: number
+  outsideFeedback: { soups: number; withFeedback: number }
+  crossWeekAuthors: number
+}
+
+export function getAdminMetrics() {
+  return request<AdminMetrics>('/api/admin/metrics?days=28')
 }
 
 export interface DigestCounts {

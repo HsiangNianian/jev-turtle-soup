@@ -1,0 +1,363 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* App.swift */; };
+		A10000000000000000000003 /* AppIcon60x60@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* AppIcon60x60@2x.png */; };
+		A10000000000000000000004 /* AppIcon60x60@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* AppIcon60x60@3x.png */; };
+		A10000000000000000000010 /* NativeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* NativeModels.swift */; };
+		A10000000000000000000011 /* SoupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* SoupAPI.swift */; };
+		A10000000000000000000012 /* SoupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* SoupStore.swift */; };
+		A10000000000000000000013 /* NativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* NativeRootView.swift */; };
+		A10000000000000000000014 /* InvestigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* InvestigationView.swift */; };
+		A10000000000000000000015 /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* AccountView.swift */; };
+		A10000000000000000000016 /* CaseArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* CaseArchive.swift */; };
+		B10000000000000000000001 /* NativeFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001; };
+		A10000000000000000000017 /* BrandStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017; };
+		A10000000000000000000018 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018; };
+		A10000000000000000000020 /* CommunityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020; };
+		A10000000000000000000021 /* CommunityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021; };
+		A10000000000000000000022 /* CommunityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022; };
+		A10000000000000000000023 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023; };
+		A10000000000000000000024 /* CommunityPreviewProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000000000000000000001 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000000000000000000004 /* AppIcon60x60@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon60x60@2x.png"; sourceTree = "<group>"; };
+		A20000000000000000000005 /* TurtleSoup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TurtleSoup.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000006 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		A20000000000000000000007 /* Signing.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.example.xcconfig; sourceTree = "<group>"; };
+		A20000000000000000000008 /* AppIcon60x60@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon60x60@3x.png"; sourceTree = "<group>"; };
+		A20000000000000000000010 /* NativeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModels.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* SoupAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoupAPI.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* SoupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoupStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* NativeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRootView.swift; sourceTree = "<group>"; };
+		A20000000000000000000014 /* InvestigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvestigationView.swift; sourceTree = "<group>"; };
+		A20000000000000000000015 /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		A20000000000000000000016 /* CaseArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaseArchive.swift; sourceTree = "<group>"; };
+		B20000000000000000000001 /* NativeFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFlowTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* TurtleSoupUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TurtleSoupUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000017 /* BrandStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandStyle.swift; sourceTree = "<group>"; };
+		A20000000000000000000018 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
+		A20000000000000000000020 /* CommunityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityModels.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* CommunityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* CommunityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityView.swift; sourceTree = "<group>"; };
+		A20000000000000000000023 /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
+		A20000000000000000000024 /* CommunityPreviewProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityPreviewProtocol.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A50000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A30000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A30000000000000000000002 /* TurtleSoup */,
+				B30000000000000000000001 /* TurtleSoupUITests */,
+				A20000000000000000000006 /* Config.xcconfig */,
+				A20000000000000000000007 /* Signing.example.xcconfig */,
+				A30000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A30000000000000000000002 /* TurtleSoup */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000001 /* App.swift */,
+				A20000000000000000000024 /* CommunityPreviewProtocol.swift */,
+				A20000000000000000000023 /* ComposeView.swift */,
+				A20000000000000000000022 /* CommunityView.swift */,
+				A20000000000000000000021 /* CommunityStore.swift */,
+				A20000000000000000000020 /* CommunityModels.swift */,
+				A20000000000000000000017 /* BrandStyle.swift */,
+				A20000000000000000000018 /* Fonts */,
+				A20000000000000000000016 /* CaseArchive.swift */,
+				A20000000000000000000015 /* AccountView.swift */,
+				A20000000000000000000014 /* InvestigationView.swift */,
+				A20000000000000000000013 /* NativeRootView.swift */,
+				A20000000000000000000012 /* SoupStore.swift */,
+				A20000000000000000000011 /* SoupAPI.swift */,
+				A20000000000000000000010 /* NativeModels.swift */,
+				A20000000000000000000003 /* Info.plist */,
+				A20000000000000000000004 /* AppIcon60x60@2x.png */,
+				A20000000000000000000008 /* AppIcon60x60@3x.png */,
+			);
+			path = TurtleSoup;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000005 /* TurtleSoup.app */,
+				B20000000000000000000002 /* TurtleSoupUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B30000000000000000000001 /* TurtleSoupUITests */ = {isa = PBXGroup; children = (B20000000000000000000001,); path = TurtleSoupUITests; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A40000000000000000000001 /* TurtleSoup */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A70000000000000000000002 /* Build configuration list for PBXNativeTarget "TurtleSoup" */;
+			buildPhases = (
+				A50000000000000000000001 /* Sources */,
+				A50000000000000000000002 /* Frameworks */,
+				A50000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TurtleSoup;
+			productName = TurtleSoup;
+			productReference = A20000000000000000000005 /* TurtleSoup.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B40000000000000000000001 /* TurtleSoupUITests */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = B70000000000000000000001;
+            buildPhases = (B50000000000000000000001,);
+            buildRules = ();
+            dependencies = (B80000000000000000000002,);
+            name = TurtleSoupUITests;
+            productName = TurtleSoupUITests;
+            productReference = B20000000000000000000002;
+            productType = "com.apple.product-type.bundle.ui-testing";
+        };
+/* End PBXNativeTarget section */
+/* Begin PBXContainerItemProxy section */
+        B80000000000000000000001 = {isa = PBXContainerItemProxy; containerPortal = A40000000000000000000002; proxyType = 1; remoteGlobalIDString = A40000000000000000000001; remoteInfo = TurtleSoup; };
+/* End PBXContainerItemProxy section */
+/* Begin PBXTargetDependency section */
+        B80000000000000000000002 = {isa = PBXTargetDependency; target = A40000000000000000000001; targetProxy = B80000000000000000000001; };
+/* End PBXTargetDependency section */
+
+/* Begin PBXProject section */
+		A40000000000000000000002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					A40000000000000000000001 = {
+						CreatedOnToolsVersion = 26.5;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = A70000000000000000000001 /* Build configuration list for PBXProject "TurtleSoup" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				zh_CN,
+				en,
+				Base,
+			);
+			mainGroup = A30000000000000000000001;
+			productRefGroup = A30000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A40000000000000000000001 /* TurtleSoup */,
+				B40000000000000000000001 /* TurtleSoupUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A50000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000003 /* AppIcon60x60@2x.png in Resources */,
+				A10000000000000000000004 /* AppIcon60x60@3x.png in Resources */,
+				A10000000000000000000018 /* Fonts in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A50000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* App.swift in Sources */,
+				A10000000000000000000024 /* CommunityPreviewProtocol.swift in Sources */,
+				A10000000000000000000023 /* ComposeView.swift in Sources */,
+				A10000000000000000000022 /* CommunityView.swift in Sources */,
+				A10000000000000000000021 /* CommunityStore.swift in Sources */,
+				A10000000000000000000020 /* CommunityModels.swift in Sources */,
+				A10000000000000000000017 /* BrandStyle.swift in Sources */,
+				A10000000000000000000016 /* CaseArchive.swift in Sources */,
+				A10000000000000000000015 /* AccountView.swift in Sources */,
+				A10000000000000000000014 /* InvestigationView.swift in Sources */,
+				A10000000000000000000013 /* NativeRootView.swift in Sources */,
+				A10000000000000000000012 /* SoupStore.swift in Sources */,
+				A10000000000000000000011 /* SoupAPI.swift in Sources */,
+				A10000000000000000000010 /* NativeModels.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B50000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A60000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A60000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A60000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A20000000000000000000006 /* Config.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TurtleSoup/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = games.mmstudio.turtlesoup.preview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A60000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A20000000000000000000006 /* Config.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TurtleSoup/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = games.mmstudio.turtlesoup.preview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+        B60000000000000000000001 = {
+            isa = XCBuildConfiguration;
+            baseConfigurationReference = A20000000000000000000006;
+            buildSettings = {
+                CODE_SIGN_STYLE = Automatic;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                PRODUCT_BUNDLE_IDENTIFIER = games.mmstudio.turtlesoup.preview.uitests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = iphoneos;
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = 1;
+                TEST_TARGET_NAME = TurtleSoup;
+            };
+            name = Debug;
+        };
+        B60000000000000000000002 = {
+            isa = XCBuildConfiguration;
+            baseConfigurationReference = A20000000000000000000006;
+            buildSettings = {
+                CODE_SIGN_STYLE = Automatic;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                PRODUCT_BUNDLE_IDENTIFIER = games.mmstudio.turtlesoup.preview.uitests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = iphoneos;
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = 1;
+                TEST_TARGET_NAME = TurtleSoup;
+            };
+            name = Release;
+        };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A70000000000000000000001 /* Build configuration list for PBXProject "TurtleSoup" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A60000000000000000000001 /* Debug */,
+				A60000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A70000000000000000000002 /* Build configuration list for PBXNativeTarget "TurtleSoup" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A60000000000000000000003 /* Debug */,
+				A60000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B70000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (B60000000000000000000001,B60000000000000000000002,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = A40000000000000000000002 /* Project object */;
+}

@@ -16,6 +16,7 @@ import {
   type SocialPayload,
 } from '@/lib/social-client'
 import { useI18n } from '@/lib/i18n'
+import { trackWebEngagement } from '@/lib/engagement-client'
 
 function CommentRow({
   comment,
@@ -83,6 +84,8 @@ export function SocialPanel({
   id,
   path,
   title,
+  spoilerGate = false,
+  initiallyExpanded = false,
 }: {
   kind: SocialKind
   id: string
@@ -90,6 +93,8 @@ export function SocialPanel({
   path: string
   /** 分享标题 */
   title: string
+  spoilerGate?: boolean
+  initiallyExpanded?: boolean
 }) {
   const { t, locale } = useI18n()
   const [social, setSocial] = useState<SocialPayload | null>(null)
@@ -99,6 +104,12 @@ export function SocialPanel({
   const [posting, setPosting] = useState(false)
   const [composerError, setComposerError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(initiallyExpanded)
+  const showDiscussion = expanded || initiallyExpanded
+
+  useEffect(() => {
+    if (spoilerGate && initiallyExpanded) trackWebEngagement('discussion_open', id)
+  }, [id, initiallyExpanded, spoilerGate])
 
   useEffect(() => {
     let alive = true
@@ -202,7 +213,7 @@ export function SocialPanel({
   }
 
   return (
-    <div className="mt-9">
+    <div id={kind === 'puzzle' ? 'discussion' : undefined} className="mt-9 scroll-mt-16">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-foreground/25 pt-5">
         <button
           type="button"
@@ -226,79 +237,97 @@ export function SocialPanel({
         ) : null}
       </div>
 
-      <div className="mt-6 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-        {t('留言板')}
-      </div>
-
-      {social?.signedIn ? (
-        <div className="mt-3 border border-foreground bg-card px-4 py-3">
-          <textarea
-            value={draft}
-            rows={2}
-            maxLength={300}
-            onChange={(event) => {
-              setDraft(event.target.value)
-              setComposerError(null)
-            }}
-            placeholder={t('写一条留言……')}
-            className="chat-scroll w-full resize-none bg-transparent font-serif text-sm leading-7 outline-none placeholder:text-muted-foreground/60"
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void submitComment()}
-              disabled={posting || draft.trim().length < 2}
-              className="bg-foreground px-3.5 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-background transition-opacity hover:opacity-85 disabled:opacity-40"
-            >
-              {posting ? t('发表中……') : t('发表留言')}
-            </button>
-            <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground/70">
-              {t('{count}/300', { count: draft.length })}
-            </span>
-          </div>
-          {composerError ? (
-            <p className="mt-2 font-mono text-[10px] text-stamp">{composerError}</p>
-          ) : null}
-        </div>
+      {spoilerGate && !showDiscussion ? (
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(true)
+            trackWebEngagement('discussion_open', id)
+          }}
+          className="mt-6 w-full border border-dashed border-foreground/30 px-4 py-5 text-left font-serif text-[13px] text-muted-foreground hover:text-foreground"
+        >
+          {t('查看汤友讨论 · 可能含汤底')} →
+        </button>
       ) : (
-        <p className="mt-3 border border-dashed border-foreground/25 px-4 py-3 font-mono text-[11px] tracking-[0.14em] text-muted-foreground">
-          {t('留言需要先登录。')}{' '}
-          <Link to="/login" className="text-stamp transition-opacity hover:opacity-70">
-            {t('去登录')}
-          </Link>
-        </p>
+        <>
+          <div className="mt-6 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+            {t('留言板')}
+          </div>
+
+          {social?.signedIn ? (
+            <div className="mt-3 border border-foreground bg-card px-4 py-3">
+              <textarea
+                value={draft}
+                rows={2}
+                maxLength={300}
+                onChange={(event) => {
+                  setDraft(event.target.value)
+                  setComposerError(null)
+                }}
+                placeholder={t('写一条留言……')}
+                className="chat-scroll w-full resize-none bg-transparent font-serif text-sm leading-7 outline-none placeholder:text-muted-foreground/60"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void submitComment()}
+                  disabled={posting || draft.trim().length < 2}
+                  className="bg-foreground px-3.5 py-1.5 font-mono text-[10px] font-bold tracking-[0.16em] text-background transition-opacity hover:opacity-85 disabled:opacity-40"
+                >
+                  {posting ? t('发表中……') : t('发表留言')}
+                </button>
+                <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground/70">
+                  {t('{count}/300', { count: draft.length })}
+                </span>
+              </div>
+              {composerError ? (
+                <p className="mt-2 font-mono text-[10px] text-stamp">{composerError}</p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-3 border border-dashed border-foreground/25 px-4 py-3 font-mono text-[11px] tracking-[0.14em] text-muted-foreground">
+              {t('留言需要先登录。')}{' '}
+              <Link
+                to={`/login?next=${encodeURIComponent(kind === 'puzzle' ? `${path}?discussion=1` : path)}`}
+                className="text-stamp transition-opacity hover:opacity-70"
+              >
+                {t('去登录')}
+              </Link>
+            </p>
+          )}
+
+          {notice ? (
+            <p className="mt-3 border-l-2 border-l-[var(--v-yes)] bg-card px-3 py-2 font-mono text-[10px] tracking-[0.14em] text-[var(--v-yes)]">
+              {notice}
+            </p>
+          ) : null}
+          {error && social ? (
+            <p className="mt-3 border-l-2 border-stamp bg-card px-3 py-2 font-mono text-[10px] text-stamp">
+              {error}
+            </p>
+          ) : null}
+
+          {social && !social.comments.length ? (
+            <p className="mt-3 border border-dashed border-foreground/25 px-4 py-6 text-center font-mono text-[11px] tracking-[0.16em] text-muted-foreground">
+              {t('还没有人留言。')}
+            </p>
+          ) : null}
+
+          {social?.comments.length ? (
+            <ul className="mt-2 border-t border-foreground/20">
+              {social.comments.map((comment) => (
+                <CommentRow
+                  key={comment.id}
+                  comment={comment}
+                  busy={busy}
+                  onDelete={(item) => void handleDelete(item)}
+                  onReport={(item) => void handleReport(item)}
+                />
+              ))}
+            </ul>
+          ) : null}
+        </>
       )}
-
-      {notice ? (
-        <p className="mt-3 border-l-2 border-l-[var(--v-yes)] bg-card px-3 py-2 font-mono text-[10px] tracking-[0.14em] text-[var(--v-yes)]">
-          {notice}
-        </p>
-      ) : null}
-      {error && social ? (
-        <p className="mt-3 border-l-2 border-stamp bg-card px-3 py-2 font-mono text-[10px] text-stamp">
-          {error}
-        </p>
-      ) : null}
-
-      {social && !social.comments.length ? (
-        <p className="mt-3 border border-dashed border-foreground/25 px-4 py-6 text-center font-mono text-[11px] tracking-[0.16em] text-muted-foreground">
-          {t('还没有人留言。')}
-        </p>
-      ) : null}
-
-      {social?.comments.length ? (
-        <ul className="mt-2 border-t border-foreground/20">
-          {social.comments.map((comment) => (
-            <CommentRow
-              key={comment.id}
-              comment={comment}
-              busy={busy}
-              onDelete={(item) => void handleDelete(item)}
-              onReport={(item) => void handleReport(item)}
-            />
-          ))}
-        </ul>
-      ) : null}
     </div>
   )
 }

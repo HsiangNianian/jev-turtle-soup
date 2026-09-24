@@ -7,8 +7,7 @@ import { ReportSnapshot } from '@/components/ReportSnapshot'
 import {
   addAdmin,
   clearAdminErrors,
-  getAdminDigest,
-  sendAdminDigest,
+  getAdminMetrics,
   deleteAdminError,
   deleteAdminFlag,
   deleteAdminReport,
@@ -20,7 +19,7 @@ import {
   removeAdmin,
   setAdminPuzzleFeatured,
   setAdminReportStatus,
-  type AdminDigest,
+  type AdminMetrics,
   type AdminEntry,
   type AdminError,
   type AdminFlag,
@@ -56,12 +55,12 @@ function fmt(ts: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-type Tab = 'reports' | 'flags' | 'puzzles' | 'digest' | 'errors' | 'admins'
+type Tab = 'reports' | 'flags' | 'puzzles' | 'metrics' | 'errors' | 'admins'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'reports', label: '玩家反馈' },
   { key: 'flags', label: '判读巡检' },
   { key: 'puzzles', label: '题库精选' },
-  { key: 'digest', label: '作者周报' },
+  { key: 'metrics', label: '社群观察' },
   { key: 'errors', label: '客户端错误' },
   { key: 'admins', label: '管理员' },
 ]
@@ -94,7 +93,7 @@ export function AdminPage() {
         {tab === 'reports' ? <ReportsPanel /> : null}
         {tab === 'flags' ? <FlagsPanel /> : null}
         {tab === 'puzzles' ? <PuzzlesPanel /> : null}
-        {tab === 'digest' ? <DigestPanel /> : null}
+        {tab === 'metrics' ? <MetricsPanel /> : null}
         {tab === 'errors' ? <ErrorsPanel /> : null}
         {tab === 'admins' ? <AdminsPanel /> : null}
       </div>
@@ -112,7 +111,9 @@ function Loading() {
 
 function Meta({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">{children}</span>
+    <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">
+      {children}
+    </span>
   )
 }
 
@@ -206,7 +207,11 @@ function ReportsPanel() {
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {report.status === 'open' ? (
               <>
-                <Button size="sm" disabled={busy === report.id} onClick={() => void setStatus(report, 'resolved')}>
+                <Button
+                  size="sm"
+                  disabled={busy === report.id}
+                  onClick={() => void setStatus(report, 'resolved')}
+                >
                   标记已处理
                 </Button>
                 <Button
@@ -318,6 +323,7 @@ function PuzzlesPanel() {
   const [items, setItems] = useState<AdminPuzzle[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [notes, setNotes] = useState<Record<string, string>>({})
 
   useEffect(() => {
     listAdminPuzzles()
@@ -325,15 +331,16 @@ function PuzzlesPanel() {
       .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : '加载失败'))
   }, [])
 
-  async function toggle(puzzle: AdminPuzzle) {
+  async function update(puzzle: AdminPuzzle, featured: boolean) {
     setBusy(puzzle.id)
     setError(null)
     try {
-      const next = !puzzle.featured
-      await setAdminPuzzleFeatured(puzzle.id, next)
+      const featuredNote = (notes[puzzle.id] ?? puzzle.featuredNote ?? '').trim()
+      if (featured && !featuredNote) throw new Error('请先写一句不含剧透的推荐语')
+      await setAdminPuzzleFeatured(puzzle.id, featured, featuredNote)
       setItems((prev) =>
         (prev ?? [])
-          .map((item) => (item.id === puzzle.id ? { ...item, featured: next } : item))
+          .map((item) => (item.id === puzzle.id ? { ...item, featured, featuredNote } : item))
           .sort((a, b) => Number(b.featured) - Number(a.featured)),
       )
     } catch (caught) {
@@ -343,14 +350,18 @@ function PuzzlesPanel() {
     }
   }
 
-  if (error) return <Notice tone="stamp">{error}</Notice>
-  if (!items) return <Loading />
+  if (!items) return error ? <Notice tone="stamp">{error}</Notice> : <Loading />
   if (!items.length) return <Empty>题库里还没有公开的汤。</Empty>
 
   return (
     <div>
+      {error ? (
+        <div className="mb-4">
+          <Notice tone="stamp">{error}</Notice>
+        </div>
+      ) : null}
       <p className="mb-4 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-        打过精选的题，在题库「精选」排序里排前面。
+        选中的汤会在网站和 App 的编辑精选出现。推荐语最多 80 字，不要揭露汤底。
       </p>
       <ul className="border-t border-foreground/20">
         {items.map((puzzle) => (
@@ -370,14 +381,33 @@ function PuzzlesPanel() {
             <Meta>
               {puzzle.plays} / {puzzle.solves}
             </Meta>
+            <input
+              value={notes[puzzle.id] ?? puzzle.featuredNote ?? ''}
+              onChange={(event) =>
+                setNotes((prev) => ({ ...prev, [puzzle.id]: event.target.value }))
+              }
+              maxLength={80}
+              placeholder="一句不剧透的推荐语"
+              aria-label={`《${puzzle.title}》推荐语`}
+              className={cn(inputClass, 'w-full sm:w-60')}
+            />
             <Button
               size="sm"
-              variant={puzzle.featured ? 'outline' : 'primary'}
               disabled={busy === puzzle.id}
-              onClick={() => void toggle(puzzle)}
+              onClick={() => void update(puzzle, true)}
             >
-              {puzzle.featured ? '取消精选' : '设为精选'}
+              {puzzle.featured ? '保存推荐语' : '设为精选'}
             </Button>
+            {puzzle.featured ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy === puzzle.id}
+                onClick={() => void update(puzzle, false)}
+              >
+                取消精选
+              </Button>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -385,93 +415,76 @@ function PuzzlesPanel() {
   )
 }
 
-function DigestPanel() {
-  const [data, setData] = useState<AdminDigest | null>(null)
+function MetricsPanel() {
+  const [data, setData] = useState<AdminMetrics | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
 
-  const load = useCallback(() => {
-    getAdminDigest()
+  useEffect(() => {
+    getAdminMetrics()
       .then(setData)
       .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : '加载失败'))
   }, [])
-  useEffect(load, [load])
-
-  async function send() {
-    if (!data) return
-    if (!window.confirm(`给 ${data.recipients.length} 位作者发送本周周报？`)) return
-    setBusy(true)
-    setError(null)
-    setResult(null)
-    try {
-      const outcome = await sendAdminDigest()
-      setResult(`已发送 ${outcome.sent} 封，失败 ${outcome.failed} 封。`)
-      load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '发送失败')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   if (error) return <Notice tone="stamp">{error}</Notice>
   if (!data) return <Loading />
 
-  const days = Math.round(data.windowMs / 86_400_000)
-
   return (
-    <div>
-      <p className="max-w-2xl font-mono text-[10px] leading-6 tracking-[0.14em] text-muted-foreground">
-        只发给「有公开作品」且「最近 {days} 天有动静」的作者；退订过的不发。不会自动发送，点了才发。
+    <div className="space-y-7">
+      <p className="font-serif text-sm leading-7 text-muted-foreground">
+        最近 {data.days} 天的站内观察。按设备统计，管理员与标记的测试设备不计入新增事件。
       </p>
-
-      {result ? (
-        <div className="mt-4">
-          <Notice tone="good">{result}</Notice>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="border border-foreground/25 p-4">
+          <div className="font-mono text-[10px] text-muted-foreground">玩过第二碗的设备</div>
+          <strong className="mt-2 block font-serif text-2xl">{data.secondPuzzlePlayers}</strong>
         </div>
-      ) : null}
-
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-          符合条件：{data.recipients.length} 位
-        </span>
-        <Button disabled={busy || !data.recipients.length} onClick={() => void send()}>
-          发送本周周报
-        </Button>
+        <div className="border border-foreground/25 p-4">
+          <div className="font-mono text-[10px] text-muted-foreground">获得外部留言的原创汤</div>
+          <strong className="mt-2 block font-serif text-2xl">
+            {data.outsideFeedback.withFeedback} / {data.outsideFeedback.soups}
+          </strong>
+        </div>
+        <div className="border border-foreground/25 p-4">
+          <div className="font-mono text-[10px] text-muted-foreground">跨周投稿的作者</div>
+          <strong className="mt-2 block font-serif text-2xl">{data.crossWeekAuthors}</strong>
+        </div>
       </div>
-
-      {data.recipients.length ? (
-        <ul className="mt-4 border-t border-foreground/20">
-          {data.recipients.map((item) => (
-            <li key={item.uid} className="rule-dashed flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
-              <span className="min-w-0 flex-1 truncate font-serif text-[14px]">{item.displayName}</span>
-              <Meta>{item.email}</Meta>
-              <Meta>{item.locale}</Meta>
-              <Meta>
-                问 {item.counts.plays} · 解 {item.counts.solves} · 赞 {item.counts.likes} · 言{' '}
-                {item.counts.comments}
-              </Meta>
+      <div>
+        <div className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+          进入来源
+        </div>
+        <ul className="mt-2 border-t border-foreground/20">
+          {data.sources.map((row) => (
+            <li
+              key={`${row.platform}:${row.source}`}
+              className="rule-dashed flex justify-between py-2 font-mono text-[11px]"
+            >
+              <span>
+                {row.platform} · {row.source}
+              </span>
+              <span>{row.entries}</span>
             </li>
           ))}
         </ul>
-      ) : (
-        <div className="mt-4">
-          <Empty>这一周没有需要发送的周报。</Empty>
+      </div>
+      <div>
+        <div className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+          每日事件
         </div>
-      )}
-
-      {data.preview ? (
-        <div className="mt-8">
-          <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">样例预览</div>
-          <div className="mt-2 border border-foreground/20 bg-card p-4">
-            <div className="font-serif text-[14px] font-semibold">{data.preview.subject}</div>
-            <pre className="mt-3 overflow-auto font-mono text-[11px] leading-6 whitespace-pre-wrap text-muted-foreground">
-              {data.preview.text}
-            </pre>
-          </div>
-        </div>
-      ) : null}
+        <ul className="mt-2 border-t border-foreground/20">
+          {data.daily.map((row) => (
+            <li
+              key={`${row.day}:${row.platform}:${row.event}`}
+              className="rule-dashed flex justify-between py-2 font-mono text-[11px]"
+            >
+              <span>
+                {row.day} · {row.platform} · {row.event}
+              </span>
+              <span>{row.count}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }
@@ -523,7 +536,12 @@ function ErrorsPanel() {
           {items.length} 个不同的错误
         </span>
         {items.length ? (
-          <Button size="sm" variant="outline" disabled={busy === '__all__'} onClick={() => void clearAll()}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy === '__all__'}
+            onClick={() => void clearAll()}
+          >
             清空全部
           </Button>
         ) : null}

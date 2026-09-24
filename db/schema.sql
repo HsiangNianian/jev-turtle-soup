@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS puzzles (
   genre_score REAL,
   -- 管理员在后台打的「精选」标：题库按精选排序时排前面
   featured INTEGER NOT NULL DEFAULT 0,
+  featured_note TEXT,
   created_at INTEGER NOT NULL
 );
 
@@ -48,6 +49,21 @@ CREATE INDEX IF NOT EXISTS idx_puzzles_featured ON puzzles (featured, created_at
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users (handle) WHERE handle IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_digest_token ON users (digest_token) WHERE digest_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_puzzles_owner ON puzzles (owner_id);
+
+CREATE TABLE IF NOT EXISTS engagement_events (
+  id TEXT PRIMARY KEY,
+  event TEXT NOT NULL,
+  actor_hash TEXT NOT NULL,
+  puzzle_id TEXT NOT NULL DEFAULT '',
+  platform TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'unknown',
+  day TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE (event, actor_hash, puzzle_id, day)
+);
+
+CREATE INDEX IF NOT EXISTS idx_engagement_events_day ON engagement_events (day, event);
+CREATE INDEX IF NOT EXISTS idx_engagement_events_actor ON engagement_events (actor_hash, created_at);
 
 CREATE TABLE IF NOT EXISTS attempts (
   id TEXT PRIMARY KEY,

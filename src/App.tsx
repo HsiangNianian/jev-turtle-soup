@@ -111,6 +111,7 @@ import { navigate, matchPath, usePath } from '@/lib/router'
 import { utcToday, type DailyDetail } from '@/lib/daily-client'
 import { dailyLuck, getDeviceId, todayKey } from '@/lib/luck'
 import { cn, uid } from '@/lib/utils'
+import { trackWebEngagement } from '@/lib/engagement-client'
 import { Link } from '@/components/Link'
 import { useI18n } from '@/lib/i18n'
 
@@ -194,7 +195,12 @@ export default function App() {
       ++authGeneration.current
       authRequest.current?.abort()
       applyUser(next)
-      navigate('/', { replace: true })
+      const returnTo = new URLSearchParams(window.location.search).get('next')
+      const safeReturn =
+        returnTo?.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('\\')
+          ? returnTo
+          : '/'
+      navigate(safeReturn, { replace: true })
     },
     [applyUser],
   )
@@ -286,6 +292,10 @@ function GameApp({
     fetchHealth()
       .then(setHealth)
       .catch(() => setHealth(null))
+  }, [])
+
+  useEffect(() => {
+    trackWebEngagement('entry_view')
   }, [])
 
   // 未读动态：登录后拉一次；进「我的题库」时会清零。
@@ -438,6 +448,7 @@ function GameApp({
       setTurnCount(0)
       setStartedAt(Date.now())
       setDrawerOpen(true)
+      trackWebEngagement('puzzle_open', puzzle.id)
       navigate('/play')
     },
     [t],
@@ -472,6 +483,7 @@ function GameApp({
       setTurnCount(0)
       setStartedAt(Date.now())
       setDrawerOpen(true)
+      trackWebEngagement('puzzle_open', daily.puzzleId)
       navigate('/play')
     },
     [allGames, hydrate, session, t],
@@ -551,6 +563,9 @@ function GameApp({
         const turn = session.libraryId
           ? await askLibraryPuzzle(session.libraryId, text, turns, context)
           : await askHost(session, text, history, context)
+        if (turnCount === 0 && (session.libraryId || session.source === 'daily')) {
+          trackWebEngagement('first_question', session.libraryId ?? session.sessionId)
+        }
         applyTurn(turn)
       } catch (error) {
         // 旧的题库存档丢了题号：回查一次再试，别让玩家看到「已过期」

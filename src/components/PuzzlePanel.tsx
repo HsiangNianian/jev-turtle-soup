@@ -167,6 +167,15 @@ export function PuzzlePanel({
           </div>
           <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
 
+          {session.libraryId ? (
+            <Link
+              to={`/library/${session.libraryId}?discussion=1`}
+              className="mt-6 inline-flex items-center gap-2 border border-foreground bg-foreground px-4 py-2.5 font-mono text-[11px] tracking-[0.16em] text-background hover:opacity-85"
+            >
+              {t('和汤友聊聊')} <ArrowRight className="size-3.5" />
+            </Link>
+          ) : null}
+
           {/*
             解完 / 揭晓之后是最想「我也来一个」的时刻 —— 趁热把话筒递过去。
             只在这一刻出现，不打扰还在推理的人。

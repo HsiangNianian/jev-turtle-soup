@@ -5,7 +5,7 @@ import { Link } from '@/components/Link'
 import { DailyLuck } from '@/components/DailyLuck'
 import { STATUS_LABEL, formatWhen, type ArchivedGame, type GameStatus } from '@/lib/archive'
 import { dailyLanguageLabel, listDailies, type DailyDetail } from '@/lib/daily-client'
-import { genreLabel } from '@/lib/library-client'
+import { genreLabel, listCuratedPuzzles, type LibraryPuzzle } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
@@ -89,8 +89,9 @@ export function Landing({
   onAbandon,
   onDelete,
 }: LandingProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [todayDaily, setTodayDaily] = useState<DailyDetail | null>(null)
+  const [curated, setCurated] = useState<LibraryPuzzle[] | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [dontAskAgain, setDontAskAgain] = useState(false)
   const [skipConfirm, setSkipConfirm] = useState(readSkipDeleteConfirm)
@@ -106,6 +107,21 @@ export function Landing({
       alive = false
     }
   }, [])
+
+  useEffect(() => {
+    if (locale !== 'zh-CN') return
+    let alive = true
+    listCuratedPuzzles()
+      .then((items) => {
+        if (alive) setCurated(items)
+      })
+      .catch(() => {
+        if (alive) setCurated([])
+      })
+    return () => {
+      alive = false
+    }
+  }, [locale])
 
   // 今天官方汤已经在办的话，它由上面「今日」那一段负责，
   // 不能再出现在「在办」里，否则同一个案子会摆两次。
@@ -152,9 +168,62 @@ export function Landing({
       </div>
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
         {t(
-          '每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。',
+          '汤友写下一件怪事，主持人砚替他们守住汤底。挑一碗原创汤，向砚提出「是 / 不是」的问题，一起还原真相。',
         )}
       </p>
+
+      {locale === 'zh-CN' ? (
+        <section className="mt-10 border-t-2 border-foreground" aria-label="编辑精选">
+          <SectionHead
+            label="汤友原创 · 编辑精选"
+            aside={
+              <Link to="/library" className="text-stamp">
+                去题库看全部 →
+              </Link>
+            }
+          />
+          {curated === null ? (
+            <div className="min-h-44 py-7 font-mono text-[11px] text-muted-foreground">
+              正在翻阅汤友来稿…
+            </div>
+          ) : curated.length ? (
+            <ul className="divide-y divide-dashed divide-foreground/20">
+              {curated.map((puzzle) => (
+                <li key={puzzle.id} className="py-5">
+                  <div className="font-mono text-[10px] tracking-[0.16em] text-stamp">
+                    编辑荐 ·{' '}
+                    <Link to={`/u/${puzzle.owner.handle}`} className="hover:underline">
+                      @{puzzle.owner.displayName}
+                    </Link>
+                  </div>
+                  <Link
+                    to={`/library/${puzzle.id}`}
+                    prefetchOnView
+                    className="mt-2 block font-serif text-2xl leading-snug hover:text-stamp"
+                  >
+                    {puzzle.title} <ArrowRight className="inline size-4 align-middle" />
+                  </Link>
+                  <p className="mt-2 line-clamp-2 font-serif text-[14px] leading-7 text-foreground/80">
+                    {puzzle.surface}
+                  </p>
+                  {puzzle.featuredNote ? (
+                    <p className="mt-2 border-l-2 border-stamp/60 pl-3 font-serif text-[12px] leading-6 text-muted-foreground">
+                      编者按：{puzzle.featuredNote}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="py-7 font-serif text-sm leading-7 text-muted-foreground">
+              编辑正在挑选新汤。
+              <Link to="/library" className="text-stamp underline underline-offset-4">
+                先去题库看看汤友们的作品 →
+              </Link>
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <div className="mt-10 border-t-2 border-foreground">
         {todayDaily ? (

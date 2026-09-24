@@ -146,6 +146,8 @@ export const en: Record<string, string> = {
   '档案室': 'Archive',
   '每一碗汤都是一桩悬案。向主持人砚（Ellis）提出「是 / 不是」的问题，逐步还原被隐去的真相。':
     'Every bowl is a cold case. Ask Ellis yes-or-no questions and piece the hidden truth back together.',
+  '汤友写下一件怪事，主持人砚替他们守住汤底。挑一碗原创汤，向砚提出「是 / 不是」的问题，一起还原真相。':
+    'Players write the mysteries; Ellis hosts them. Pick an original puzzle, ask yes-or-no questions, and uncover the truth together.',
   '每次现熬的汤也暂时放在我们这边，90 天之后自动清掉，不会一直留着。':
     'Freshly brewed puzzles are kept here too, and cleaned up automatically after 90 days.',
   求提示: 'Hint',
@@ -157,10 +159,17 @@ export const en: Record<string, string> = {
     'The surface is served. Ask away — I only answer yes, no, or unrelated.',
   '没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。':
     'No third-party analytics and no ads. The truth never reaches your browser early — it is fetched only when you unseal it.',
+  '站内使用记录': 'Site usage',
+  '我们用设备级标识记录进入、打开作品、首次提问和查看讨论，以了解哪些汤有人玩、玩家是否回来。这份记录不含邮箱或提问正文，30 天后清理。':
+    'We use a device identifier to count visits, opened puzzles, first questions, and discussion views. These records do not contain your email or question text and are deleted after 30 days.',
+  '查看汤友讨论 · 可能含汤底': 'View discussion · may contain spoilers',
+  '和汤友聊聊': 'Discuss with other players',
   浅色: 'light',
   海龟汤: 'Turtle Soup',
   '海龟汤是一种猜真相的游戏：先给你一句反常的话，你只能靠问「是 / 不是」的问题，一点点把背后的故事问出来。这里没有真人当主持，出题和判读都由 AI 完成。':
     'Turtle soup is a guessing game: you get one strange line and may only ask yes-or-no questions until the story behind it comes out. No human hosts here — the AI writes the puzzle and judges your questions.',
+  '海龟汤是一种猜真相的游戏：汤友写下反常的故事，官方每日汤则由 AI 定时生成。你向主持人砚（Ellis）提出「是 / 不是」的问题，由它代替作者回答和判读。':
+    'Turtle Soup is a mystery game. Players write original puzzles, while AI creates the official daily puzzle. Ask Ellis yes-or-no questions; Ellis hosts and judges on the author’s behalf.',
   海龟汤调查局: 'Turtle Soup Bureau',
   深色: 'dark',
   游戏请求: 'meta request',

@@ -35,6 +35,10 @@ const DATA = [
     name: '你的进度',
     body: '不登录时，你玩到哪儿、以前玩过的局、今日人品，都只记在这台设备的浏览器里。登录之后，这些进度会同步到你的账号——换一台设备打开，接着玩就行。',
   },
+  {
+    name: '站内使用记录',
+    body: '我们用设备级标识记录进入、打开作品、首次提问和查看讨论，以了解哪些汤有人玩、玩家是否回来。这份记录不含邮箱或提问正文，30 天后清理。',
+  },
 ]
 
 export function AboutPage() {
@@ -51,7 +55,7 @@ export function AboutPage() {
     >
       <p className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
         {t(
-          '海龟汤是一种猜真相的游戏：先给你一句反常的话，你只能靠问「是 / 不是」的问题，一点点把背后的故事问出来。这里没有真人当主持，出题和判读都由 AI 完成。',
+          '海龟汤是一种猜真相的游戏：汤友写下反常的故事，官方每日汤则由 AI 定时生成。你向主持人砚（Ellis）提出「是 / 不是」的问题，由它代替作者回答和判读。',
         )}
       </p>
       <p className="mt-3 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">

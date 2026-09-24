@@ -64,6 +64,7 @@ export interface PublicPuzzle {
   official: boolean
   /** 管理员打的精选标：题库「精选」排序里排前面 */
   featured: boolean
+  featuredNote: string | null
 }
 
 interface PuzzleRow {
@@ -80,6 +81,7 @@ interface PuzzleRow {
   solves: number
   genre_score: number | null
   featured: number
+  featured_note: string | null
   created_at: number
 }
 
@@ -137,6 +139,7 @@ function toPublic(
         : null,
     official: row.visibility === 'daily',
     featured: row.featured === 1,
+    featuredNote: row.featured_note ?? null,
   }
 }
 
@@ -179,6 +182,8 @@ export async function listPublicPuzzles(
     query: string
     /** 0–100 的题材目标：给了就按「离这个位置有多近」排序，最近的排前面 */
     genre?: number
+    scope?: 'community'
+    featuredOnly?: boolean
   },
 ): Promise<PublicPuzzle[]> {
   const limit = Math.min(Math.max(options.limit || 20, 1), 50)
@@ -195,8 +200,13 @@ export async function listPublicPuzzles(
     ? Math.min(Math.max(options.genre ?? 0, 0), 100)
     : null
 
-  const filters = [PLAYABLE]
-  const bindings: unknown[] = [utcDateKey()]
+  const filters = [options.scope === 'community' ? "p.visibility = 'public'" : PLAYABLE]
+  const bindings: unknown[] = options.scope === 'community' ? [] : [utcDateKey()]
+  if (options.featuredOnly) {
+    filters.push(
+      "p.visibility = 'public' AND p.featured = 1 AND TRIM(COALESCE(p.featured_note, '')) <> ''",
+    )
+  }
   if (query) {
     const like = likePattern(query)
     filters.push(

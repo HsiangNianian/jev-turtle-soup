@@ -8,6 +8,7 @@ import { genreLabel } from '@/lib/library-client'
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
 import { Link } from '@/components/Link'
 import { useI18n } from '@/lib/i18n'
+import { trackWebEngagement } from '@/lib/engagement-client'
 
 export function PuzzleDetailPage({
   id,
@@ -19,9 +20,11 @@ export function PuzzleDetailPage({
   const { t } = useI18n()
   const [puzzle, setPuzzle] = useState<LibraryPuzzleDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const discussionRequested = new URLSearchParams(window.location.search).get('discussion') === '1'
 
   useEffect(() => {
     let alive = true
+    trackWebEngagement('puzzle_open', id)
     getPuzzle(id, {
       // 列表里已经有这道题了：先把已知的字段渲染出来，只等作者简介
       onStale: (known) => {
@@ -44,6 +47,14 @@ export function PuzzleDetailPage({
       alive = false
     }
   }, [id, t])
+
+  useEffect(() => {
+    if (!puzzle || !discussionRequested) return
+    const frame = requestAnimationFrame(() =>
+      document.getElementById('discussion')?.scrollIntoView(),
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [puzzle, discussionRequested])
 
   if (error) {
     return (
@@ -114,10 +125,13 @@ export function PuzzleDetailPage({
       </div>
 
       <SocialPanel
+        key={puzzle.id}
         kind="puzzle"
         id={puzzle.id}
         path={`/library/${puzzle.id}`}
         title={puzzle.title}
+        spoilerGate
+        initiallyExpanded={discussionRequested}
       />
     </PageShell>
   )

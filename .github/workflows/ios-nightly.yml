@@ -34,7 +34,22 @@ jobs:
       - name: Build unsigned iOS Simulator app
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+          developer_dir="$(xcode-select -p 2>/dev/null || true)"
+          if [ ! -d "$developer_dir/Platforms/iPhoneSimulator.platform" ]; then
+            developer_dir=''
+            for xcode_app in /Applications/Xcode*.app; do
+              if [ -d "$xcode_app/Contents/Developer/Platforms/iPhoneSimulator.platform" ]; then
+                developer_dir="$xcode_app/Contents/Developer"
+                break
+              fi
+            done
+            if [ -z "$developer_dir" ]; then
+              echo 'No full Xcode installation with iOS Simulator support was found.' >&2
+              exit 1
+            fi
+            sudo xcode-select -s "$developer_dir"
+          fi
+          xcodebuild -version
           xcodebuild \
             -project ios/TurtleSoup.xcodeproj \
             -scheme TurtleSoup \
@@ -54,7 +69,7 @@ jobs:
           mkdir -p "$ARTIFACT_DIR"
           export ZIP_NAME="TurtleSoup-${GITHUB_SHA}-iOS-Simulator.app.zip"
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ARTIFACT_DIR/$ZIP_NAME"
-          shasum -a 256 "$ARTIFACT_DIR/$ZIP_NAME" > "$ARTIFACT_DIR/$ZIP_NAME.sha256"
+          (cd "$ARTIFACT_DIR" && shasum -a 256 "$ZIP_NAME") > "$ARTIFACT_DIR/$ZIP_NAME.sha256"
           node <<'NODE'
           const { writeFileSync } = require('node:fs')
           const path = require('node:path')

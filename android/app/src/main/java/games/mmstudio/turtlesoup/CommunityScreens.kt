@@ -4,6 +4,8 @@ import android.content.Intent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -11,14 +13,19 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -134,11 +141,30 @@ import org.json.JSONObject
     }
     PageScroll {
         Heading("汤友之间", "找一碗汤", "按标题、汤面或标签，找到让你好奇的故事。")
-        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
-            placeholder = { Mono("搜索汤面、标题、标签") },
-            leadingIcon = { Icon(Icons.Outlined.Search, null) }, shape = RectangleShape,
+        BasicTextField(query, { query = it }, Modifier.fillMaxWidth()
+            .semantics { contentDescription = "搜索汤面、标题、标签" }, singleLine = true,
+            textStyle = TextStyle(fontFamily = Ink.serif, fontSize = 16.sp, color = inkColor()),
+            cursorBrush = SolidColor(redColor()),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { commit() }))
+            keyboardActions = KeyboardActions(onSearch = { commit() }),
+            decorationBox = { innerTextField ->
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .border(1.dp, lineColor()).background(sheetColor())
+                    .padding(start = 16.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Search, null, Modifier.size(19.dp), tint = redColor())
+                    Spacer(Modifier.width(12.dp))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) Prose("汤名、线索或标签", size = 14, color = mutedColor())
+                        innerTextField()
+                    }
+                    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                        if (query.isNotEmpty()) IconButton(onClick = { query = "" }, Modifier.size(40.dp)) {
+                            Icon(Icons.Outlined.Close, "清空输入", Modifier.size(18.dp), tint = mutedColor())
+                        }
+                    }
+                }
+            })
         if (query.isBlank()) {
             SectionTitle("最近搜索")
             if (history.isEmpty()) Prose("还没有搜索记录", color = mutedColor())

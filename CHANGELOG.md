@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.1 - 2026-09-24
+
+### Fixes
+
+- Give mobile web navigation and author puzzle cards enough room for titles, stats, and actions in narrow layouts.
+- Keep the native iOS and Android search fields visually stable before and during input.
+
 ## 0.33.9 - 2026-09-24
 
 ### Fixes

@@ -174,10 +174,9 @@ final class NativeFlowTests: XCTestCase {
     XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
     capture("17-search-history-empty")
 
-    field.typeText("窗边")
+    field.typeText("窗边\n")
     let result = app.buttons["communitySearchResult.fixture-puzzle"]
     XCTAssertTrue(result.waitForExistence(timeout: 10))
-    app.buttons["communitySearchSubmit"].tap()
     capture("18-search-results")
     result.tap()
     XCTAssertTrue(app.buttons["startLibrary"].waitForExistence(timeout: 5))

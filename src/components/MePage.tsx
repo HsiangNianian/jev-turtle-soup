@@ -44,11 +44,28 @@ function describe(
   })
 }
 
-function StatCell({ label, value }: { label: string; value: string | number }) {
+function StatCell({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: string | number
+  className?: string
+}) {
   return (
-    <div className="border border-foreground/20 px-4 py-3">
+    <div className={cn('border border-foreground/20 px-4 py-3', className)}>
       <div className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1.5 font-serif text-2xl leading-none tabular-nums">{value}</div>
+    </div>
+  )
+}
+
+function PuzzleStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-0 px-2 first:pl-0 last:pr-0 sm:px-4">
+      <div className="font-serif text-xl leading-none tabular-nums">{value}</div>
+      <div className="mt-1.5 font-mono text-[10px] leading-4 text-muted-foreground">{label}</div>
     </div>
   )
 }
@@ -134,19 +151,31 @@ export function MePage({
         </Link>
       }
     >
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Button onClick={() => navigate('/upload')}>
+      <div className="mt-6 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+        <Button className="min-h-10 px-3 sm:min-h-0 sm:px-5" onClick={() => navigate('/upload')}>
           <Plus className="size-3.5" /> {t('上传新汤')}
         </Button>
-        <Button variant="outline" onClick={() => navigate('/me/profile')}>
+        <Button
+          variant="outline"
+          className="min-h-10 px-3 sm:min-h-0 sm:px-5"
+          onClick={() => navigate('/me/profile')}
+        >
           {t('编辑资料')}
         </Button>
         {isAdmin ? (
-          <Button variant="outline" onClick={() => navigate('/admin')}>
+          <Button
+            variant="outline"
+            className="min-h-10 px-3 min-[360px]:col-span-2 sm:min-h-0 sm:px-5"
+            onClick={() => navigate('/admin')}
+          >
             {t('管理后台')}
           </Button>
         ) : null}
-        <Button variant="ghost" onClick={onLogout}>
+        <Button
+          variant="ghost"
+          className="min-h-10 justify-self-end min-[360px]:col-span-2 sm:min-h-0"
+          onClick={onLogout}
+        >
           {t('退出')}
         </Button>
       </div>
@@ -157,7 +186,11 @@ export function MePage({
           <StatCell label={t('累计问过')} value={summary.plays} />
           <StatCell label={t('累计解开')} value={summary.solves} />
           <StatCell label={t('主动揭晓')} value={summary.reveals} />
-          <StatCell label={t('本周问过')} value={summary.playsThisWeek} />
+          <StatCell
+            label={t('本周问过')}
+            value={summary.playsThisWeek}
+            className="col-span-2 sm:col-span-1"
+          />
         </div>
       ) : null}
 
@@ -192,47 +225,48 @@ export function MePage({
       {items?.length ? (
         <ul className="mt-7 border-t border-foreground/20">
           {items.map((puzzle) => (
-            <li key={puzzle.id} className="rule-dashed flex flex-wrap items-center gap-3 py-4">
-              <span
-                className={cn(
-                  'shrink-0 border px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.14em]',
-                  puzzle.visibility === 'public'
-                    ? 'border-[var(--v-yes)] text-[var(--v-yes)]'
-                    : 'border-foreground/30 text-muted-foreground',
-                )}
-              >
-                {puzzle.visibility === 'public' ? t('公开') : t('私密')}
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-serif text-[15px]">{puzzle.title}</span>
-                <span className="mt-0.5 block truncate font-serif text-[12px] text-muted-foreground">
-                  {puzzle.surface}
+            <li key={puzzle.id} className="rule-dashed py-5 sm:py-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h2 className="break-words font-serif text-lg leading-7">{puzzle.title}</h2>
+                  <p className="mt-1 line-clamp-2 break-words font-serif text-[13px] leading-6 text-muted-foreground">
+                    {puzzle.surface}
+                  </p>
+                </div>
+                <span
+                  className={cn(
+                    'mt-0.5 shrink-0 border px-2 py-1 font-mono text-[10px] font-bold tracking-[0.14em]',
+                    puzzle.visibility === 'public'
+                      ? 'border-[var(--v-yes)] text-[var(--v-yes)]'
+                      : 'border-foreground/30 text-muted-foreground',
+                  )}
+                >
+                  {puzzle.visibility === 'public' ? t('公开') : t('私密')}
                 </span>
-              </span>
+              </div>
 
-              <span className="shrink-0 text-right font-mono text-[10px] leading-5 tabular-nums text-muted-foreground">
-                <span className="block">
-                  {t('{plays} 人问过 · {solves} 人解开', {
-                    plays: puzzle.plays,
-                    solves: puzzle.solves,
-                  })}
-                </span>
-                <span className="block">{t('{count} 人主动揭晓', { count: puzzle.reveals })}</span>
-                <span className="block">
+              <div className="mt-4 grid grid-cols-3 divide-x divide-foreground/15 border-y border-foreground/15 py-3">
+                <PuzzleStat label={t('累计问过')} value={puzzle.plays} />
+                <PuzzleStat label={t('累计解开')} value={puzzle.solves} />
+                <PuzzleStat label={t('主动揭晓')} value={puzzle.reveals} />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] leading-5 tabular-nums text-muted-foreground">
+                <span>
                   {puzzle.plays
                     ? t('解开率 {rate}%', { rate: solveRate(puzzle) })
                     : t('还没有人提问。')}
-                  {puzzle.playsThisWeek > 0
-                    ? ` · ${t('本周 +{count}', { count: puzzle.playsThisWeek })}`
-                    : ''}
                 </span>
-              </span>
+                {puzzle.playsThisWeek > 0 ? (
+                  <span>{t('本周 +{count}', { count: puzzle.playsThisWeek })}</span>
+                ) : null}
+              </div>
 
-              <span className="flex shrink-0 items-center gap-2">
+              <div className="mt-4 flex items-center justify-end gap-2">
                 <Button
                   variant="outline"
                   size="sm"
+                  className="min-h-10"
                   disabled={busyId === puzzle.id}
                   onClick={() => void toggle(puzzle)}
                 >
@@ -243,11 +277,11 @@ export function MePage({
                   aria-label={t('删除')}
                   disabled={busyId === puzzle.id}
                   onClick={() => void remove(puzzle)}
-                  className="flex size-8 items-center justify-center border border-foreground/30 text-muted-foreground transition-colors hover:border-stamp hover:text-stamp disabled:opacity-40"
+                  className="flex size-10 items-center justify-center border border-foreground/30 text-muted-foreground transition-colors hover:border-stamp hover:text-stamp disabled:opacity-40"
                 >
                   <Trash2 className="size-3.5" />
                 </button>
-              </span>
+              </div>
             </li>
           ))}
         </ul>
@@ -271,7 +305,7 @@ export function MePage({
               {activity.map((event, index) => (
                 <li
                   key={`${event.kind}-${event.target}-${event.at}-${index}`}
-                  className="rule-dashed flex items-baseline gap-x-3 gap-y-1 py-3"
+                  className="rule-dashed grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 py-3 sm:flex sm:items-baseline"
                 >
                   <span
                     className={cn(
@@ -293,10 +327,10 @@ export function MePage({
                             : '留言',
                     )}
                   </span>
-                  <span className="min-w-0 flex-1 font-serif text-[13px] leading-6 break-words">
+                  <span className="col-span-2 row-start-2 min-w-0 font-serif text-[13px] leading-6 break-words sm:flex-1">
                     {describe(event, t)}
                   </span>
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/60">
+                  <span className="col-start-2 row-start-1 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/60">
                     {formatWhen(event.at)}
                   </span>
                 </li>

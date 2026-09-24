@@ -40,31 +40,31 @@ struct CommunitySearchScreen: View {
       }
 
       HStack(spacing: 10) {
-        Image(systemName: "magnifyingglass").foregroundStyle(SoupTheme.muted)
+        Image(systemName: "magnifyingglass").foregroundStyle(SoupTheme.red)
         TextField(
-          "搜索汤面", text: $query, prompt: Text("输入线索或作者").foregroundStyle(SoupTheme.muted)
+          "搜索汤面", text: $query,
+          prompt: Text("汤名、线索或作者").font(SoupFont.prose).foregroundStyle(SoupTheme.muted)
         )
         .font(SoupFont.prose).autocorrectionDisabled().textInputAutocapitalization(.never)
         .submitLabel(.search).focused($searchFocused)
         .onSubmit { rememberSearch(); searchFocused = false }
         .accessibilityIdentifier("communitySearchField")
-        if !query.isEmpty {
-          Button {
-            query = ""
-            searchFocused = true
-          } label: {
-            Image(systemName: "xmark.circle.fill").foregroundStyle(SoupTheme.muted)
-              .frame(width: 32, height: 44)
-          }.accessibilityLabel("清空输入").accessibilityIdentifier("communitySearchClearQuery")
+        Button {
+          query = ""
+          searchFocused = true
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .foregroundStyle(SoupTheme.muted)
+            .frame(width: 32, height: 44)
+            .opacity(query.isEmpty ? 0 : 1)
         }
-        Button("搜索") {
-          rememberSearch()
-          searchFocused = false
-        }
-        .font(SoupFont.mono(11)).foregroundStyle(SoupTheme.red)
-        .disabled(term.isEmpty).accessibilityIdentifier("communitySearchSubmit")
+        .disabled(query.isEmpty)
+        .accessibilityHidden(query.isEmpty)
+        .accessibilityLabel("清空输入")
+        .accessibilityIdentifier("communitySearchClearQuery")
       }
-      .padding(.leading, 14).padding(.trailing, 10)
+      .frame(minHeight: 54)
+      .padding(.leading, 16).padding(.trailing, 8)
       .background(SoupTheme.sheet)
       .overlay(Rectangle().stroke(SoupTheme.line, lineWidth: 0.75))
 

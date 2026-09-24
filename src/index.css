@@ -169,7 +169,7 @@
   }
 
   .rule-dashed {
-    border-bottom: 1px dashed rgba(23, 21, 15, 0.22);
+    border-bottom: 1px dashed var(--border);
   }
 
   .verdict-yes {

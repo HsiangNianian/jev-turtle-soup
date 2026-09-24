@@ -60,7 +60,7 @@ export function LocaleMenu({ className }: { className?: string }) {
         aria-expanded={open}
         aria-label={t('切换语言')}
         title={t('切换语言')}
-        className="flex h-7 items-center gap-1.5 px-1.5 transition-opacity hover:opacity-60"
+        className="flex h-9 items-center gap-1.5 px-1.5 transition-opacity hover:opacity-60 sm:h-7"
       >
         <span className="font-bold">{LOCALE_LABELS[locale].short}</span>
       </button>

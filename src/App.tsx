@@ -965,29 +965,31 @@ function GameApp({
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="z-20 shrink-0 bg-bar text-bar-foreground">
-        <div className="mx-auto flex h-12 w-full min-w-0 items-center gap-2 px-4 sm:gap-3 sm:px-6">
-          {path !== '/' ? (
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              aria-label={t('返回首页')}
-              className="-ml-1.5 flex size-7 shrink-0 items-center justify-center transition-opacity hover:opacity-60"
+        <div className="mx-auto flex w-full min-w-0 flex-col gap-1 px-4 py-2 sm:h-12 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-0">
+          <div className="flex min-w-0 items-center gap-2">
+            {path !== '/' ? (
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                aria-label={t('返回首页')}
+                className="-ml-1.5 flex size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-60 sm:size-7"
+              >
+                <ArrowLeft className="size-4" />
+              </button>
+            ) : null}
+            <Link
+              to="/"
+              className="min-w-0 truncate font-mono text-[11px] font-bold tracking-[0.18em] sm:text-[12px] sm:tracking-[0.24em]"
             >
-              <ArrowLeft className="size-4" />
-            </button>
-          ) : null}
-          <Link
-            to="/"
-            className="min-w-0 truncate font-mono text-[11px] font-bold tracking-[0.18em] sm:text-[12px] sm:tracking-[0.24em]"
-          >
-            {t('海龟汤调查局')}
-          </Link>
+              {t('海龟汤调查局')}
+            </Link>
+          </div>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2 font-mono text-[10px] tracking-[0.16em] sm:gap-4 sm:tracking-[0.2em]">
+          <div className="flex min-w-0 items-center justify-between gap-2 font-mono text-[10px] tracking-[0.16em] sm:ml-auto sm:shrink-0 sm:justify-start sm:gap-4 sm:tracking-[0.2em]">
             <Link
               to="/daily"
               className={cn(
-                'transition-opacity hover:opacity-60',
+                'py-2 transition-opacity hover:opacity-60 sm:py-0',
                 path.startsWith('/daily') ? 'opacity-100' : 'opacity-70',
               )}
             >
@@ -996,13 +998,13 @@ function GameApp({
             <Link
               to="/library"
               className={cn(
-                'transition-opacity hover:opacity-60',
+                'py-2 transition-opacity hover:opacity-60 sm:py-0',
                 path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
               )}
             >
               {t('题库')}
             </Link>
-            <ThemeToggle />
+            <ThemeToggle className="size-9 sm:size-7" />
             <LocaleMenu />
             {user ? (
               /* 红点放在按钮**外面**：按钮有 truncate（overflow:hidden），
@@ -1011,7 +1013,7 @@ function GameApp({
                 <button
                   type="button"
                   onClick={() => navigate('/me')}
-                  className="max-w-[4.5rem] truncate tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:tracking-[0.16em]"
+                  className="max-w-[4.5rem] truncate py-2 tracking-[0.14em] opacity-80 transition-opacity hover:opacity-60 sm:max-w-[10rem] sm:py-0 sm:tracking-[0.16em]"
                 >
                   {user.name || user.email}
                 </button>
@@ -1024,7 +1026,10 @@ function GameApp({
                 ) : null}
               </span>
             ) : (
-              <Link to="/login" className="opacity-80 transition-opacity hover:opacity-60">
+              <Link
+                to="/login"
+                className="py-2 opacity-80 transition-opacity hover:opacity-60 sm:py-0"
+              >
                 {t('登录')}
               </Link>
             )}

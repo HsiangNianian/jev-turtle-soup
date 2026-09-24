@@ -1003,7 +1003,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
     const today = await dailyByDate(db, utcDateKey())
     const { results } = await db
       .prepare(
-        `SELECT d.date, p.title, p.difficulty, p.tags, p.plays, p.solves, d.relaxed
+        `SELECT d.date, d.locale, p.title, p.difficulty, p.tags, p.genre_score,
+                p.plays, p.solves, d.relaxed
            FROM dailies d JOIN puzzles p ON p.id = d.puzzle_id
           ORDER BY d.date DESC LIMIT 60`,
       )
@@ -1012,6 +1013,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
         title: string
         difficulty: string
         tags: string
+        locale: string | null
+        genre_score: number | null
         plays: number
         solves: number
         relaxed: number
@@ -1031,6 +1034,8 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
             title: row.title,
             difficulty: row.difficulty,
             tags,
+            locale: row.locale ?? 'zh-CN',
+            genreScore: row.genre_score ?? null,
             plays: row.plays,
             solves: row.solves,
             relaxed: row.relaxed === 1,

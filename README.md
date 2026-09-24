@@ -18,6 +18,7 @@ React 19 · Vite · Tailwind CSS v4 · Cloudflare Workers · TypeSafe Jev · Dee
 ## iPhone 测试 App
 
 `ios/` 提供 SwiftUI 原生客户端：广场、每日、动态、我的四栏导航，原生推理、作者主页、讨论与写汤。
+作者登录后可在网页或 App 的自己的作品页查看每碗汤的主动揭晓人数；每位玩家对每碗汤只计一次，推理通关不计入。
 客户端直接调用线上 API，可用 Xcode Personal Team 装到自己的 iPhone。
 运行 `npm run ios:doctor` 检查环境，`npm run ios:build` 验证编译，
 `npm run ios:install -- --team YOURTEAMID` 自动签名、安装和启动。

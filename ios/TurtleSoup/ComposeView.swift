@@ -171,6 +171,10 @@ struct MySoupsScreen: View {
       if store.user == nil {
         CommunityEmpty(title: "请先登录", message: "作品和草稿跟着各自的账号保存。")
       } else {
+        if !items.isEmpty {
+          Text("\(items.reduce(0) { $0 + $1.reveals }) 人主动揭晓 · 从本版起按玩家去重记录，推理通关不算")
+            .font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
+        }
         if items.isEmpty && !loading && error == nil {
           CommunityEmpty(title: "轮到你讲故事了", message: "那些不合常理的细节，也许就是下一碗好汤的开始。")
         }
@@ -192,6 +196,8 @@ struct MySoupsScreen: View {
               }.font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
               Text(item.title).font(SoupFont.serif(22, weight: .semibold))
               Text("\(item.plays) 人问过 · \(item.solves) 人解开").font(SoupFont.mono(10))
+                .foregroundStyle(SoupTheme.muted)
+              Text("\(item.reveals) 人主动揭晓").font(SoupFont.mono(10))
                 .foregroundStyle(SoupTheme.muted)
             }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 18)
               .overlay(alignment: .bottom) { PaperRule(dashed: true) }

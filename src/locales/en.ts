@@ -44,6 +44,10 @@ export const en: Record<string, string> = {
   公开到题库: 'Publish to the library',
   公开我的主页: 'Make my profile public',
   '公开的汤': 'Public puzzles',
+  '主动揭晓': 'Chose to reveal',
+  '主动揭晓从本次更新开始记录；每碗汤按独立玩家计数，推理通关和自动读取汤底不算。':
+    'Tracked from this update, once per player and puzzle. Solving and automatic truth retrieval are excluded.',
+  '{count} 人主动揭晓': '{count} chose to reveal',
   '关于': 'About',
   关于与版本: 'About & version',
   关于这碗汤: 'About this bowl',
@@ -157,9 +161,12 @@ export const en: Record<string, string> = {
     'The surface only shows what happens and leaves the question hanging; the truth explains it, and must account for every odd detail.',
   '汤面已经端上来了。开始提问吧，我只回答「是」「不是」「无关」。':
     'The surface is served. Ask away — I only answer yes, no, or unrelated.',
-  '没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。':
-    'No third-party analytics and no ads. The truth never reaches your browser early — it is fetched only when you unseal it.',
+  '没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——你推理得出答案，或主动拆封时才会取回。':
+    'No third-party analytics and no ads. The truth reaches your browser only when you solve the puzzle or choose to unseal it.',
   '站内使用记录': 'Site usage',
+  '主动揭晓统计': 'Chosen reveals',
+  '点「揭晓」时，我们按作品记录一次账号或设备标识的哈希，用来给作者显示去重人数。作者看不到玩家身份；删除作品时，这份记录也会删除。':
+    'When you choose to reveal, we store a hash of your account or device identifier once per puzzle. Its author sees only the total, never player identities. Deleting the puzzle deletes this record.',
   '我们用设备级标识记录进入、打开作品、首次提问和查看讨论，以了解哪些汤有人玩、玩家是否回来。这份记录不含邮箱或提问正文，30 天后清理。':
     'We use a device identifier to count visits, opened puzzles, first questions, and discussion views. These records do not contain your email or question text and are deleted after 30 days.',
   '查看汤友讨论 · 可能含汤底': 'View discussion · may contain spoilers',
@@ -255,7 +262,7 @@ export const en: Record<string, string> = {
   '本周问过': 'Players this week',
   '{plays} 人问过 · {solves} 人解开': '{plays} players · {solves} solved',
   '解开率 {rate}%': 'Solve rate {rate}%',
-  '还没有人玩过。': 'No one has played it yet.',
+  '还没有人提问。': 'No questions yet.',
   '本周 +{count}': '+{count} this week',
   '最近动态': 'Recent activity',
   '还没有动态。': 'No activity yet.',

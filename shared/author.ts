@@ -5,13 +5,13 @@ import type { Visibility } from './library.ts'
  * 作者看板与动态流。
  *
  * 上传之后最缺的是「回音」：写完就石沉大海，第二次上传全靠自觉。
- * 这里把已经存在的数据（attempts / comments / likes）汇成两样东西：
- * - 概览：累计与本周的问过 / 解开，让作者看到自己的题在被玩；
+ * 这里把对局与互动数据（attempts / manual_reveals / comments / likes）汇成两样东西：
+ * - 概览：累计问过 / 解开 / 主动揭晓，让作者看到自己的题在被玩；
  * - 动态：一条按时间倒排的流水，把「有人开始挑战 / 有人解开 / 有人留言 / 有人点赞」
  *   摊开。
  *
- * **不新增表**：一切都从现有表派生，所以口径永远和实际数据一致，也不会漂移。
- * 玩家身份一律不暴露（问过 / 解开是匿名的），留言本来就公开、才带署名。
+ * 计数从明细表计算，避免与额外维护的累计列漂移。
+ * 玩家身份一律不暴露（问过 / 解开 / 主动揭晓是匿名的），留言本来就公开、才带署名。
  */
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
@@ -46,6 +46,7 @@ export interface AuthorPuzzle {
   createdAt: number
   plays: number
   solves: number
+  reveals: number
   playsThisWeek: number
   solvesThisWeek: number
   /** 最近一次有人问过的时间；从没人玩过就是 null */
@@ -57,6 +58,7 @@ export interface AuthorSummary {
   public: number
   plays: number
   solves: number
+  reveals: number
   playsThisWeek: number
   solvesThisWeek: number
 }
@@ -87,6 +89,7 @@ interface StatRow {
   created_at: number
   plays: number
   solves: number
+  reveals: number
   plays_week: number
   solves_week: number
   last_at: number | null
@@ -95,7 +98,7 @@ interface StatRow {
 /**
  * 自己名下的题 + 每人一道的统计。
  *
- * 计数**从 attempts 现算**，不读 puzzles.plays/solves 那两个缓存列：
+ * 问过 / 解开从 attempts 算，主动揭晓从 manual_reveals 算，不读 puzzles 的缓存列：
  * 那两个是写入时累加的，一旦漏加就对不上；看板是要给作者看的数字，必须准。
  */
 export async function listOwnPuzzles(
@@ -109,6 +112,7 @@ export async function listOwnPuzzles(
       `SELECT p.id, p.title, p.surface, p.truth, p.hint, p.difficulty, p.tags, p.visibility, p.created_at,
               COUNT(a.id) AS plays,
               COALESCE(SUM(CASE WHEN a.solved = 1 THEN 1 ELSE 0 END), 0) AS solves,
+              (SELECT COUNT(*) FROM manual_reveals r WHERE r.puzzle_id = p.id) AS reveals,
               COALESCE(SUM(CASE WHEN a.created_at >= ? THEN 1 ELSE 0 END), 0) AS plays_week,
               COALESCE(SUM(CASE WHEN a.solved = 1 AND a.updated_at >= ? THEN 1 ELSE 0 END), 0) AS solves_week,
               MAX(a.updated_at) AS last_at
@@ -133,6 +137,7 @@ export async function listOwnPuzzles(
     createdAt: row.created_at,
     plays: row.plays,
     solves: row.solves,
+    reveals: row.reveals,
     playsThisWeek: row.plays_week,
     solvesThisWeek: row.solves_week,
     lastActivityAt: row.last_at,
@@ -146,10 +151,11 @@ export function authorSummary(puzzles: AuthorPuzzle[]): AuthorSummary {
       public: acc.public + (puzzle.visibility === 'public' ? 1 : 0),
       plays: acc.plays + puzzle.plays,
       solves: acc.solves + puzzle.solves,
+      reveals: acc.reveals + puzzle.reveals,
       playsThisWeek: acc.playsThisWeek + puzzle.playsThisWeek,
       solvesThisWeek: acc.solvesThisWeek + puzzle.solvesThisWeek,
     }),
-    { total: 0, public: 0, plays: 0, solves: 0, playsThisWeek: 0, solvesThisWeek: 0 },
+    { total: 0, public: 0, plays: 0, solves: 0, reveals: 0, playsThisWeek: 0, solvesThisWeek: 0 },
   )
 }
 
@@ -247,11 +253,7 @@ export async function markActivitySeen(db: D1Like, uid: string, at = Date.now())
   await db.prepare('UPDATE users SET activity_seen_at = ? WHERE id = ?').bind(at, uid).run()
 }
 
-export async function authorActivity(
-  db: D1Like,
-  uid: string,
-  limit = 30,
-): Promise<AuthorEvent[]> {
+export async function authorActivity(db: D1Like, uid: string, limit = 30): Promise<AuthorEvent[]> {
   const take = clampLimit(limit)
 
   const [plays, solves, puzzleComments, puzzleLikes, profileComments, profileLikes] =

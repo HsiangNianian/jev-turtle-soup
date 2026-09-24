@@ -109,6 +109,7 @@ struct OwnPuzzle: Decodable, Identifiable {
   let visibility: String
   let plays: Int
   let solves: Int
+  let reveals: Int
   let createdAt: Double
 
   func publicView(author: PuzzleAuthor) -> LibraryPuzzle {

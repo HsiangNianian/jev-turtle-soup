@@ -76,6 +76,14 @@ CREATE TABLE IF NOT EXISTS attempts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_attempts_puzzle ON attempts (puzzle_id);
+-- 玩家主动点「揭晓汤底」：每碗汤、每个玩家只计一次；不保存原始设备号。
+CREATE TABLE IF NOT EXISTS manual_reveals (
+  puzzle_id TEXT NOT NULL,
+  actor_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (puzzle_id, actor_hash)
+);
+
 CREATE TABLE IF NOT EXISTS turn_logs (
   id TEXT PRIMARY KEY,
   puzzle_id TEXT NOT NULL,

@@ -114,6 +114,7 @@
         work["createdAt"] = Date().timeIntervalSince1970 * 1000
         work["plays"] = 0
         work["solves"] = 0
+        work["reveals"] = 2
         works = [work]
         return (200, ["id": "fixture-published", "review": []])
       }

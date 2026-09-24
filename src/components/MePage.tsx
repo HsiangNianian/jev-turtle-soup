@@ -25,7 +25,10 @@ function solveRate(puzzle: OwnPuzzle): number {
 }
 
 /** 动态流的一行：把事件翻成一句人话。 */
-function describe(event: AuthorEvent, t: (key: string, params?: Record<string, string | number>) => string): string {
+function describe(
+  event: AuthorEvent,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
   if (event.target === 'profile') {
     return event.kind === 'comment'
       ? t('{actor} 在你的主页留言：{body}', { actor: event.actor || '匿名', body: event.body })
@@ -149,12 +152,19 @@ export function MePage({
       </div>
 
       {summary && summary.total ? (
-        <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCell label={t('公开的汤')} value={summary.public} />
           <StatCell label={t('累计问过')} value={summary.plays} />
           <StatCell label={t('累计解开')} value={summary.solves} />
+          <StatCell label={t('主动揭晓')} value={summary.reveals} />
           <StatCell label={t('本周问过')} value={summary.playsThisWeek} />
         </div>
+      ) : null}
+
+      {summary && summary.total ? (
+        <p className="mt-3 font-serif text-[12px] text-muted-foreground">
+          {t('主动揭晓从本次更新开始记录；每碗汤按独立玩家计数，推理通关和自动读取汤底不算。')}
+        </p>
       ) : null}
 
       {recognition && recognition.badges.length ? (
@@ -208,9 +218,14 @@ export function MePage({
                     solves: puzzle.solves,
                   })}
                 </span>
+                <span className="block">{t('{count} 人主动揭晓', { count: puzzle.reveals })}</span>
                 <span className="block">
-                  {puzzle.plays ? t('解开率 {rate}%', { rate: solveRate(puzzle) }) : t('还没有人玩过。')}
-                  {puzzle.playsThisWeek > 0 ? ` · ${t('本周 +{count}', { count: puzzle.playsThisWeek })}` : ''}
+                  {puzzle.plays
+                    ? t('解开率 {rate}%', { rate: solveRate(puzzle) })
+                    : t('还没有人提问。')}
+                  {puzzle.playsThisWeek > 0
+                    ? ` · ${t('本周 +{count}', { count: puzzle.playsThisWeek })}`
+                    : ''}
                 </span>
               </span>
 

@@ -398,8 +398,36 @@ export async function revealLibraryPuzzle(
   id: string,
   uid: string | null,
   locale: 'zh-CN' | 'en' | 'ja' = 'zh-CN',
+  manual = false,
+  playerKey: unknown = null,
 ) {
   const row = await loadPlayable(db, id, uid, locale)
+  // Only the explicit reveal action counts. Solved games can use this endpoint
+  // to fetch a missing truth, so an ordinary reveal request is not evidence of
+  // a player choosing to see the answer.
+  if (manual && row.owner_id && row.owner_id !== uid) {
+    const key = uid
+      ? `user:${uid}`
+      : typeof playerKey === 'string' &&
+          playerKey.length >= 8 &&
+          playerKey.length <= 80 &&
+          playerKey !== 'anonymous-device'
+        ? `device:${playerKey}`
+        : null
+    if (key) {
+      const hash = Array.from(
+        new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key))),
+      )
+        .map((part) => part.toString(16).padStart(2, '0'))
+        .join('')
+      await db
+        .prepare(
+          'INSERT OR IGNORE INTO manual_reveals (puzzle_id, actor_hash, created_at) VALUES (?, ?, ?)',
+        )
+        .bind(id, hash, Date.now())
+        .run()
+    }
+  }
   return { title: row.title, truth: row.truth, hint: row.hint }
 }
 
@@ -542,6 +570,7 @@ export async function deletePuzzle(db: D1Like, uid: string, id: string) {
   if (!row) throw new ApiError(404, '这道汤不存在')
   if (row.owner_id !== uid) throw new ApiError(403, '只能删除自己上传的汤')
   await db.prepare('DELETE FROM attempts WHERE puzzle_id = ?').bind(id).run()
+  await db.prepare('DELETE FROM manual_reveals WHERE puzzle_id = ?').bind(id).run()
   await db
     .prepare("DELETE FROM comments WHERE target_type = 'puzzle' AND target_id = ?")
     .bind(id)

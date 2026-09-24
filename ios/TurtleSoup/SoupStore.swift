@@ -218,7 +218,7 @@ final class SoupStore: ObservableObject {
     let requestOwner = owner
     pending.insert(caseID)
     defer { if owner == requestOwner { pending.remove(caseID) } }
-    let result = try await api.reveal(game: game)
+    let result = try await api.reveal(game: game, manual: !game.solved && !game.revealed)
     guard owner == requestOwner else { return }
     game.truth = result.truth
     game.hint = result.hint

@@ -17,6 +17,12 @@ struct UserReply: Decodable { let user: SoupUser? }
 struct DailyReply: Decodable { let daily: DailyPuzzle }
 struct OKReply: Decodable { let ok: Bool }
 struct SaveBody: Encodable { let game: CaseFile }
+private struct RevealBody: Encodable {
+  let puzzleId: String
+  let locale = "zh-CN"
+  let manual: Bool
+  let playerKey: String
+}
 private struct EngagementBody: Encodable {
   let event: String
   let actorKey: String
@@ -39,7 +45,7 @@ final class SoupAPI {
     config.timeoutIntervalForRequest = 120
     config.timeoutIntervalForResource = 150
     config.httpAdditionalHeaders = [
-      "Accept": "application/json", "User-Agent": "TurtleSoup-iOS/0.4.1",
+      "Accept": "application/json", "User-Agent": "TurtleSoup-iOS/0.4.2",
     ]
     #if DEBUG && targetEnvironment(simulator)
       if ProcessInfo.processInfo.environment["NATIVE_UI_FIXTURE"] == "community" {
@@ -109,8 +115,9 @@ final class SoupAPI {
       path, body: AskPayload(game: game, message: message, playerKey: playerKey))
   }
 
-  func reveal(game: CaseFile) async throws -> RevealReply {
+  func reveal(game: CaseFile, manual: Bool = false) async throws -> RevealReply {
     let path = game.libraryId.map { "/api/library/puzzles/\($0)/reveal" } ?? "/api/game/reveal"
-    return try await send(path, body: ["puzzleId": game.id, "locale": "zh-CN"])
+    return try await send(
+      path, body: RevealBody(puzzleId: game.id, manual: manual, playerKey: NativeIdentity.playerKey))
   }
 }

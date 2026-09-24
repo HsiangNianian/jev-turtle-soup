@@ -115,6 +115,7 @@ final class NativeFlowTests: XCTestCase {
     app.tabBars.buttons["我的"].tap()
     app.buttons["mySoups"].tap()
     XCTAssertTrue(app.staticTexts["Midnight Note"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["2 人主动揭晓"].waitForExistence(timeout: 5))
     capture("13-my-soups-fixture")
 
     app.tabBars.buttons["广场"].tap()

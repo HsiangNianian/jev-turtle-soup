@@ -55,6 +55,7 @@ export interface OwnPuzzle {
   visibility: 'public' | 'private'
   plays: number
   solves: number
+  reveals: number
   /** 最近 7 天新增的问过 / 解开人数 */
   playsThisWeek: number
   solvesThisWeek: number
@@ -68,6 +69,7 @@ export interface AuthorSummary {
   public: number
   plays: number
   solves: number
+  reveals: number
   playsThisWeek: number
   solvesThisWeek: number
 }
@@ -272,10 +274,15 @@ export function askLibraryPuzzle(
   })
 }
 
-export function revealLibraryPuzzle(id: string, locale: string) {
+export function revealLibraryPuzzle(
+  id: string,
+  locale: string,
+  manual = false,
+  playerKey?: string,
+) {
   return request<{ title: string; truth: string; hint: string }>(
     `/api/library/puzzles/${encodeURIComponent(id)}/reveal`,
-    { method: 'POST', body: JSON.stringify({ locale }) },
+    { method: 'POST', body: JSON.stringify({ locale, manual, playerKey }) },
   )
 }
 

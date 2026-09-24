@@ -414,14 +414,22 @@ function GameApp({
   )
 
   /** 从服务端取回汤底（会话题与题库题走同一个出口）。 */
-  const fetchTruth = useCallback(async () => {
-    if (!session) return null
-    const result = session.libraryId
-      ? await revealLibraryPuzzle(session.libraryId, locale)
-      : await revealGame(session.sessionId, locale)
-    setTruth(result.truth)
-    return result.truth
-  }, [session, locale])
+  const fetchTruth = useCallback(
+    async (manual = false) => {
+      if (!session) return null
+      const result = session.libraryId
+        ? await revealLibraryPuzzle(
+            session.libraryId,
+            locale,
+            manual,
+            manual ? getDeviceId() : undefined,
+          )
+        : await revealGame(session.sessionId, locale)
+      setTruth(result.truth)
+      return result.truth
+    },
+    [session, locale],
+  )
 
   const startLibraryGame = useCallback(
     (puzzle: LibraryPuzzleDetail) => {
@@ -611,7 +619,7 @@ function GameApp({
       return
     }
     try {
-      await fetchTruth()
+      await fetchTruth(true)
       setRevealed(true)
       setDrawerOpen(true)
       setMessages((prev) => [

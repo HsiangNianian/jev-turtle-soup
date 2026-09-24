@@ -643,7 +643,16 @@ async function routeLibrary(
     if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
     const current = await viewer(request, env)
     const body = await readJson(request)
-    return json(await revealLibraryPuzzle(db, id, current.uid, readLocale(body.locale)))
+    return json(
+      await revealLibraryPuzzle(
+        db,
+        id,
+        current.uid,
+        readLocale(body.locale),
+        body.manual === true,
+        body.playerKey,
+      ),
+    )
   }
 
   return null

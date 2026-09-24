@@ -39,6 +39,10 @@ const DATA = [
     name: '站内使用记录',
     body: '我们用设备级标识记录进入、打开作品、首次提问和查看讨论，以了解哪些汤有人玩、玩家是否回来。这份记录不含邮箱或提问正文，30 天后清理。',
   },
+  {
+    name: '主动揭晓统计',
+    body: '点「揭晓」时，我们按作品记录一次账号或设备标识的哈希，用来给作者显示去重人数。作者看不到玩家身份；删除作品时，这份记录也会删除。',
+  },
 ]
 
 export function AboutPage() {
@@ -133,7 +137,7 @@ export function AboutPage() {
       </ul>
       <p className="mt-4 border-l-2 border-l-foreground/40 bg-card px-4 py-3 font-serif text-[13px] leading-7 text-foreground/75">
         {t(
-          '没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——只有你点「拆封汤底」的时候，它才会被取回来。',
+          '没有第三方统计，也没有广告。汤底不会提前跑到你的浏览器里——你推理得出答案，或主动拆封时才会取回。',
         )}
       </p>
 

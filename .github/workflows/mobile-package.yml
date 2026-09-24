@@ -1,5 +1,7 @@
 name: Mobile package
 on:
+  schedule:
+    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       platform:
@@ -20,6 +22,10 @@ on:
         description: Unique increasing distribution number (required; shared across local and CI builds)
         type: string
         required: true
+      publish:
+        description: Replace the mobile-nightly rolling release (main only)
+        type: boolean
+        default: false
   push:
     tags: ['mobile-v*']
 permissions:
@@ -35,13 +41,13 @@ jobs:
         platform: ${{ fromJSON(inputs.platform == 'android' && '["android"]' || inputs.platform == 'ios' && '["ios"]' || '["android","ios"]') }}
     runs-on: ${{ matrix.platform == 'ios' && 'macos-26' || 'ubuntu-24.04' }}
     timeout-minutes: 60
-    environment: mobile-${{ inputs.mode == 'development' && 'development' || inputs.mode == 'preview' && 'preview' || 'production' }}
+    environment: mobile-${{ github.event_name == 'schedule' && 'preview' || (inputs.mode == 'development' && 'development' || inputs.mode == 'preview' && 'preview' || 'production') }}
     env:
       EXPO_NO_TELEMETRY: '1'
-      PACKAGE_MODE: ${{ inputs.mode || 'release' }}
-      MOBILE_ENV: ${{ inputs.mode == 'development' && 'development' || inputs.mode == 'preview' && 'preview' || 'production' }}
-      EXPO_PUBLIC_API_URL: ${{ inputs.api }}
-      MOBILE_BUILD_NUMBER: ${{ inputs.build_number || vars.MOBILE_RELEASE_BUILD_NUMBER }}
+      PACKAGE_MODE: ${{ github.event_name == 'schedule' && 'preview' || inputs.mode || 'release' }}
+      MOBILE_ENV: ${{ github.event_name == 'schedule' && 'preview' || (inputs.mode == 'development' && 'development' || inputs.mode == 'preview' && 'preview' || 'production') }}
+      EXPO_PUBLIC_API_URL: ${{ github.event_name == 'schedule' && vars.MOBILE_NIGHTLY_API_URL || inputs.api }}
+      MOBILE_BUILD_NUMBER: ${{ github.event_name == 'schedule' && github.run_number || inputs.build_number || vars.MOBILE_RELEASE_BUILD_NUMBER }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -93,3 +99,50 @@ jobs:
             artifacts/mobile/*.sha256
           if-no-files-found: error
           retention-days: 14
+
+  nightly-release:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main')
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: mobile-*
+          path: artifacts/nightly
+          merge-multiple: true
+      - name: Replace rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_DIR: artifacts/nightly
+          RELEASE_TAG: mobile-nightly
+        run: |
+          set -euo pipefail
+
+          mapfile -t assets < <(find "$RELEASE_DIR" -maxdepth 1 -type f \
+            \( -name '*.apk' -o -name '*.aab' -o -name '*.ipa' -o -name '*.json' -o -name '*.sha256' \) \
+            -print | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo 'No mobile package artifacts were downloaded.' >&2
+            exit 1
+          fi
+
+          cat > "$RELEASE_DIR/RELEASE_NOTES.md" <<EOF
+          # Mobile nightly
+
+          Built from commit ${GITHUB_SHA} by workflow run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}).
+
+          This prerelease is a rolling snapshot. The fixed ${RELEASE_TAG} tag and its assets are replaced by the next successful nightly build.
+          EOF
+
+          # Keep the tag pointed at this commit and remove assets from the previous snapshot.
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes 2>/dev/null || true
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_TAG}" 2>/dev/null || true
+          gh release create "$RELEASE_TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title 'Mobile nightly' \
+            --notes-file "$RELEASE_DIR/RELEASE_NOTES.md" \
+            --prerelease

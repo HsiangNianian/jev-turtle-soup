@@ -160,7 +160,7 @@ Web 的本机游客存档不会自动进入 App；需要在 Web 登录并同步�
 
 ### CI 触发与产物
 
-开发分支已新增 `mobile-checks.yml` 与 `mobile-package.yml`。用 PR 和 main 的非签名构建尽早发现原生工程问题；签名出包走 `workflow_dispatch` 或移动专用 tag，首个版本拟 `mobile-v0.1.0`。Web `v*` tag 不触发移动发布，移动 tag 不改 Web 版本号。
+开发分支已新增 `mobile-checks.yml` 与 `mobile-package.yml`。用 PR 和 main 的非签名构建尽早发现原生工程问题；签名出包走 `workflow_dispatch`、每日 nightly 或移动专用 tag，首个版本拟 `mobile-v0.1.0`。Web `v*` tag 不触发移动发布，移动 tag 不改 Web 版本号。
 
 | 触发                          | 环境/步骤                                                                                             | 产物与用途                                       |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
@@ -170,6 +170,7 @@ Web 的本机游客存档不会自动进入 App；需要在 Web 登录并同步�
 | 手动内部打包                  | Linux：Gradle Release + 内部签名                                                                      | 内置 JS 的 APK，安装后不依赖 Metro               |
 | 手动开发客户端打包            | macOS：Development 签名的 dev-client archive/export                                                   | 调试 IPA，安装到配置内的真机后连接本机 Metro     |
 | 手动内部打包                  | macOS：签名 archive + Ad Hoc export                                                                   | `.ipa`，仅供描述文件覆盖的设备安装               |
+| 每日 nightly                  | `mobile-preview` 环境，使用 `github.run_number`，两平台 preview 打包                              | 固定 `mobile-nightly` prerelease，成功构建替换旧资产 |
 | `mobile-v*` / 指定发布版本    | 同一原生构建脚本，production 配置                                                                     | Android AAB / iOS App Store 分发 IPA，供后续提交 |
 
 Android Gradle 支持直接构建 APK/AAB；AAB 是商店分发输入，不能当作可直接安装 APK。iOS 真机包需要与分发方式匹配的签名和描述文件，模拟器成功不代表真机签名成功。[Android 命令行构建](https://developer.android.com/build/building-cmdline)、[Expo 本地发布构建](https://docs.expo.dev/guides/local-app-production/)
@@ -182,7 +183,7 @@ Android Gradle 支持直接构建 APK/AAB；AAB 是商店分发输入，不能�
 - 始终产生最终检查结果；按变更范围跳过原生 job 时，汇总 job 明确成功，避免 required check 一直 pending。共享包、根 lockfile、构建配置变化要触发两平台检查。
 - 固定 runner 大版本，并显式选择 Xcode/JDK/SDK/Node/Ruby/CocoaPods；缓存按平台和 lockfile 分开。Actions 实现时锁定已核实的版本/提交。
 - 签名任务仅在可信提交运行。移动 tag 必须属于 main 历史；手动任务校验目标 ref。普通 PR 不生成正式签名产物。
-- 原生产物默认只上传 Actions artifacts；不自动创建公开 Release、不自动提交商店、不触发 Worker 部署。
+- PR、手动检查和移动 tag 的产物默认只上传 Actions artifacts；每日 nightly 更新固定的 `mobile-nightly` prerelease，不自动提交商店，也不触发 Worker 部署。
 - mock/fixture 测试不调用生产数据库、真实邮件或真实模型。UI smoke 使用测试专用 API fixture；发布配置必须禁用 fixture。
 
 ### 签名材料

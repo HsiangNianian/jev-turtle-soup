@@ -86,7 +86,7 @@ GitHub `Mobile package` 使用 `mobile-development` / `mobile-preview` / `mobile
 
 `Mobile checks` 在 PR、main 与开发分支运行：Web/Worker 回归、移动类型/依赖边界检查、JS 打包、Android 测试 APK 和 iOS simulator 编译及模拟器检查。CI 直接调用上表中的 npm 命令。
 
-`Mobile package` 可手动选择平台、development/preview/release、API 和 build number，或推送与移动版本匹配的 `mobile-v*` 标签生成生产商店输入。标签构建需要预先设置生产环境变量 `MOBILE_RELEASE_BUILD_NUMBER` 为新的分发编号。Web 的 `v*` 标签不触发移动打包。产物在 Actions run 的 Artifacts 中保留 14 天；工作流不创建商店发布。正式分发前要下载并保存产物、校验和与签名备份。
+`Mobile package` 可手动选择平台、development/preview/release、API 和 build number，或推送与移动版本匹配的 `mobile-v*` 标签生成生产商店输入。标签构建需要预先设置生产环境变量 `MOBILE_RELEASE_BUILD_NUMBER` 为新的分发编号。Web 的 `v*` 标签不触发移动打包。每天 UTC 00:00 的 nightly 使用 `mobile-preview` 环境和仓库变量 `MOBILE_NIGHTLY_API_URL`，以 `github.run_number` 作为 build number，同时打包 Android preview APK 与 iOS Ad Hoc IPA，并更新固定的 `mobile-nightly` prerelease；下一次成功构建会删除旧资产并替换它。手动运行时勾选 `publish` 只有从 `main` 分支才会更新该滚动发布。普通 Actions artifacts 保留 14 天；正式分发前仍要下载并保存产物、校验和与签名备份。
 
 原生工程已纳入 Git。日常 CI 不运行 prebuild。修改 Expo config / 原生依赖时执行 `npm run mobile:native:sync`，审阅并提交 `ios/`、`android/` diff。首次或显式升级 Pods 时，在 CI 选择 bootstrap，回收 `Podfile.lock` / `Gemfile.lock` 并提交；常规构建使用 `pod install --deployment`。
 

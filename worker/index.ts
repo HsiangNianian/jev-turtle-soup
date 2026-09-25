@@ -1398,6 +1398,19 @@ export default {
       if (url.pathname.startsWith('/assets/') && type.includes('text/html')) {
         return new Response('Not Found', { status: 404, headers: { 'cache-control': 'no-store' } })
       }
+      // The browser must revalidate the worker script on every update check.
+      // The manifest can change alongside it; neither should be a stale SPA shell.
+      if (url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest') {
+        if (type.includes('text/html')) {
+          return new Response('Not Found', {
+            status: 404,
+            headers: { 'cache-control': 'no-store' },
+          })
+        }
+        const headers = new Headers(response.headers)
+        headers.set('cache-control', 'no-store')
+        return new Response(response.body, { status: response.status, headers })
+      }
       if (request.method === 'GET' && type.includes('text/html')) {
         return serveHtml(request, env, url, response)
       }

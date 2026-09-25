@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.35.9 - 2026-09-25
+
+### Features
+
+- Make the website installable as a PWA on iPhone, Android, and desktop with branded icons and a standalone home-screen experience.
+- Precache the version-matched app shell and route chunks for offline access to local case archives, while keeping navigation fresh and API or account data out of the Service Worker cache.
+- Explain installation in the About page and support the browser's install prompt where available.
+
 ## 0.35.8 - 2026-09-25
 
 ### Fixes

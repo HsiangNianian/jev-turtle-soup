@@ -51,6 +51,12 @@ export const en: Record<string, string> = {
   '关于': 'About',
   关于与版本: 'About & version',
   关于这碗汤: 'About this bowl',
+  装到主屏幕: 'Add to your home screen',
+  '装好后可以像 App 一样打开；在这个应用里保存的案卷，断网时也能阅读。':
+    'Open it like an app. Cases saved in this app remain readable offline.',
+  安装海龟汤: 'Install Turtle Soup',
+  'iPhone 请在 Safari 的分享菜单中选「添加到主屏幕」；其他设备可在浏览器菜单中选「安装应用」。':
+    'On iPhone, choose Add to Home Screen from the Safari share menu. On other devices, choose Install app from the browser menu.',
   写一碗海龟汤: 'Write a puzzle',
   出题: 'The puzzle',
   切换主题: 'Theme',

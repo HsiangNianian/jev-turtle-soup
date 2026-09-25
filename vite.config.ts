@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -42,6 +43,34 @@ export default defineConfig(({ mode }) => {
             '<!--build:meta-->',
             `<meta name="build" content="${pkg.version}+${buildId()}" />`,
           ),
+      },
+      {
+        name: 'emit-pwa-worker',
+        apply: 'build',
+        generateBundle(_options, bundle) {
+          // Precache the exact chunks of this build, including lazy routes. An old
+          // client keeps its old worker until it closes, so its chunks stay paired.
+          const urls = [
+            '/',
+            '/favicon.svg',
+            '/manifest.webmanifest',
+            '/pwa/icon-192.png',
+            '/pwa/icon-512.png',
+            '/pwa/icon-maskable-512.png',
+            '/pwa/apple-touch-icon.png',
+            ...Object.keys(bundle)
+              .filter((file) => file.startsWith('assets/'))
+              .map((file) => `/${file}`),
+          ]
+          const template = readFileSync(new URL('./pwa/sw.js', import.meta.url), 'utf8')
+          this.emitFile({
+            type: 'asset',
+            fileName: 'sw.js',
+            source: template
+              .replace('__PWA_BUILD__', JSON.stringify(`${pkg.version}+${buildId()}`))
+              .replace('__PWA_URLS__', JSON.stringify(urls)),
+          })
+        },
       },
     ],
     resolve: {

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { archiveStore } from '@/lib/archive-store'
+import '@/lib/pwa-install'
 
 declare global {
   interface Window {
@@ -24,6 +25,14 @@ import { CrashNote } from '@/components/CrashNote'
 
 // 钩子要赶在第一次渲染之前装好，否则最早的错误抓不到
 installErrorReporting()
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {
+      // Private browsing or disabled service workers must not block the website.
+    })
+  })
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

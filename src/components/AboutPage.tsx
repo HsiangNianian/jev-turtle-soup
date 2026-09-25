@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { ExternalLink, Link } from '@/components/Link'
 import { PageShell } from '@/components/Bits'
 import { QQ_GROUP, showsGroupInvite } from '@/lib/community'
 import { useI18n } from '@/lib/i18n'
+import { canPromptInstall, isInstalled, onInstallChange, promptInstall } from '@/lib/pwa-install'
 
 const HOW_TO_PLAY = [
   {
@@ -47,6 +49,16 @@ const DATA = [
 
 export function AboutPage() {
   const { t, locale } = useI18n()
+  const [install, setInstall] = useState(() => ({
+    installed: isInstalled(),
+    prompt: canPromptInstall(),
+  }))
+
+  useEffect(() => {
+    const sync = () => setInstall({ installed: isInstalled(), prompt: canPromptInstall() })
+    return onInstallChange(sync)
+  }, [])
+
   return (
     <PageShell
       label={t('关于')}
@@ -79,6 +91,32 @@ export function AboutPage() {
             </span>
           ))}
       </p>
+
+      {!install.installed ? (
+        <section className="mt-9 border-y border-foreground/20 py-5">
+          <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+            {t('装到主屏幕')}
+          </div>
+          <p className="mt-3 max-w-xl font-serif text-[14px] leading-7 text-foreground/80">
+            {t('装好后可以像 App 一样打开；在这个应用里保存的案卷，断网时也能阅读。')}
+          </p>
+          {install.prompt ? (
+            <button
+              type="button"
+              onClick={() => void promptInstall()}
+              className="mt-4 border border-foreground bg-foreground px-4 py-2 font-mono text-[11px] tracking-[0.16em] text-background transition-opacity hover:opacity-75"
+            >
+              {t('安装海龟汤')}
+            </button>
+          ) : (
+            <p className="mt-3 max-w-xl font-mono text-[11px] leading-6 text-muted-foreground">
+              {t(
+                'iPhone 请在 Safari 的分享菜单中选「添加到主屏幕」；其他设备可在浏览器菜单中选「安装应用」。',
+              )}
+            </p>
+          )}
+        </section>
+      ) : null}
 
       <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
         {t('怎么玩')}

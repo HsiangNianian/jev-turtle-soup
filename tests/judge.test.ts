@@ -66,21 +66,27 @@ describe('fresh host judgments', () => {
     },
   )
 
-  it('sends truth and recent conversation without a ledger or history-matching questions', async () => {
+  it('sends the source story but does not feed prior host verdicts back into judgment', async () => {
     const fetch = mockModel(modelAnswers('yes'))
+    const dailyPuzzle = { ...puzzle, story: '哥哥生前十九岁。妹妹二十六岁时最后一次见到他。' }
     const history = [
       { role: 'player', text: '哥哥死了吗？' },
       { role: 'host', text: '不是。' },
     ]
-    await judge({ TYPESAFE_API_KEY: 'local-test-only' }, puzzle, {
+    await judge({ TYPESAFE_API_KEY: 'local-test-only' }, dailyPuzzle, {
       message: '哥哥活着',
       history,
       established: [{ question: '哥哥死了吗？', verdict: 'no' }],
     })
     const request = JSON.parse(fetch.mock.calls[0][1].body)
     expect(request.state).toEqual({
-      puzzle: { title: puzzle.title, surface: puzzle.surface, truth: puzzle.truth },
-      recent_conversation: history,
+      puzzle: {
+        title: puzzle.title,
+        surface: puzzle.surface,
+        truth: puzzle.truth,
+        story: dailyPuzzle.story,
+      },
+      recent_player_messages: [{ role: 'player', text: '哥哥死了吗？' }],
       latest_player_message: '哥哥活着',
     })
     expect(request.questions).not.toHaveProperty('matches_earlier')

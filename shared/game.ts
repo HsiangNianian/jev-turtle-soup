@@ -43,6 +43,8 @@ export interface Puzzle {
   surface: string
   truth: string
   hint: string
+  /** 官汤的完整原故事；判读细节时比压缩后的汤底更准确。 */
+  story?: string
 }
 
 export function resolveLlm(env: GameEnv) {
@@ -413,10 +415,16 @@ const HOST_QUESTIONS = {
   verdict: choice(
     {
       question:
-        'If `latest_player_message` is a yes/no question or a narrow factual claim about the story, how should the host answer it given only `puzzle.truth`?',
-      compare: ['latest_player_message', 'puzzle.truth', 'recent_conversation'],
+        'If `latest_player_message` is a yes/no question or a narrow factual claim about the story, how should the host answer it from the canonical puzzle facts?',
+      compare: [
+        'latest_player_message',
+        'puzzle.story',
+        'puzzle.truth',
+        'puzzle.surface',
+        'recent_player_messages',
+      ],
       focus:
-        'Use recent_conversation to resolve references in the message, but judge the claim afresh from puzzle.truth; previous host answers may be wrong. Work through this in order. (1) Search the truth for the fact the question is about. If it is there at all, even incidentally, the answer must be yes, no or partly — never irrelevant. (2) If the question has a word with more than one legitimate referent in the truth — a time, a place, a person, an object or an action — and the claim is true for one referent and false for another, choose partly; likewise when the outcome is right but the reason is wrong, or when the question bundles two things that are not both so. (3) Only if the truth genuinely says nothing about this fact, choose irrelevant. (4) If the message is not a yes/no question about the story, choose cannot_answer.',
+        'Use recent_player_messages only to resolve references, never as evidence that a player theory is true. Judge each claim afresh from puzzle.story (when present), puzzle.truth and puzzle.surface. For an exact age or year, calculate the timeline and distinguish an event happening then from having happened earlier. Work through this in order. (1) Search the canonical facts for the fact the question is about. If it is there at all, even incidentally, the answer must be yes, no or partly — never irrelevant. (2) If the question has a word with more than one legitimate referent — a time, a place, a person, an object or an action — and the claim is true for one referent and false for another, choose partly; likewise when the outcome is right but the reason is wrong, or when the question bundles two things that are not both so. (3) Only if the canonical facts genuinely say nothing about this fact, choose irrelevant. (4) If the message is not a yes/no question about the story, choose cannot_answer.',
     },
     {
       yes: 'The truth confirms the claim or answers the question YES.',
@@ -1345,24 +1353,25 @@ export async function judge(
   if (message.length > MAX_MESSAGE_CHARS) throw askError(locale, 'tooLong')
 
   const history = Array.isArray(body.history) ? body.history : []
-  const recentConversation = history
-    .slice(-MAX_CONVERSATION)
+  const recentPlayerMessages = history
     .map((turn) => {
       const item = turn as { role?: unknown; text?: unknown }
       return {
-        role: item.role === 'host' ? 'host' : 'player',
+        role: item.role === 'player' ? 'player' : 'host',
         text: String(item.text ?? '').slice(0, MAX_MESSAGE_CHARS),
       }
     })
-    .filter((turn) => turn.text)
+    .filter((turn) => turn.role === 'player' && turn.text)
+    .slice(-MAX_CONVERSATION)
 
   const state = {
     puzzle: {
       title: puzzle.title,
       surface: puzzle.surface,
       truth: puzzle.truth,
+      story: puzzle.story ?? '',
     },
-    recent_conversation: recentConversation,
+    recent_player_messages: recentPlayerMessages,
     latest_player_message: message,
   }
 

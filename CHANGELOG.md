@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.35.6 - 2026-09-25
+
+### Fixes
+
+- Judge official daily questions against the original story as well as the condensed truth, so explicit timeline facts survive condensation.
+- Keep recent player questions for reference resolution without feeding earlier host verdicts back into the model; this prevents a wrong answer from reinforcing itself across turns.
+- Clarify the September 25 daily's canonical answer key after conflicting answers about the brother's age and final appearance.
+
 ## 0.35.5 - 2026-09-25
 
 ### Fixes

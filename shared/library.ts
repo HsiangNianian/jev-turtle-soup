@@ -365,9 +365,22 @@ export async function askLibraryPuzzle(
   body: Record<string, unknown>,
 ) {
   const row = await loadPlayable(db, id, uid, readLocale(body.locale))
+  const daily =
+    row.visibility === 'daily'
+      ? await db
+          .prepare('SELECT story FROM dailies WHERE puzzle_id = ? LIMIT 1')
+          .bind(id)
+          .first<{ story: string }>()
+      : null
   const turn = await judge(
     env,
-    { title: row.title, surface: row.surface, truth: row.truth, hint: row.hint },
+    {
+      title: row.title,
+      surface: row.surface,
+      truth: row.truth,
+      hint: row.hint,
+      story: daily?.story,
+    },
     body,
   )
 

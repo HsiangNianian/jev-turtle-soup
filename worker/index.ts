@@ -385,8 +385,9 @@ function puzzleStore(db: D1Like): PuzzleStore {
     async get(id) {
       const row = await db
         .prepare(
-          `SELECT title, surface, truth, hint, difficulty, visibility FROM puzzles
-           WHERE id = ? AND visibility IN (?, 'daily')`,
+          `SELECT p.title, p.surface, p.truth, p.hint, p.difficulty, p.visibility, d.story
+           FROM puzzles p LEFT JOIN dailies d ON d.puzzle_id = p.id
+           WHERE p.id = ? AND p.visibility IN (?, 'daily') LIMIT 1`,
         )
         .bind(id, SESSION_VISIBILITY)
         .first<{
@@ -396,8 +397,9 @@ function puzzleStore(db: D1Like): PuzzleStore {
           hint: string
           difficulty: string
           visibility: string
+          story: string | null
         }>()
-      return row ?? null
+      return row ? { ...row, story: row.story ?? undefined } : null
     },
     async sweep(olderThan) {
       await db

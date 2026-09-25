@@ -15,6 +15,7 @@ beforeEach(() => {
 afterEach(() => {
   data.sqlite.close()
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 function seed(date: string, title: string, locale?: string, genreScore: number | null = null) {
@@ -43,6 +44,64 @@ async function get<T>(path: string): Promise<T> {
 }
 
 describe('daily API metadata against the current schema', () => {
+  it.each([
+    ['2026-09-24', '/api/game/ask'],
+    ['2026-09-23', '/api/library/puzzles/2026-09-23/ask'],
+  ])(
+    'passes the original story for daily %s without replaying old verdicts',
+    async (date, path) => {
+      seed(date, '官汤')
+      data.sqlite
+        .prepare('UPDATE dailies SET story = ? WHERE date = ?')
+        .run('哥哥在十九岁时死了。', date)
+      const modelFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            model: 'test',
+            answers: {
+              intent: {
+                choice: 'yes_no_question',
+                confidence: 1,
+                probabilities: { yes_no_question: 1 },
+              },
+              verdict: { choice: 'yes', confidence: 1, probabilities: { yes: 1 } },
+              motive_correct: { noul: 0 },
+              method_correct: { noul: 0 },
+              twist_correct: { noul: 0 },
+              solved: { noul: 0 },
+              meta_request: { choice: 'none', confidence: 1, probabilities: { none: 1 } },
+            },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+      )
+      vi.stubGlobal('fetch', modelFetch)
+      const response = await worker.fetch(
+        new Request(`http://localhost${path}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            puzzleId: date,
+            message: '哥哥十九岁死的吗？',
+            locale: 'zh-CN',
+            playerKey: 'daily-test',
+            history: [
+              { role: 'player', text: '哥哥十九岁死了吗？' },
+              { role: 'host', text: '不是。' },
+            ],
+          }),
+        }),
+        { DB: data.db, TYPESAFE_API_KEY: 'local-test-only' },
+      )
+      expect(response.status).toBe(200)
+      const request = JSON.parse(modelFetch.mock.calls[0][1].body)
+      expect(request.state.puzzle.story).toBe('哥哥在十九岁时死了。')
+      expect(request.state.recent_player_messages).toEqual([
+        { role: 'player', text: '哥哥十九岁死了吗？' },
+      ])
+    },
+  )
+
   it('shows solve-turn records after unlock but keeps them hidden on the current day', async () => {
     seed('2026-09-23', '昨日的官汤')
     seed('2026-09-24', '今天的官汤')

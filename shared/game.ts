@@ -417,20 +417,19 @@ const HOST_QUESTIONS = {
   verdict: choice(
     {
       question:
-        'If `latest_player_message` is a yes/no question or a narrow factual claim about the story, how should the host answer it from the canonical puzzle facts?',
+        'If `latest_player_message` is a yes/no question or a narrow factual claim, what answer follows from `puzzle.canonical_source`?',
       compare: [
         'latest_player_message',
-        'puzzle.story',
-        'puzzle.truth',
+        'puzzle.canonical_source',
         'puzzle.surface',
         'recent_player_messages',
       ],
       focus:
-        'Use recent_player_messages only to resolve references, never as evidence that a player theory is true. Judge each claim afresh from puzzle.story (when present), puzzle.truth and puzzle.surface. First identify the exact person or event the player names, anchored to puzzle.surface; do not transfer a relative\'s fate to that person. If someone speaks or acts in the story\'s present, they are alive at that time. A claim that this person died is false even if their relative died. For an exact age or year, calculate the timeline and distinguish an event happening then from having happened earlier. Work through this in order. (1) Search the canonical facts for the fact the question is about. If it is there at all, even incidentally, the answer must be yes, no or partly — never irrelevant. (2) If the question has a word with more than one legitimate referent — a time, a place, a person, an object or an action — and the claim is true for one referent and false for another, choose partly; likewise when the outcome is right but the reason is wrong, or when the question bundles two things that are not both so. Do not choose partly merely because a different person or event fits the claim. (3) Only if the canonical facts genuinely say nothing about this fact, choose irrelevant. (4) If the message is not a yes/no question about the story, choose cannot_answer.',
+        'puzzle.canonical_source is the only authority for factual events. Use its final reveal and established events, not an earlier character belief or apparent mystery that the source later disproves. Ignore puzzle.solution_summary if it disagrees; do not average the two into partly. Puzzle.surface anchors references but is not proof that its apparent event happened. Use recent_player_messages only to resolve references, never as evidence. First identify the exact person or event the player names; do not transfer a relative\'s fate to that person. If someone speaks or acts in the source\'s present, they are alive at that time. For an exact age or year, calculate the timeline and distinguish an event happening then from having happened earlier. (1) Search the canonical source for the fact. If it is there, even incidentally, answer yes, no or partly — never irrelevant. (2) Choose partly only when two legitimate readings of the player\'s claim are genuinely supported by that source, or the claim bundles true and false facts; a conflict with the nonauthoritative summary is not a partly answer. (3) Choose irrelevant only if the canonical source genuinely says nothing about the fact. (4) If the message is not a yes/no question or narrow factual claim about the story, choose cannot_answer.',
     },
     {
-      yes: 'The truth confirms the claim or answers the question YES.',
-      no: 'Use only when the truth clearly rules the claim out, so that answering yes would be misleading.',
+      yes: 'The authoritative source confirms the claim or answers the question YES.',
+      no: 'Use only when the authoritative source clearly rules the claim out, so that answering yes would be misleading.',
       partly: {
         what: 'The claim comes out true under one legitimate reading and false under another, so yes or no alone would mislead the player.',
         not_for:
@@ -443,14 +442,14 @@ const HOST_QUESTIONS = {
         ],
       },
       irrelevant: {
-        what: 'The truth genuinely says nothing about this. The fact the player asks about is neither present nor ruled out anywhere in the truth.',
+        what: 'The authoritative source genuinely says nothing about this. The fact the player asks about is neither present nor ruled out anywhere in that source.',
         not_for:
-          'Do not choose irrelevant because the detail looks unimportant or only minor, and do not choose it when the truth mentions the fact only in passing. If the truth contains the fact at all, answer yes or no.',
+          'Do not choose irrelevant because the detail looks unimportant or only minor, and do not choose it when the authoritative source mentions the fact only in passing. If that source contains the fact at all, answer yes or no.',
         examples: [
-          'Not irrelevant — answer yes instead: "was he carrying anything?" for a truth that says he was holding a bag of rice on the scale. The truth contains it, so unrelated would be a dodge.',
-          'Not irrelevant — answer yes or no instead: "was it kitchen-related?" when the truth says he was on his way to the kitchen to cook.',
-          'Genuinely irrelevant: "was it raining that day?" for a truth that never mentions weather and does not depend on it.',
-          'Genuinely irrelevant: "does he have siblings?" for a truth that never mentions anyone but him and his wife.',
+          'Not irrelevant — answer yes instead: "was he carrying anything?" when the canonical source says he was holding a bag of rice on the scale.',
+          'Not irrelevant — answer yes or no instead: "was it kitchen-related?" when the canonical source says he was on his way to the kitchen to cook.',
+          'Genuinely irrelevant: "was it raining that day?" when the canonical source never mentions weather and does not depend on it.',
+          'Genuinely irrelevant: "does he have siblings?" when the canonical source never mentions anyone but him and his wife.',
         ],
       },
       cannot_answer: 'The message is not a yes/no question about the story.',
@@ -458,46 +457,50 @@ const HOST_QUESTIONS = {
   ),
   motive_correct: noul(
     {
-      question: "Is the player's stated motive for what happened correct, per `puzzle.truth`?",
-      compare: ['latest_player_message', 'puzzle.truth'],
+      question:
+        "Is the player's stated motive correct according to `puzzle.canonical_source`?",
+      compare: ['latest_player_message', 'puzzle.canonical_source', 'puzzle.solution_summary'],
       focus:
-        'Judge only the reason or intention behind the events. If the player proposed no explanation, answer false.',
+        'Judge only the reason or intention behind the events. The canonical source overrides a conflicting solution summary; use the summary only to identify which motive is central. If the player proposed no explanation, answer false.',
     },
     {
-      true: 'The why the player gives matches the truth.',
+      true: 'The why the player gives matches the canonical source.',
       false: 'The motive is missing, wrong, or only tangentially related.',
     },
   ),
   method_correct: noul(
     {
-      question: "Is the player's account of how it happened correct, per `puzzle.truth`?",
-      compare: ['latest_player_message', 'puzzle.truth'],
+      question:
+        "Is the player's account of how it happened correct according to `puzzle.canonical_source`?",
+      compare: ['latest_player_message', 'puzzle.canonical_source', 'puzzle.solution_summary'],
       focus:
-        'Judge only the mechanics: who did what, in what order, by what means. If no explanation was proposed, answer false.',
+        'Judge only the mechanics: who did what, in what order, by what means. The canonical source overrides a conflicting solution summary; use the summary only to identify which steps are central. If no explanation was proposed, answer false.',
     },
     {
-      true: 'The sequence of events and the means match the truth.',
+      true: 'The sequence of events and the means match the canonical source.',
       false: 'The mechanics are missing, wrong, or only partly right.',
     },
   ),
   twist_correct: noul(
     {
-      question: 'Has the player identified the key twist of `puzzle.truth`?',
-      compare: ['latest_player_message', 'puzzle.truth'],
+      question:
+        'Has the player identified the key twist established by `puzzle.canonical_source`?',
+      compare: ['latest_player_message', 'puzzle.canonical_source', 'puzzle.solution_summary'],
       focus:
-        'Judge only the single surprising fact that makes the surface make sense. If no explanation was proposed, answer false.',
+        'Judge only the single surprising fact that makes the surface make sense. The canonical source overrides a conflicting solution summary; use the summary only to locate the intended twist. If no explanation was proposed, answer false.',
     },
     {
-      true: 'The player named the key twist, in any wording.',
+      true: 'The player named the key twist established by the canonical source, in any wording.',
       false: 'The key twist is missing or named incorrectly.',
     },
   ),
   solved: noul(
     {
       question:
-        'Does `latest_player_message` fully and correctly state the core truth in `puzzle.truth`?',
-      compare: ['latest_player_message', 'puzzle.truth'],
-      focus: 'The core plot and the key twist must both be correct. Different wording is fine.',
+        'Does `latest_player_message` fully and correctly state the core plot and twist established by `puzzle.canonical_source`?',
+      compare: ['latest_player_message', 'puzzle.canonical_source', 'puzzle.solution_summary'],
+      focus:
+        'The core plot and key twist must both be correct. Use the solution summary to identify what is central, but the canonical source wins on any factual conflict. Different wording is fine.',
     },
     {
       true: {
@@ -1359,8 +1362,10 @@ export async function judge(
     puzzle: {
       title: puzzle.title,
       surface: puzzle.surface,
-      truth: puzzle.truth,
-      story: puzzle.story ?? '',
+      // Official bowls use the writer's full story; community bowls use their
+      // submitted truth. The model never has to decide which source outranks which.
+      canonical_source: puzzle.story?.trim() || puzzle.truth,
+      solution_summary: puzzle.truth,
     },
     recent_player_messages: recentPlayerMessages,
     latest_player_message: message,

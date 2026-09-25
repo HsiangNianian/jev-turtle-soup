@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.8 - 2026-09-25
+
+### Fixes
+
+- Use the original story as the canonical source for official daily judgments, including factual answers and solve checks. The condensed truth identifies the core twist but cannot override story facts.
+- Fall back to the submitted truth for community puzzles that have no original story, without adding another model request.
+
 ## 0.35.7 - 2026-09-25
 
 ### Fixes

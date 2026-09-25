@@ -95,7 +95,7 @@ describe('daily API metadata against the current schema', () => {
       )
       expect(response.status).toBe(200)
       const request = JSON.parse(modelFetch.mock.calls[0][1].body)
-      expect(request.state.puzzle.story).toBe('哥哥在十九岁时死了。')
+      expect(request.state.puzzle.canonical_source).toBe('哥哥在十九岁时死了。')
       expect(request.state.recent_player_messages).toEqual([
         { role: 'player', text: '哥哥十九岁死了吗？' },
       ])

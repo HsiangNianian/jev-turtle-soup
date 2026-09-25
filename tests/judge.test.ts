@@ -83,8 +83,8 @@ describe('fresh host judgments', () => {
       puzzle: {
         title: puzzle.title,
         surface: puzzle.surface,
-        truth: puzzle.truth,
-        story: dailyPuzzle.story,
+        canonical_source: dailyPuzzle.story,
+        solution_summary: puzzle.truth,
       },
       recent_player_messages: [{ role: 'player', text: '哥哥死了吗？' }],
       latest_player_message: '哥哥活着',
@@ -92,6 +92,18 @@ describe('fresh host judgments', () => {
     expect(request.questions).not.toHaveProperty('matches_earlier')
     expect(request.questions).not.toHaveProperty('opposite_of')
     expect(request.questions).not.toHaveProperty('contradicts_earlier')
+  })
+
+  it('uses the submitted truth as the canonical source when no original story exists', async () => {
+    const fetch = mockModel(modelAnswers('yes'))
+    await judge({ TYPESAFE_API_KEY: 'local-test-only' }, puzzle, {
+      message: '哥哥吃撑了吗？',
+    })
+    const request = JSON.parse(fetch.mock.calls[0][1].body)
+    expect(request.state.puzzle).toMatchObject({
+      canonical_source: puzzle.truth,
+      solution_summary: puzzle.truth,
+    })
   })
 
   it.each(['yes', 'no', 'partly', 'irrelevant'])(

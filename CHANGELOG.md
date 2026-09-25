@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.35.7 - 2026-09-25
+
+### Fixes
+
+- Keep narrow factual statements on the yes/no path and distinguish a person's fate from a relative's in host judgments.
+- Ask for a specific fact when a supposed theory and its verdict are both uncertain, instead of combining a tentative yes with cold feedback.
+- Require condensed daily truths to preserve who died and who remains alive; clarify the September 22 bowl's mother/sister distinction.
+
 ## 0.35.6 - 2026-09-25
 
 ### Fixes

@@ -125,4 +125,31 @@ describe('fresh host judgments', () => {
       reply: expect.stringContaining('拿不准'),
     })
   })
+
+  it('does not mix an uncertain fact verdict with cold feedback for a supposed theory', async () => {
+    mockModel({
+      ...modelAnswers('partly', 0.39),
+      intent: {
+        choice: 'guess',
+        confidence: 0.57,
+        probabilities: { guess: 0.68, yes_no_question: 0.31, meta: 0, unclear: 0.01 },
+      },
+      verdict: {
+        choice: 'partly',
+        confidence: 0.39,
+        probabilities: { partly: 0.51, yes: 0.19, no: 0.12, cannot_answer: 0.17, irrelevant: 0.01 },
+      },
+      motive_correct: { noul: 0.11 },
+      method_correct: { noul: 0.09 },
+      twist_correct: { noul: 0.15 },
+    })
+    const turn = await judge({ TYPESAFE_API_KEY: 'local-test-only' }, puzzle, {
+      message: '母亲死了',
+    })
+    expect(turn).toMatchObject({
+      verdict: 'cannot_answer',
+      closeness: null,
+      reply: expect.stringContaining('单独问'),
+    })
+  })
 })

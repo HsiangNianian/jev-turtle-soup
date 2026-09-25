@@ -365,10 +365,6 @@ export async function generateJson<T>(
   throw new Error(`模型连续 ${rounds} 次都没给出合格输出：${lastIssues.join('；')}`)
 }
 
-const VERDICT_CHOICES = ['yes', 'no', 'partly', 'irrelevant']
-/** 推理猜测里「说出倾向」的最低概率。 */
-const LEAN_FLOOR = 0.4
-
 const REPLY_LOCALES: Record<string, Locale> = { 'zh-CN': 'zh-CN', en: 'en', ja: 'ja' }
 
 /** 玩家用什么语言提问，主持人就用什么语言回答；认不出或没把握时跟随界面语言。 */
@@ -389,11 +385,17 @@ const HOST_QUESTIONS = {
       yes_no_question: {
         what: 'The player asks a yes/no question about the hidden story, or makes one narrow factual claim about it that can be confirmed or denied.',
         not_for: 'A full or partial explanation of what happened; that is a guess.',
-        examples: ['Was the man blind?', 'Is the woman a doctor?', 'Did he die on purpose?'],
+        examples: [
+          'Was the man blind?',
+          'Is the woman a doctor?',
+          'Did he die on purpose?',
+          '母亲死了',
+          'Her mother is still alive.',
+        ],
       },
       guess: {
         what: 'The player proposes an explanation, theory, or reconstruction of what happened, usually as a statement, possibly wrapped in a question like "so did he...?".',
-        not_for: 'A single narrow fact question; that is yes_no_question.',
+        not_for: 'One checkable fact about one event, person, or property, even if phrased as a statement without a question mark; that is yes_no_question.',
         examples: ['He killed her because she cheated, right?', 'I think the mirror was fake.'],
       },
       meta: {
@@ -424,7 +426,7 @@ const HOST_QUESTIONS = {
         'recent_player_messages',
       ],
       focus:
-        'Use recent_player_messages only to resolve references, never as evidence that a player theory is true. Judge each claim afresh from puzzle.story (when present), puzzle.truth and puzzle.surface. For an exact age or year, calculate the timeline and distinguish an event happening then from having happened earlier. Work through this in order. (1) Search the canonical facts for the fact the question is about. If it is there at all, even incidentally, the answer must be yes, no or partly — never irrelevant. (2) If the question has a word with more than one legitimate referent — a time, a place, a person, an object or an action — and the claim is true for one referent and false for another, choose partly; likewise when the outcome is right but the reason is wrong, or when the question bundles two things that are not both so. (3) Only if the canonical facts genuinely say nothing about this fact, choose irrelevant. (4) If the message is not a yes/no question about the story, choose cannot_answer.',
+        'Use recent_player_messages only to resolve references, never as evidence that a player theory is true. Judge each claim afresh from puzzle.story (when present), puzzle.truth and puzzle.surface. First identify the exact person or event the player names, anchored to puzzle.surface; do not transfer a relative\'s fate to that person. If someone speaks or acts in the story\'s present, they are alive at that time. A claim that this person died is false even if their relative died. For an exact age or year, calculate the timeline and distinguish an event happening then from having happened earlier. Work through this in order. (1) Search the canonical facts for the fact the question is about. If it is there at all, even incidentally, the answer must be yes, no or partly — never irrelevant. (2) If the question has a word with more than one legitimate referent — a time, a place, a person, an object or an action — and the claim is true for one referent and false for another, choose partly; likewise when the outcome is right but the reason is wrong, or when the question bundles two things that are not both so. Do not choose partly merely because a different person or event fits the claim. (3) Only if the canonical facts genuinely say nothing about this fact, choose irrelevant. (4) If the message is not a yes/no question about the story, choose cannot_answer.',
     },
     {
       yes: 'The truth confirms the claim or answers the question YES.',
@@ -603,8 +605,7 @@ interface HostCopy {
   closeHigh: string
   closeMid: string
   closeLow: string
-  /** 判读不够笃定、但有个明显领先的选项时：把那个倾向和冷热提示一起说 */
-  guessWithVerdict: (word: string, note: string) => string
+  clarifyGuess: string
   /** 玩家陈述的是「一个判断」而不是一套理论时，按判断本身的真假回答 */
   affirm: string
   deny: string
@@ -763,7 +764,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
     noHint: '砚摸了摸空口袋：「这碗汤没附提示，我也掏不出来。再问个问题试试？」',
     reveal: '好吧，既然你坚持——这就是真相。',
     solved: '……没错，就是这样。你完全还原了真相，这一碗被你喝到底了。',
-    guessWithVerdict: (word, note) => `${word}——${note}`,
+    clarifyGuess: '这个说法暂时判不准。能把其中一个事实单独问我吗？',
     closeHigh: '已经很接近了！核心抓住了，但还差最后一块关键拼图。',
     closeMid: '沾到一点边了，方向可以再往关键的地方想想。',
     closeLow: '嗯……这个说法和真相差得有点远，再换条线索想想。',
@@ -794,7 +795,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       'The host checks his empty pockets. “No hints with this bowl, I’m afraid. Mystery is all I’ve got. Try another question?”',
     reveal: 'All right, if you insist — this is what really happened.',
     solved: '…yes, exactly. You have the whole truth; this bowl is finished.',
-    guessWithVerdict: (word, note) => `${word} — ${note}`,
+    clarifyGuess: 'I cannot judge that claim yet. Could you ask about one fact at a time?',
     closeHigh: 'Very close! You have the core of it, but one key piece is still missing.',
     closeMid: 'You are brushing against it — steer toward the crucial detail.',
     closeLow: 'Hmm… that is rather far from the truth. Try another thread.',
@@ -825,7 +826,7 @@ const HOST_COPY: Record<Locale, HostCopy> = {
       '司会が空っぽのポケットを探る。「この一杯、ヒントは付いていないんです。謎ならたっぷりありますけど。もう一問どうぞ。」',
     reveal: 'わかりました、そこまで言うなら——これが真相です。',
     solved: '……そのとおり。あなたは真相を言い当てました。この一杯は飲みきられました。',
-    guessWithVerdict: (word, note) => `${word}——${note}`,
+    clarifyGuess: 'その推理はまだ判定しきれません。事実を一つずつ質問してもらえますか。',
     closeHigh: 'かなり近い！芯は掴めていますが、あと一枚だけ重要なピースが足りません。',
     closeMid: '少し触れています。核心に寄せていってください。',
     closeLow: 'うーん……それは真相からだいぶ遠いですね。別の糸をたどってみては。',
@@ -1000,32 +1001,22 @@ export function composeTurn(
       }
     }
 
-    const note =
-      closeness >= 0.66 ? copy.closeHigh : closeness >= 0.33 ? copy.closeMid : copy.closeLow
-
-    /*
-     * 判读不够笃定（置信度 < 0.5），但概率上有个明显领先的选项时，
-     * 别把那个倾向整个丢掉、只回一句冷热 —— 玩家看着「差得有点远」，
-     * 而模型其实倾向「是」，两边读起来是打架的。
-     * 这时候说「是——嗯……差得有点远」：既是判读，也是提醒他的推理还差得远。
-     *
-     * 注意这不影响判赢（判赢看的是 solved / 三个维度），只是把回复说清楚。
-     */
-    const ranked = Object.entries(answers.verdict.probabilities ?? {}).sort((a, b) => b[1] - a[1])
-    const [leanChoice, leanProb] = ranked[0] ?? ['', 0]
-    if (VERDICT_CHOICES.includes(leanChoice) && leanProb >= LEAN_FLOOR) {
-      const word = (copy.verdict[leanChoice] ?? leanChoice).replace(/[。.]$/, '')
+    // A short factual claim can still be misclassified as a theory. When both
+    // intent and verdict are uncertain, a coldness score says nothing useful.
+    if (intentConfidence < 0.6) {
       return {
         intent,
-        verdict: 'partial',
+        verdict: 'cannot_answer',
         solved: false,
         revealed: false,
-        closeness,
-        confidence: closeness,
-        reply: copy.guessWithVerdict(word, note),
+        closeness: null,
+        confidence: Math.min(intentConfidence, statedConfidence),
+        reply: copy.clarifyGuess,
       }
     }
 
+    const note =
+      closeness >= 0.66 ? copy.closeHigh : closeness >= 0.33 ? copy.closeMid : copy.closeLow
     return {
       intent,
       verdict: 'partial',

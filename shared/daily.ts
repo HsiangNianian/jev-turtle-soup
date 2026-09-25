@@ -216,7 +216,8 @@ Requirements:
 2. surface: **one sentence only**, under ${spec.surfaceMax} characters. Show only the single strangest thing that happens; never explain it or give the answer away.
 3. hint: one sentence that nudges the reasoning without revealing the answer.
 4. Every detail in the surface must be explainable by the truth.
-5. Write entirely in natural English.
+5. If the story involves a death or mistaken identity, make clear exactly who died, who is still alive at the time of the riddle, and which person each role refers to. Preserve this distinction when shortening the truth.
+6. Write entirely in natural English.
 
 Output format (strict json, no markdown fences):
 {"truth": "Truth", "surface": "Surface", "hint": "Hint"}`
@@ -229,7 +230,8 @@ Output format (strict json, no markdown fences):
 2. surface（湯面）：**一文だけ**、${spec.surfaceMax} 字以内。物語で最も不可解な現象だけを見せ、理由も真相も書かないこと。
 3. hint（ヒント）：一文。答えを明かさず、推理の方向を押すこと。
 4. 湯面の細部はすべて真相で説明できること。
-5. 全文を自然な日本語で書くこと。
+5. 死亡や人物の取り違えがある場合、誰が亡くなり、謎の時点で誰が生きているか、各呼称が誰を指すかを明記すること。真相を短くしてもこの区別を残すこと。
+6. 全文を自然な日本語で書くこと。
 
 出力形式（厳密な json、markdown のコードブロックは不要）：
 {"truth": "真相", "surface": "湯面", "hint": "ヒント"}`
@@ -241,7 +243,8 @@ Output format (strict json, no markdown fences):
 2. surface（汤面）：**只写一句话**，不超过 ${spec.surfaceMax} 个字。只呈现故事里最反常的那一个现象，不解释原因、不点破真相。
 3. hint（提示）：一句话，不直接揭晓答案，但能推动推理方向。
 4. 汤面里出现的每个细节，都要能被汤底解释。
-5. 全文使用简体中文。
+5. 如果故事涉及死亡或人物错认，汤底须明确谁去世、谜题当下谁还活着、每个称呼指向谁；压缩时也要保留这些区别。
+6. 全文使用简体中文。
 
 输出格式（严格 json，不要 markdown 代码块）：
 {"truth": "汤底", "surface": "汤面", "hint": "提示"}`

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.5 - 2026-09-25
+
+### Fixes
+
+- Keep the Cron invocation open until daily generation finishes, and report generation failures as failed scheduled runs.
+- Remove the duplicate midnight trigger; the six-hour schedule already includes 00:00 UTC and continues to backfill missing daily bowls.
+
 ## 0.35.4 - 2026-09-25
 
 ### Improvements

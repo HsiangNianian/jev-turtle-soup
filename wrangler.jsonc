@@ -10,26 +10,26 @@
     "not_found_handling": "single-page-application",
     // 所有请求先过 Worker：这样分享卡片的 meta 才能按语言改写，
     // 静态文件依然由 env.ASSETS 提供（带缓存）。
-    "run_worker_first": true
+    "run_worker_first": true,
   },
   "kv_namespaces": [{ "binding": "AUTH_KV", "id": "9b14573349f24bcaa7a7688957406e3c" }],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "jev-turtle-soup",
-      "database_id": "16fe5cb2-8c9a-43a5-baa1-7dd911db327f"
-    }
+      "database_id": "16fe5cb2-8c9a-43a5-baa1-7dd911db327f",
+    },
   ],
   "send_email": [{ "name": "EMAIL" }],
   "vars": {
-    "MAIL_FROM": "noreply@hgt.mmstudio.games"
+    "MAIL_FROM": "noreply@hgt.mmstudio.games",
   },
-  // 00:00 UTC 生成当天官方汤；每 6 小时补一次，避免当天缺题
+  // 每 6 小时（含 00:00 UTC）检查当天官方汤，缺题才生成
   // 04:00 UTC 跑维护：清理过期日志 + 巡检可疑判读
   "triggers": {
-    "crons": ["0 0 * * *", "0 */6 * * *", "0 4 * * *"]
+    "crons": ["0 */6 * * *", "0 4 * * *"],
   },
   "observability": {
-    "enabled": true
-  }
+    "enabled": true,
+  },
 }

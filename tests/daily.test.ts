@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { database } from './sqlite'
 import { composeDaily } from '../shared/daily'
-import { generateTodayDaily } from '../worker/index'
+import worker, { generateTodayDaily } from '../worker/index'
 
 vi.mock('../shared/daily', async (original) => ({
   ...(await original<typeof import('../shared/daily')>()),
@@ -9,26 +9,25 @@ vi.mock('../shared/daily', async (original) => ({
 }))
 
 let data: ReturnType<typeof database>
+const dailyDraft = {
+  title: '新题',
+  surface: '汤面',
+  truth: '汤底',
+  hint: '提示',
+  story: '故事',
+  tags: [],
+  difficulty: '中等',
+  locale: 'zh-CN' as const,
+  genreTarget: 20,
+  genreScore: 15,
+  tag: '推理',
+  attempts: 1,
+  relaxed: false,
+  review: { passed: true, score: 1, issues: [], checks: {}, thresholds: {} },
+}
 beforeEach(() => {
   data = database()
-  vi.mocked(composeDaily)
-    .mockReset()
-    .mockResolvedValue({
-      title: '新题',
-      surface: '汤面',
-      truth: '汤底',
-      hint: '提示',
-      story: '故事',
-      tags: [],
-      difficulty: '中等',
-      locale: 'zh-CN',
-      genreTarget: 20,
-      genreScore: 15,
-      tag: '推理',
-      attempts: 1,
-      relaxed: false,
-      review: { passed: true, score: 1, issues: [], checks: {}, thresholds: {} },
-    })
+  vi.mocked(composeDaily).mockReset().mockResolvedValue(dailyDraft)
 })
 afterEach(() => data.sqlite.close())
 
@@ -74,5 +73,45 @@ describe('daily generation against the current schema', () => {
     await generateTodayDaily({ DB: data.db })
     expect(composeDaily).not.toHaveBeenCalled()
     expect(data.sqlite.prepare('SELECT COUNT(*) AS n FROM dailies').get()).toEqual({ n: 1 })
+  })
+
+  it('keeps the scheduled invocation open until generation has published', async () => {
+    let release!: () => void
+    const hold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    vi.mocked(composeDaily).mockImplementationOnce(async () => {
+      await hold
+      return dailyDraft
+    })
+    const waitUntil = vi.fn()
+    const scheduled = worker.scheduled(
+      { cron: '0 */6 * * *', scheduledTime: Date.now() },
+      { DB: data.db },
+      { waitUntil },
+    )
+    await vi.waitFor(() => expect(composeDaily).toHaveBeenCalledOnce())
+    let finished = false
+    void scheduled.then(() => {
+      finished = true
+    })
+    await Promise.resolve()
+    expect(finished).toBe(false)
+    release()
+    await scheduled
+    expect(waitUntil).not.toHaveBeenCalled()
+    expect(data.sqlite.prepare('SELECT COUNT(*) AS n FROM dailies').get()).toEqual({ n: 1 })
+  })
+
+  it('reports a failed scheduled generation as a failed invocation', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(composeDaily).mockRejectedValueOnce(new Error('model unavailable'))
+    await expect(
+      worker.scheduled(
+        { cron: '0 */6 * * *', scheduledTime: Date.now() },
+        { DB: data.db },
+        { waitUntil: vi.fn() },
+      ),
+    ).rejects.toThrow('model unavailable')
   })
 })

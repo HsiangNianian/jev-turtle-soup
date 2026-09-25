@@ -146,6 +146,8 @@ function sessionToken(request: Request): string | null {
 
 const SESSION_VISIBILITY = 'session'
 
+/** 每 6 小时补题，00:00 UTC 的触发也包含在这一条里。 */
+const DAILY_CRON = '0 */6 * * *'
 /** 每天 04:00 UTC 跑维护（清理日志 + 巡检判读），跟出题的 Cron 分开。 */
 const MAINTENANCE_CRON = '0 4 * * *'
 
@@ -1228,39 +1230,40 @@ async function serveHtml(
 export default {
   /**
    * Cron 分两条线：
-   * - 00:00 / 每 6 小时：生成当天官方汤（缺题时补）
+   * - 每 6 小时（含 00:00）：生成当天官方汤（缺题时补）
    * - 04:00：清理过期日志，并巡检最近的可疑判读
    */
   async scheduled(
     event: { scheduledTime: number; cron?: string },
     env: Env,
-    ctx: { waitUntil(promise: Promise<unknown>): void },
+    _ctx: { waitUntil(promise: Promise<unknown>): void },
   ): Promise<void> {
     if (event.cron === MAINTENANCE_CRON) {
-      ctx.waitUntil(
-        runMaintenance(env)
-          .then((result) =>
-            console.log(
-              `[maintenance] 清日志=${result.purged}｜清对局=${result.swept}｜题材补分=${result.scored}｜巡检=${
-                result.audit
-                  ? `${result.audit.checked} 条，改判 ${result.audit.flagged} 条`
-                  : '跳过'
-              }`,
-            ),
-          )
-          .catch((error) => {
-            console.error('[maintenance] 失败：', error)
-            return reportWorkerError(env, error, 'worker:cron', 'cron:maintenance')
-          }),
-      )
+      try {
+        const result = await runMaintenance(env)
+        console.log(
+          `[maintenance] 清日志=${result.purged}｜清对局=${result.swept}｜题材补分=${result.scored}｜巡检=${
+            result.audit ? `${result.audit.checked} 条，改判 ${result.audit.flagged} 条` : '跳过'
+          }`,
+        )
+      } catch (error) {
+        console.error('[maintenance] 失败：', error)
+        await reportWorkerError(env, error, 'worker:cron', 'cron:maintenance')
+        throw error
+      }
       return
     }
-    ctx.waitUntil(
-      generateTodayDaily(env).catch((error) => {
-        console.error('[daily] 生成失败：', error)
-        return reportWorkerError(env, error, 'worker:cron', 'cron:daily')
-      }),
-    )
+    if (event.cron !== DAILY_CRON) {
+      console.warn(`[cron] 未知表达式 ${event.cron ?? '—'}，跳过`)
+      return
+    }
+    try {
+      await generateTodayDaily(env)
+    } catch (error) {
+      console.error('[daily] 生成失败：', error)
+      await reportWorkerError(env, error, 'worker:cron', 'cron:daily')
+      throw error
+    }
   },
 
   async fetch(

@@ -2,6 +2,26 @@ import XCTest
 
 @MainActor
 final class NativeFlowTests: XCTestCase {
+  func testRoomsOnLocalRuntime() throws {
+    guard let id = ProcessInfo.processInfo.environment["NATIVE_ROOMS_ID"], let cookie = ProcessInfo.processInfo.environment["NATIVE_ROOMS_COOKIE"] else {throw XCTSkip("Run the isolated rooms preview first")}
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchEnvironment["NATIVE_ROOMS_URL"] = "http://127.0.0.1:8799"
+    app.launchEnvironment["NATIVE_ROOMS_ID"] = id
+    app.launchEnvironment["NATIVE_ROOMS_COOKIE"] = cookie
+    app.launch()
+    XCTAssertTrue(app.staticTexts["八点半的电梯"].waitForExistence(timeout:30))
+    XCTAssertEqual(app.webViews.count,0)
+    capture("rooms-native-connected")
+    let question=app.descendants(matching:.any).matching(identifier:"tableQuestion").firstMatch
+    XCTAssertTrue(question.waitForExistence(timeout:10))
+    question.tap(); question.typeText("Did a neighbor leave the lift here?")
+    capture("rooms-native-keyboard")
+    app.buttons["tableSend"].tap()
+    XCTAssertTrue(app.staticTexts["是。"].waitForExistence(timeout:20))
+    capture("rooms-native-answer")
+  }
+
   func testDPublicSolveRecordsWithoutNetwork() throws {
     continueAfterFailure = false
     let app = XCUIApplication()
@@ -13,7 +33,7 @@ final class NativeFlowTests: XCTestCase {
     XCTAssertTrue(app.staticTexts["最短解开"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["3 轮"].exists)
     XCTAssertTrue(app.staticTexts["18 轮"].exists)
-    XCTAssertTrue(app.staticTexts["仅统计已解开对局，作者账号不计入"].exists)
+    XCTAssertTrue(app.staticTexts["单人与同桌分别统计；仅计成功解开，作者参与不计入"].exists)
   }
 
   func testACommunityAndInvestigationOnPublicAPI() throws {

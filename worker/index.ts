@@ -7,6 +7,9 @@ import {
   type GameEnv,
   type PuzzleStore,
 } from '../shared/game.ts'
+import { routeRooms } from './room-routes.ts'
+import { teamRecords } from '../shared/room-store.ts'
+import type { RoomBindings } from '../shared/room-rpc.ts'
 import { logTurn, purgeOldLogs, submitReport } from '../shared/logs.ts'
 import { engagementMetrics, purgeEngagement, recordEngagement } from '../shared/engagement.ts'
 import {
@@ -82,7 +85,7 @@ import {
   updatePuzzle,
 } from '../shared/library.ts'
 
-export interface Env extends GameEnv {
+export interface Env extends GameEnv, RoomBindings {
   ASSETS?: { fetch: (request: Request) => Promise<Response> }
   AUTH_KV?: KVLike
   DB?: D1Like
@@ -1062,6 +1065,7 @@ async function route(request: Request, env: Env, url: URL): Promise<Response> {
       {
         daily: {
           ...dailyPayload(row, locked),
+          ...(await teamRecords(db, row.puzzle_id)),
           ...(locked ? {} : await getSolveTurnRecord(db, row.puzzle_id)),
         },
       },
@@ -1223,6 +1227,9 @@ async function serveHtml(
       // HTML 绝不能被缓存：否则引用的 bundle 哈希会在下次部署后失效
       'cache-control': 'no-store, must-revalidate',
       vary: 'accept-language',
+      ...(url.pathname.startsWith('/rooms/')
+        ? { 'referrer-policy': 'no-referrer', 'x-robots-tag': 'noindex, nofollow' }
+        : {}),
       // 半年内浏览器会自己把 http 换成 https，不再经过上面那次跳转
       'strict-transport-security': 'max-age=15552000',
     },
@@ -1283,6 +1290,9 @@ export default {
       url.protocol = 'https:'
       return Response.redirect(url.toString(), 308)
     }
+
+    const roomResponse = await routeRooms(request, env)
+    if (roomResponse) return roomResponse
 
     // 客户端错误上报：公开入口（玩家崩了才用得上），按哈希聚合
     if (url.pathname === '/api/errors') {

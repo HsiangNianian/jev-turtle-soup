@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { RoomEntry } from '@/components/RoomEntry'
 import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
 import { Button, Empty, Notice, OfficialMark, PageShell } from '@/components/Bits'
@@ -185,7 +186,12 @@ export function DailyDetailPage({
       </div>
       <Surface text={daily.surface} />
       {!daily.locked ? (
-        <SolveTurnRecords shortest={daily.shortestSolveTurns} longest={daily.longestSolveTurns} />
+        <SolveTurnRecords
+          shortest={daily.shortestSolveTurns}
+          longest={daily.longestSolveTurns}
+          teamShortest={daily.shortestTeamSolveTurns}
+          teamLongest={daily.longestTeamSolveTurns}
+        />
       ) : null}
 
       {daily.locked ? (
@@ -247,6 +253,7 @@ export function DailyDetailPage({
           onStart={onStart}
           onContinue={onContinue}
         />
+        <RoomEntry puzzleId={daily.puzzleId} />
         <Link
           to="/daily"
           className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
@@ -326,6 +333,7 @@ export function DailyIndexPage({
               </p>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-3">
+              <RoomEntry puzzleId={today.puzzleId} />
               <StartButton
                 daily={today}
                 activeGames={activeGames}

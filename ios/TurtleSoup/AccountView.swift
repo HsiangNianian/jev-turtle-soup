@@ -36,6 +36,7 @@ struct AccountScreen: View {
       }
       if let user = store.user {
         VStack(spacing: 0) {
+          NavigationLink {MyTablesScreen()} label:{accountLink("我的同桌",detail:"共同推理与讨论",icon:"person.2")}.buttonStyle(.plain)
           if let handle = user.handle, !handle.isEmpty {
             NavigationLink {
               AuthorProfileScreen(handle: handle)

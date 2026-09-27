@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { RoomEntry } from '@/components/RoomEntry'
 import { ArrowRight, Lock, Trash2 } from 'lucide-react'
 
 import { Link } from '@/components/Link'
@@ -172,6 +173,14 @@ export function Landing({
         )}
       </p>
 
+      <div className="mt-5 flex flex-wrap items-center gap-4">
+        <RoomEntry />
+        {signedIn ? (
+          <Link to="/me/rooms" className="font-mono text-[11px] text-muted-foreground">
+            {t('我的同桌')} →
+          </Link>
+        ) : null}
+      </div>
       {locale === 'zh-CN' ? (
         <section className="mt-10 border-t-2 border-foreground" aria-label="编辑精选">
           <SectionHead

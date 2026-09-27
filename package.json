@@ -1,7 +1,7 @@
 {
   "name": "jev-turtle-soup",
   "private": true,
-  "version": "0.35.13",
+  "version": "0.36.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,7 +21,12 @@
     "db:local": "wrangler d1 execute jev-turtle-soup --local --file=./db/schema.sql",
     "test": "vitest run",
     "wrangler": "wrangler",
-    "deploy:dry-run": "npm run build && wrangler deploy --dry-run"
+    "deploy:dry-run": "npm run build && wrangler deploy --dry-run",
+    "rooms:preview": "npm run build && node scripts/rooms-preview.mjs",
+    "rooms:test:web": "node scripts/test-rooms-web.mjs",
+    "rooms:test:ios-ui": "node scripts/test-rooms-native-ui.mjs",
+    "rooms:test:android": "node scripts/test-rooms-android.mjs",
+    "rooms:test:ios": "node scripts/ios.mjs test-rooms"
   },
   "dependencies": {
     "@radix-ui/react-scroll-area": "^1.2.18",
@@ -45,11 +50,15 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "esbuild": "^0.28.1",
+    "miniflare": "^5.20260921.0-alpha",
     "oxlint": "^1.81.0",
+    "playwright": "1.62.0",
     "prettier": "^3.9.8",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "vitest": "5.0.1",
-    "wrangler": "4.136.2"
+    "wrangler": "4.136.2",
+    "ws": "8.21.0"
   }
 }

@@ -35,7 +35,7 @@ private struct APIFailure: Decodable { let error: String? }
 
 final class SoupAPI {
   static let shared = SoupAPI()
-  private let baseURL = URL(string: "https://hgt.mmstudio.games")!
+  private var baseURL = URL(string: "https://hgt.mmstudio.games")!
   private let session: URLSession
 
   init(session: URLSession? = nil) {
@@ -45,12 +45,21 @@ final class SoupAPI {
     config.timeoutIntervalForRequest = 120
     config.timeoutIntervalForResource = 150
     config.httpAdditionalHeaders = [
-      "Accept": "application/json", "User-Agent": "TurtleSoup-iOS/0.4.4",
+      "Accept": "application/json", "User-Agent": "TurtleSoup-iOS/0.5.0",
     ]
     #if DEBUG && targetEnvironment(simulator)
       if ProcessInfo.processInfo.environment["NATIVE_UI_FIXTURE"] == "community" {
         config.protocolClasses = [CommunityPreviewProtocol.self]
         SoupDraft.remove(owner: "native-fixture-user")
+      }
+    #endif
+    #if DEBUG
+      // Isolated local QA only: release builds cannot change the API origin.
+      if ProcessInfo.processInfo.environment["NATIVE_ROOMS_URL"] == "http://127.0.0.1:8799" {
+        baseURL = URL(string:"http://127.0.0.1:8799")!
+        if let token = ProcessInfo.processInfo.environment["NATIVE_ROOMS_COOKIE"] {
+          config.httpAdditionalHeaders?["Cookie"] = "ts_session=\(token)"
+        }
       }
     #endif
     self.session = session ?? URLSession(configuration: config)
@@ -60,11 +69,12 @@ final class SoupAPI {
     _ path: String, method: String = "GET", body: Data? = nil, owner: String? = nil
   ) async throws -> Result {
     guard let url = URL(string: path, relativeTo: baseURL), url.host == baseURL.host,
-      url.scheme == "https"
+      url.scheme == baseURL.scheme, url.port == baseURL.port, url.user == nil, url.password == nil
     else { throw SoupAPIError(status: 0, message: "请求地址无效") }
     var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
     request.httpMethod = method
     request.httpBody = body
+    if path.hasPrefix("/api/rooms") || path.hasPrefix("/api/me/rooms") {request.setValue("1",forHTTPHeaderField:"X-Room-Protocol")}
     if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
     if let owner { request.setValue(owner, forHTTPHeaderField: "X-Save-Owner") }
     let (data, response) = try await session.data(for: request)
@@ -81,6 +91,14 @@ final class SoupAPI {
     _ path: String, body: Body, method: String = "POST", owner: String? = nil
   ) async throws -> Result {
     try await request(path, method: method, body: JSONEncoder().encode(body), owner: owner)
+  }
+
+  func tableSocket(roomID: String, ticket: String, after: Int) throws -> URLSessionWebSocketTask {
+    let origin = baseURL.absoluteString.replacingOccurrences(of:"https://",with:"wss://").replacingOccurrences(of:"http://",with:"ws://")
+    guard UUID(uuidString:roomID) != nil,ticket.range(of:"^[a-f0-9]{64}$",options:.regularExpression) != nil,
+      let url=URL(string:"\(origin)/api/rooms/\(roomID)/ws?after=\(max(0,after))")
+    else {throw SoupAPIError(status:400,message:"连接凭证无效")}
+    return session.webSocketTask(with:url,protocols:["soup-room-v1","ticket.\(ticket)"])
   }
 
   func library(sort: String, query: String = "", offset: Int = 0) async throws -> [LibraryPuzzle] {

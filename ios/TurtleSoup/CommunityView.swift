@@ -37,6 +37,7 @@ struct CommunityScreen: View {
               Rectangle().stroke(SoupTheme.line, lineWidth: 0.75))
         }.buttonStyle(.plain).accessibilityIdentifier("communityDaily")
       }
+      TableEntryLink()
       if !curated.isEmpty {
         VStack(alignment: .leading, spacing: 0) {
           SectionCaption(title: "编辑精选", detail: "汤友原创")

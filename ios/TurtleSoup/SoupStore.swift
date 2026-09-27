@@ -12,6 +12,7 @@ final class SoupStore: ObservableObject {
   @Published var syncMessage: String?
   @Published private(set) var syncing = false
   @Published var activeCase: CaseRoute?
+  @Published var activeTable: TableRoute?
   @Published var selectedTab = 0
 
   struct CaseRoute: Identifiable { let id: String }
@@ -106,6 +107,7 @@ final class SoupStore: ObservableObject {
       authGeneration += 1
       syncTask?.cancel()
       activeCase = nil
+      activeTable = nil
       pending = []
     }
     user = account

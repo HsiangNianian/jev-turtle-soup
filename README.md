@@ -11,6 +11,12 @@
 - **社群**：首页和 iPhone 广场展示带编者按的汤友原创精选；结案后进入防剧透讨论，
   作者主页与题库作品也有点赞和留言。
 
+## 同桌实时游玩
+
+Web/PWA、iPhone 和 Android 都可在题目页「邀朋友同桌」，2–6 人提问、讨论与共同结案。邀请链接在网页打开，原生 App 可粘贴邀请码或链接；「我的同桌」保存共同案卷。团队最长/最短解开轮数单独统计，排除作者参与的房间。
+
+协议、权限、数据库升级与本地多端检查见 [同桌说明](docs/rooms.md)。
+
 ## 技术栈
 
 React 19 · Vite · Tailwind CSS v4 · Cloudflare Workers · TypeSafe Jev · DeepSeek / OpenAI
@@ -108,6 +114,7 @@ Vite 使用 `.env`，因此同时保留两种文件容易造成两个入口配�
 ## 架构
 
 ```
+worker/entry.ts   ← Worker 入口与 Durable Object 导出
 worker/index.ts   ← Cloudflare Worker：/api/* 与静态资源 SPA 兜底
 server/index.ts   ← Vite dev 中间件：health / 内存对局，前端开发用
 shared/game.ts    ← 共用逻辑：主持提问、判定拼装（不依赖 Node API）

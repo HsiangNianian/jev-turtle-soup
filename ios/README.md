@@ -85,3 +85,7 @@ UI 测试包含三个流程并留存截图：线上只读验证广场、作者�
 
 参考：[Apple Personal Team 说明](https://developer.apple.com/help/account/basics/about-your-developer-account)、
 [启用开发者模式](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device)。
+
+## 同桌模式
+
+题目页「邀朋友同桌」开桌，广场「凭邀请入座」可粘贴邀请码或本站邀请链接；「我的 → 我的同桌」查看共同记录。问砚、桌内讨论、成员管理、投票揭晓和结案报告均为原生界面。账号/房间各自保存待确认操作，重连会补齐记录；团队轮数与单人记录分开。详见 [同桌协议与测试](../docs/rooms.md)。

@@ -152,6 +152,13 @@ export function MePage({
       }
     >
       <div className="mt-6 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+        <Button
+          variant="outline"
+          className="min-h-10 px-3 sm:px-5"
+          onClick={() => navigate('/me/rooms')}
+        >
+          {t('我的同桌')}
+        </Button>
         <Button className="min-h-10 px-3 sm:min-h-0 sm:px-5" onClick={() => navigate('/upload')}>
           <Plus className="size-3.5" /> {t('上传新汤')}
         </Button>

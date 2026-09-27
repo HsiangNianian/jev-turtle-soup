@@ -17,6 +17,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 sealed interface Page {
+    data class Table(val id: String): Page
+    data class TableLobby(val puzzleId: String? = null): Page
+    data object MyTables: Page
     data class PuzzleDetail(val puzzle: Puzzle): Page
     data class PuzzleLoader(val id: String): Page
     data class DailyDetail(val daily: Daily): Page
@@ -30,9 +33,8 @@ sealed interface Page {
     data object Guide: Page
 }
 
-class AppState(context: Context) {
+class AppState(context: Context, val api: SoupApi = SoupApi(context)) {
     private val prefs = context.getSharedPreferences("soup.app", Context.MODE_PRIVATE)
-    val api = SoupApi(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val stack = mutableStateListOf<Page>()
     var tab by mutableIntStateOf(0)

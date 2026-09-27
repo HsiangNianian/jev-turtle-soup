@@ -19,5 +19,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "server", "shared", "worker"]
+  "include": ["vite.config.ts", "server", "shared", "worker"],
+  "exclude": [
+    "worker/runtime.d.ts",
+    "worker/room-object.ts",
+    "worker/room-limit.ts",
+    "worker/entry.ts"
+  ]
 }

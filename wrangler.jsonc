@@ -2,8 +2,15 @@
   // Cloudflare Workers config. The Worker serves /api/* and falls back to the
   // Vite build in ./dist for everything else.
   "name": "jev-turtle-soup",
-  "main": "worker/index.ts",
+  "main": "worker/entry.ts",
   "compatibility_date": "2026-09-20",
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "SoupRoom" },
+      { "name": "ROOM_LIMITS", "class_name": "RoomLimit" }
+    ]
+  },
+  "migrations": [{ "tag": "rooms-v1", "new_sqlite_classes": ["SoupRoom", "RoomLimit"] }],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -23,6 +30,7 @@
   "send_email": [{ "name": "EMAIL" }],
   "vars": {
     "MAIL_FROM": "noreply@hgt.mmstudio.games",
+    "ROOMS_ENABLED": "1",
   },
   // 每 6 小时（含 00:00 UTC）检查当天官方汤，缺题才生成
   // 04:00 UTC 跑维护：清理过期日志 + 巡检可疑判读

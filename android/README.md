@@ -23,3 +23,7 @@ npm run android:install
 `assembleDebug` 会用 Android 调试密钥签名，供设备侧载测试。发布到应用商店需要另配正式签名与发布流程；不要提交密钥或本机 `local.properties`。
 
 品牌字体来自 `ios/TurtleSoup/Fonts/`，授权文本随 APK 放在 `assets/licenses/`。应用包名是 `games.mmstudio.turtlesoup`，调试版本号从 `0.1.0` 开始。
+
+## 同桌模式
+
+题目页「邀朋友同桌」开桌，广场「凭邀请入座」可粘贴邀请码或本站邀请链接；「我的 → 我的同桌」查看共同记录。问砚、桌内讨论、成员管理、投票揭晓和结案报告均为原生界面。账号/房间各自保存待确认操作，重连会补齐记录；团队轮数与单人记录分开。详见 [同桌协议与测试](../docs/rooms.md)。

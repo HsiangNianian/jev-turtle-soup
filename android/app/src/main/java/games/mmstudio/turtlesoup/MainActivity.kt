@@ -73,6 +73,9 @@ class MainActivity : ComponentActivity() {
                     else -> AccountScreen(state)
                 }
                 is Page.PuzzleDetail -> PuzzleDetailScreen(state, page.puzzle)
+                is Page.Table -> TableScreen(state, page.id)
+                is Page.TableLobby -> TableLobbyScreen(state, page.puzzleId)
+                Page.MyTables -> MyTablesScreen(state)
                 is Page.PuzzleLoader -> PuzzleLoaderScreen(state, page.id)
                 is Page.DailyDetail -> DailyDetailScreen(state, page.daily)
                 is Page.Investigation -> InvestigationScreen(state, page.id)
@@ -105,6 +108,8 @@ class MainActivity : ComponentActivity() {
                 Prose(when (page) {
                     null -> listOf("汤友广场", "每日官汤", "动态", "我的")[state.tab]
                     is Page.PuzzleDetail -> "这碗汤"
+                    is Page.Table, is Page.TableLobby -> "同桌"
+                    Page.MyTables -> "我的同桌"
                     is Page.PuzzleLoader -> "这碗汤"
                     is Page.DailyDetail -> "官方案卷"
                     is Page.Investigation -> "推理中"

@@ -38,6 +38,43 @@ function mockModel(answers: ReturnType<typeof modelAnswers>, extra = {}) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('fresh host judgments', () => {
+  it('uses only server-supplied room questions and converts an answer request into a vote', async () => {
+    const fetch = mockModel(modelAnswers('yes'), {
+      intent: { choice: 'meta', confidence: 1 },
+      meta_request: { choice: 'full_answer', confidence: 1 },
+    })
+    const reference = { id: 'q1', uid: 'alice', text: '哥哥成年了吗？' }
+    const turn = await judge(
+      { TYPESAFE_API_KEY: 'local-test-only' },
+      { ...puzzle, story: 'SECRET_STORY' },
+      { message: '给我答案', history: [{ role: 'player', text: 'UNTRUSTED_CONTEXT' }] },
+      { manualReveal: 'vote', room: { speakerId: 'bob', recentQuestions: [reference], reference } },
+    )
+    const request = JSON.parse(fetch.mock.calls[0][1].body)
+    expect(request.state.current_speaker_id).toBe('bob')
+    expect(request.state.referenced_question).toEqual(reference)
+    expect(request.state.recent_player_messages).toEqual([
+      { role: 'player', speaker_id: 'alice', question_id: 'q1', text: reference.text },
+    ])
+    expect(JSON.stringify(request)).not.toContain('UNTRUSTED_CONTEXT')
+    expect(turn).toMatchObject({ verdict: 'reveal_vote', revealed: false, solved: false })
+    expect(turn).not.toHaveProperty('truth')
+    expect(turn).not.toHaveProperty('story')
+    expect(turn.reply).not.toContain('SECRET_STORY')
+  })
+  it('does not silently retry an uncertain model call inside a room', async () => {
+    const fetch = vi.fn().mockRejectedValue(new TypeError('Network disconnected'))
+    vi.stubGlobal('fetch', fetch)
+    await expect(
+      judge(
+        { TYPESAFE_API_KEY: 'local-test-only' },
+        puzzle,
+        { message: '哥哥成年了吗？' },
+        { manualReveal: 'vote', room: { speakerId: 'alice', recentQuestions: [] } },
+      ),
+    ).rejects.toThrow()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
   it.each([
     { intent: 'meta', locked: false, solved: 0, revealed: true },
     { intent: 'meta', locked: true, solved: 0, revealed: false },

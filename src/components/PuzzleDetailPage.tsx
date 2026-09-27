@@ -6,6 +6,7 @@ import { SocialPanel } from '@/components/SocialPanel'
 import { SolveTurnRecords } from '@/components/SolveTurnRecords'
 import { OfficialStory } from '@/components/OfficialStory'
 import { TagSpoiler } from '@/components/TagSpoiler'
+import { RoomEntry } from '@/components/RoomEntry'
 import { genreLabel } from '@/lib/library-client'
 
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
@@ -113,12 +114,18 @@ export function PuzzleDetailPage({
         </p>
       </div>
 
-      <SolveTurnRecords shortest={puzzle.shortestSolveTurns} longest={puzzle.longestSolveTurns} />
+      <SolveTurnRecords
+        shortest={puzzle.shortestSolveTurns}
+        longest={puzzle.longestSolveTurns}
+        teamShortest={puzzle.shortestTeamSolveTurns}
+        teamLongest={puzzle.longestTeamSolveTurns}
+      />
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Button onClick={() => onStart(puzzle)}>
           {t('开始推理')} <ArrowRight className="size-3.5" />
         </Button>
+        <RoomEntry puzzleId={puzzle.id} />
         <Link
           to="/library"
           className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"

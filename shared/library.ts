@@ -5,6 +5,7 @@ import { countAuthorSocial, recognise } from './author.ts'
 import { reviewPuzzle } from './review.ts'
 import { logTurn } from './logs.ts'
 import { utcDateKey } from './daily.ts'
+import { teamRecords } from './room-store.ts'
 
 export type Visibility = 'public' | 'private'
 
@@ -59,6 +60,8 @@ export interface PublicPuzzle {
   /** Questions asked through the first successful solve, excluding the author's account. */
   shortestSolveTurns: number | null
   longestSolveTurns: number | null
+  shortestTeamSolveTurns?: number | null
+  longestTeamSolveTurns?: number | null
   createdAt: number
   owner: OwnerInfo
   /** 0 = 本格·逻辑推理，100 = 变格·怪力乱神；没打过分为 null */
@@ -329,7 +332,12 @@ export async function getPublicPuzzle(
     .prepare('SELECT bio FROM users WHERE id = ?')
     .bind(row.owner_id)
     .first<{ bio: string }>()
-  return { ...toPublic(row), ...(await getSolveTurnRecord(db, row.id)), ownerBio: owner?.bio ?? '' }
+  return {
+    ...toPublic(row),
+    ...(await getSolveTurnRecord(db, row.id)),
+    ...(await teamRecords(db, row.id)),
+    ownerBio: owner?.bio ?? '',
+  }
 }
 
 async function loadPlayable(

@@ -48,6 +48,7 @@ import org.json.JSONObject
                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(18.dp), tint = mutedColor())
             }
         }
+        TableEntryButton(state)
         if (state.curated.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 SectionTitle("编辑精选", "汤友原创")
@@ -216,6 +217,7 @@ import org.json.JSONObject
                         InkButton(if (state.games.any { it.id == today.puzzleId }) "继续调查" else "开始推理", { state.start(today) })
                         TextButton(onClick = { state.open(Page.DailyDetail(today)) }) { Mono("查看案卷") }
                     }
+                    if(today.puzzleId.isNotBlank()) TableEntryButton(state, today.puzzleId)
                 }
             }
         } ?: Prose("今日官汤正在路上。", color = mutedColor())
@@ -249,7 +251,7 @@ import org.json.JSONObject
     }
 }
 
-@Composable fun SolveTurnRecordsPanel(shortest: Int?, longest: Int?) {
+@Composable fun SolveTurnRecordsPanel(shortest: Int?, longest: Int?, teamShortest: Int? = null, teamLongest: Int? = null) {
     Column(Modifier.fillMaxWidth().border(width = 1.dp, color = lineColor()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -262,7 +264,11 @@ import org.json.JSONObject
                 Prose(longest?.let { "$it 轮" } ?: "暂无纪录", size = 20)
             }
         }
-        Mono("仅统计已解开对局，作者账号不计入")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Column(Modifier.weight(1f)) { Mono("同桌最短"); Prose(teamShortest?.let { "$it 轮" } ?: "暂无纪录", size = 20) }
+            Column(Modifier.weight(1f)) { Mono("同桌最长"); Prose(teamLongest?.let { "$it 轮" } ?: "暂无纪录", size = 20) }
+        }
+        Mono("单人与同桌分别统计；仅计成功解开，作者参与不计入")
     }
 }
 
@@ -279,8 +285,9 @@ import org.json.JSONObject
         Heading("官方案卷 · ${item.date}", item.title)
         PuzzleMeta(item.difficulty, item.language, item.genreScore)
         if (item.surface.isNotBlank()) Surface(item.surface)
-        if (!item.isLocked) SolveTurnRecordsPanel(item.shortestSolveTurns, item.longestSolveTurns)
+        if (!item.isLocked) SolveTurnRecordsPanel(item.shortestSolveTurns, item.longestSolveTurns, item.shortestTeamSolveTurns, item.longestTeamSolveTurns)
         InkButton("开始推理", { state.start(item) })
+        if(item.puzzleId.isNotBlank()) TableEntryButton(state, item.puzzleId)
         if (item.isLocked) Prose("明日解锁汤底，今天只管大胆提问。", color = mutedColor())
         else {
             TextButton(onClick = { showTruth = !showTruth }) { Prose(if (showTruth) "收起汤底 ↑" else "查看汤底 ↓", size = 15) }
@@ -314,8 +321,9 @@ import org.json.JSONObject
         PuzzleMeta(item.difficulty, genreScore = item.genreScore)
         Surface(item.surface)
         if (item.tags.isNotEmpty()) Mono(item.tags.joinToString("  ") { "#$it" })
-        SolveTurnRecordsPanel(item.shortestSolveTurns, item.longestSolveTurns)
+        SolveTurnRecordsPanel(item.shortestSolveTurns, item.longestSolveTurns, item.shortestTeamSolveTurns, item.longestTeamSolveTurns)
         InkButton("开始推理", { state.start(item) })
+        TableEntryButton(state, item.id)
         Mono("${item.plays} 人问过    ${item.solves} 人解开")
         TextButton(onClick = { share(context, "https://hgt.mmstudio.games/library/${puzzle.id}") }) {
             Prose("分享这桩案件", size = 14)

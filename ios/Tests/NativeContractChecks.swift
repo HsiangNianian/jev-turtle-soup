@@ -28,6 +28,16 @@ private final class StubProtocol: URLProtocol {
 struct NativeContractChecks {
   @MainActor static func main() async throws {
     let decoder = JSONDecoder()
+    try check(tableInvitationCode("abcd efgh-2345") == "ABCDEFGH2345", "Room invitation codes normalize safely")
+    try check(tableInvitationCode("https://hgt.mmstudio.games/rooms/join?code=ABCDEFGH2345") == "ABCDEFGH2345", "Canonical room links work across clients")
+    for invalid in ["https://evil.test/rooms/join?code=ABCDEFGH2345", "https://user@hgt.mmstudio.games/rooms/join?code=ABCDEFGH2345", "https://hgt.mmstudio.games:8443/rooms/join?code=ABCDEFGH2345", "https://hgt.mmstudio.games.evil.test/rooms/join?code=ABCDEFGH2345"] {
+      try check(tableInvitationCode(invalid) == nil, "Untrusted room links are rejected")
+    }
+    let command = TableCommand(type:"ask",text:"Someone was there?",locale:"en")
+    let encoded = try JSONSerialization.jsonObject(with:JSONEncoder().encode(command)) as! [String:Any]
+    try check(Set(encoded.keys)==["commandId","type","text","locale"] && UUID(uuidString:command.commandId) != nil, "Native room commands match the strict server schema")
+    let feedback=try decoder.decode(TableFeedbackReply.self,from:Data(#"{"id":"report-1"}"#.utf8))
+    try check(feedback.id=="report-1", "Room feedback decodes the server acknowledgement")
     let english =
       #"{"date":"2026-09-23","title":"Signed Rose","difficulty":"中等","tags":[],"locale":"en","genreScore":10,"plays":5,"solves":1}"#
     let daily = try decoder.decode(DailyPuzzle.self, from: Data(english.utf8))

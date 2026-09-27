@@ -3,9 +3,13 @@ import { useI18n } from '@/lib/i18n'
 export function SolveTurnRecords({
   shortest,
   longest,
+  teamShortest,
+  teamLongest,
 }: {
   shortest: number | null | undefined
   longest: number | null | undefined
+  teamShortest?: number | null
+  teamLongest?: number | null
 }) {
   const { t } = useI18n()
   return (
@@ -28,6 +32,21 @@ export function SolveTurnRecords({
       <p className="mt-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
         {t('仅统计已解开对局，作者账号不计入')}
       </p>
+      {teamShortest !== undefined || teamLongest !== undefined ? (
+        <div className="mt-4 border-t border-dashed border-foreground/20 pt-3">
+          <p className="font-mono text-[10px] tracking-wider text-muted-foreground">
+            {t('同桌纪录')}
+          </p>
+          <p className="mt-2 font-serif text-sm">
+            {t('最短解开')} {teamShortest == null ? '—' : t('{turns} 轮', { turns: teamShortest })}
+            <span className="mx-4 text-muted-foreground/40">/</span>
+            {t('最长解开')} {teamLongest == null ? '—' : t('{turns} 轮', { turns: teamLongest })}
+          </p>
+          <p className="mt-2 font-mono text-[10px] leading-5 text-muted-foreground">
+            {t('仅统计共同解开，作者参与过的同桌不计入。')}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

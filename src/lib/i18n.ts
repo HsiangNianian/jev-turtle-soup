@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react'
 
 import { en } from '@/locales/en'
 import { ja } from '@/locales/ja'
+import { roomEn, roomJa } from '@/locales/rooms'
 
 export const LOCALES = ['zh-CN', 'en', 'ja'] as const
 export type Locale = (typeof LOCALES)[number]
@@ -15,8 +16,8 @@ export const LOCALE_LABELS: Record<Locale, { short: string; name: string }> = {
 /** 中文原文即 key，字典只需要放译文；缺译文时自动回落到中文。 */
 export const DICTS: Record<Locale, Record<string, string>> = {
   'zh-CN': {},
-  en,
-  ja,
+  en: { ...roomEn, ...en },
+  ja: { ...roomJa, ...ja },
 }
 
 export const LOCALE_STORAGE_KEY = 'turtle-soup.locale'

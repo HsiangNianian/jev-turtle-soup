@@ -69,6 +69,10 @@ const AdminPage = lazy(() =>
 const GuidePage = lazy(() =>
   import('@/components/GuidePage').then((m) => ({ default: m.GuidePage })),
 )
+const RoomPage = lazy(() => import('@/components/RoomPage').then((m) => ({ default: m.RoomPage })))
+const RoomLobby = lazy(() =>
+  import('@/components/RoomPage').then((m) => ({ default: m.RoomLobby })),
+)
 import {
   askHost,
   fetchHealth,
@@ -177,6 +181,7 @@ export default function App() {
       }
     }
     window.addEventListener('online', resume)
+    window.addEventListener('turtle-soup:auth-check', verifyAccount)
     document.addEventListener('visibilitychange', resume)
     return () => {
       // Invalidate the latest request, not only the one present at mount.
@@ -187,6 +192,7 @@ export default function App() {
       authRequest.current?.abort()
       sync.stop()
       window.removeEventListener('online', resume)
+      window.removeEventListener('turtle-soup:auth-check', verifyAccount)
       document.removeEventListener('visibilitychange', resume)
     }
   }, [sync, verifyAccount])
@@ -860,6 +866,20 @@ function GameApp({
       )
     }
 
+    if (path === '/rooms/new' || path === '/rooms/join' || path === '/me/rooms') {
+      return (
+        <ScrollArea>
+          <RoomLobby
+            key={`${path}:${owner}`}
+            owner={owner}
+            mode={path === '/rooms/new' ? 'new' : path === '/rooms/join' ? 'join' : 'list'}
+          />
+        </ScrollArea>
+      )
+    }
+    const roomMatch = matchPath(path, '/rooms/:id')
+    if (roomMatch) return <RoomPage id={roomMatch.id} owner={owner} />
+
     if (path === '/login') {
       return (
         <ScrollArea>
@@ -1112,7 +1132,7 @@ function GameApp({
       ) : null}
 
       <Suspense fallback={<PageFallback />}>{renderBody()}</Suspense>
-      {path !== '/play' ? (
+      {path !== '/play' && !/^\/rooms\/(?!new$|join$)/.test(path) ? (
         <MobileNavigation path={path} signedIn={Boolean(user)} unread={unread} />
       ) : null}
     </div>

@@ -1339,11 +1339,22 @@ export async function revealGame(store: PuzzleStore, body: Record<string, unknow
 }
 
 /** Judge a single player message against a puzzle whose truth we already hold. */
+export interface JudgeOptions {
+  truthLocked?: boolean
+  /** Only server-owned room state may populate these fields. */
+  manualReveal?: 'vote'
+  room?: {
+    speakerId: string
+    recentQuestions: { id: string; uid: string; text: string }[]
+    reference?: { id: string; uid: string; text: string }
+  }
+}
+
 export async function judge(
   env: GameEnv,
   puzzle: Puzzle,
   body: Record<string, unknown>,
-  options: { truthLocked?: boolean } = {},
+  options: JudgeOptions = {},
 ) {
   const locale = readLocale(body.locale)
   const message = typeof body.message === 'string' ? body.message.trim() : ''
@@ -1371,8 +1382,21 @@ export async function judge(
       canonical_source: puzzle.story?.trim() || puzzle.truth,
       solution_summary: puzzle.truth,
     },
-    recent_player_messages: recentPlayerMessages,
+    recent_player_messages: options.room
+      ? options.room.recentQuestions.slice(-MAX_CONVERSATION).map((q) => ({
+          role: 'player',
+          speaker_id: q.uid,
+          question_id: q.id,
+          text: q.text.slice(0, MAX_MESSAGE_CHARS),
+        }))
+      : recentPlayerMessages,
     latest_player_message: message,
+    ...(options.room
+      ? {
+          current_speaker_id: options.room.speakerId,
+          ...(options.room.reference ? { referenced_question: options.room.reference } : {}),
+        }
+      : {}),
   }
 
   const client = getClient(env)
@@ -1386,7 +1410,7 @@ export async function judge(
         // Slow responses should finish instead of being cancelled at the SDK's 10s default.
         // Two attempts plus at most 1s backoff keep the total wait bounded at about 41s.
         timeout: 20000,
-        retry: { maxRetries: 1, backoffMaxMs: 1000, maxRetryAfterMs: 1000 },
+        retry: { maxRetries: options.room ? 0 : 1, backoffMaxMs: 1000, maxRetryAfterMs: 1000 },
       },
     )
     .catch((error: unknown) => {
@@ -1403,6 +1427,15 @@ export async function judge(
     replyLocale,
     options.truthLocked ?? false,
   )
+  if (options.manualReveal === 'vote' && turn.revealed && !turn.solved) {
+    turn.revealed = false
+    turn.verdict = 'reveal_vote'
+    turn.reply = {
+      'zh-CN': '揭晓需要全体同桌同意，请在投票中确认。',
+      en: 'Revealing the answer needs everyone at the table to agree. Please vote.',
+      ja: '答えの公開には同卓の全員の同意が必要です。投票で確認してください。',
+    }[replyLocale]
+  }
   return {
     ...turn,
     model,

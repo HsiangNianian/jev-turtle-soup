@@ -32,6 +32,8 @@ data class Puzzle(
     val genreScore: Int?,
     val shortestSolveTurns: Int?,
     val longestSolveTurns: Int?,
+    val shortestTeamSolveTurns: Int? = null,
+    val longestTeamSolveTurns: Int? = null,
 ) {
     companion object {
         fun from(o: JSONObject): Puzzle = Puzzle(
@@ -42,6 +44,8 @@ data class Puzzle(
             if (o.isNull("genreScore") || !o.has("genreScore")) null else o.optInt("genreScore"),
             if (o.isNull("shortestSolveTurns") || !o.has("shortestSolveTurns")) null else o.optInt("shortestSolveTurns"),
             if (o.isNull("longestSolveTurns") || !o.has("longestSolveTurns")) null else o.optInt("longestSolveTurns"),
+            if (o.isNull("shortestTeamSolveTurns")) null else o.optInt("shortestTeamSolveTurns"),
+            if (o.isNull("longestTeamSolveTurns")) null else o.optInt("longestTeamSolveTurns"),
         )
     }
 }
@@ -58,6 +62,8 @@ data class Daily(
     val story: String,
     val shortestSolveTurns: Int?,
     val longestSolveTurns: Int?,
+    val shortestTeamSolveTurns: Int? = null,
+    val longestTeamSolveTurns: Int? = null,
 ) {
     val language: String get() = when (locale) { "en" -> "英文"; "ja" -> "日文"; else -> "中文" }
     val isLocked: Boolean get() = date >= java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
@@ -69,6 +75,8 @@ data class Daily(
             o.str("truth"), o.str("story"),
             if (o.isNull("shortestSolveTurns") || !o.has("shortestSolveTurns")) null else o.optInt("shortestSolveTurns"),
             if (o.isNull("longestSolveTurns") || !o.has("longestSolveTurns")) null else o.optInt("longestSolveTurns"),
+            if (o.isNull("shortestTeamSolveTurns")) null else o.optInt("shortestTeamSolveTurns"),
+            if (o.isNull("longestTeamSolveTurns")) null else o.optInt("longestTeamSolveTurns"),
         )
     }
 }
@@ -133,7 +141,9 @@ data class Game(
 }
 
 /** HTTPS-only client; stores the session cookie separately from the WebView cookie jar. */
-class SoupApi(context: Context) {
+class SoupApi(context: Context, internal val origin: String = "https://hgt.mmstudio.games", private val testCookie: String? = null) {
+    init { require(origin == "https://hgt.mmstudio.games" && testCookie == null || BuildConfig.DEBUG && origin == "http://127.0.0.1:8799") }
+
     private val prefs = context.getSharedPreferences("soup.api", Context.MODE_PRIVATE)
     val playerKey: String = prefs.getString("playerKey", null) ?: UUID.randomUUID().toString().also {
         prefs.edit().putString("playerKey", it).apply()
@@ -142,14 +152,15 @@ class SoupApi(context: Context) {
     suspend fun request(path: String, method: String = "GET", body: JSONObject? = null,
         owner: String? = null): JSONObject = withContext(Dispatchers.IO) {
         require(path.startsWith("/api/"))
-        val connection = (URL("https://hgt.mmstudio.games$path").openConnection() as HttpURLConnection)
+        val connection = (URL("$origin$path").openConnection() as HttpURLConnection)
         try {
             connection.requestMethod = method
             connection.connectTimeout = 20_000
             connection.readTimeout = 150_000
             connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("User-Agent", "TurtleSoup-Android/0.1.2")
-            prefs.getString("sessionCookie", null)?.let { connection.setRequestProperty("Cookie", it) }
+            if (path.startsWith("/api/rooms") || path.startsWith("/api/me/rooms")) connection.setRequestProperty("X-Room-Protocol", "1")
+            connection.setRequestProperty("User-Agent", "TurtleSoup-Android/0.2.0")
+            (testCookie ?: prefs.getString("sessionCookie", null))?.let { connection.setRequestProperty("Cookie", it) }
             owner?.let { connection.setRequestProperty("X-Save-Owner", it) }
             if (body != null) {
                 connection.doOutput = true
@@ -171,6 +182,7 @@ class SoupApi(context: Context) {
     }
 
     fun clearSession() { prefs.edit().remove("sessionCookie").apply() }
+    fun roomSessionCookie(): String = testCookie ?: prefs.getString("sessionCookie", "").orEmpty()
     fun segment(value: String): String = Uri.encode(value)
 }
 

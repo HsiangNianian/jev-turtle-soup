@@ -32,8 +32,19 @@ struct NativeRootView: View {
       NavigationStack { InvestigationScreen(caseID: route.id) }
         .environmentObject(store).environmentObject(community).tint(SoupTheme.ink)
     }
+    .fullScreenCover(item: $store.activeTable) { route in
+      if let owner=store.user?.uid {
+        NavigationStack {TableScreen(roomID:route.id,owner:owner)}.environmentObject(store).tint(SoupTheme.ink)
+      }
+    }
     .task {
       await store.bootstrap()
+      #if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.environment["NATIVE_ROOMS_URL"] == "http://127.0.0.1:8799",
+          let id = ProcessInfo.processInfo.environment["NATIVE_ROOMS_ID"], UUID(uuidString:id) != nil {
+          store.activeTable = TableRoute(id:id)
+        }
+      #endif
       await SoupAPI.shared.trackEngagement("entry_view")
     }
     .onChange(of: store.user?.uid, initial: true) { _, uid in
@@ -158,6 +169,7 @@ struct DailyScreen: View {
     InkButton(title: store.games.contains(where: { $0.id == today.puzzleId }) ? "继续调查" : "开始推理") {
       store.start(today)
     }.accessibilityIdentifier("startDaily")
+    if let id=today.puzzleId {TableEntryLink(puzzleID:id)}
     NavigationLink {
       DailyDetailScreen(date: today.date, initial: today)
     } label: {
@@ -182,9 +194,10 @@ struct DailyDetailScreen: View {
         SurfaceQuote(text: item.surface ?? "")
           .textSelection(.enabled)
         if !item.isLocked {
-          SolveTurnRecordsView(shortest: item.shortestSolveTurns, longest: item.longestSolveTurns)
+          SolveTurnRecordsView(shortest: item.shortestSolveTurns, longest: item.longestSolveTurns, teamShortest:item.shortestTeamSolveTurns, teamLongest:item.longestTeamSolveTurns)
         }
         InkButton(title: "开始推理") { store.start(item) }
+        if let id=item.puzzleId {TableEntryLink(puzzleID:id)}
         if item.isLocked {
           Label("明日解锁汤底，今天只管大胆提问。", systemImage: "lock")
             .font(SoupFont.serif(14)).foregroundStyle(SoupTheme.muted)
@@ -266,8 +279,9 @@ struct PuzzleDetailScreen: View {
           .foregroundStyle(
             .secondary)
       }
-      SolveTurnRecordsView(shortest: item.shortestSolveTurns, longest: item.longestSolveTurns)
+      SolveTurnRecordsView(shortest: item.shortestSolveTurns, longest: item.longestSolveTurns, teamShortest:item.shortestTeamSolveTurns, teamLongest:item.longestTeamSolveTurns)
       InkButton(title: "开始推理") { store.start(item) }.accessibilityIdentifier("startLibrary")
+      TableEntryLink(puzzleID:item.id)
       HStack {
         Label("\(item.plays) 人问过", systemImage: "bubble.left.and.bubble.right")
         Spacer()
@@ -287,13 +301,19 @@ struct PuzzleDetailScreen: View {
 private struct SolveTurnRecordsView: View {
   let shortest: Int?
   let longest: Int?
+  var teamShortest: Int? = nil
+  var teamLongest: Int? = nil
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .top, spacing: 20) {
         turnRecord("最短解开", turns: shortest)
         turnRecord("最长解开", turns: longest)
       }.frame(maxWidth: .infinity, alignment: .leading)
-      Text("仅统计已解开对局，作者账号不计入")
+      HStack(alignment:.top,spacing:20){
+        turnRecord("同桌最短",turns:teamShortest)
+        turnRecord("同桌最长",turns:teamLongest)
+      }
+      Text("单人与同桌分别统计；仅计成功解开，作者参与不计入")
         .font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
     }.padding(.vertical, 15)
       .overlay(alignment: .top) { PaperRule() }

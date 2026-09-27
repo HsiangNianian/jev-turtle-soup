@@ -25,11 +25,12 @@ function capture(executable, arguments_) {
 }
 
 function help() {
-  console.log(`Usage: node scripts/ios.mjs <open|doctor|test|build|install> [options]
+  console.log(`Usage: node scripts/ios.mjs <open|doctor|test|test-rooms|build|install> [options]
 
   open       Open the Xcode project
   doctor     Show Xcode, signing identities, and connected devices
   test       Check native API contracts, daily metadata, and archive isolation
+  test-rooms Check real native sockets against the isolated local room preview
   build      Compile an unsigned iPhone app without an Apple account
   install    Sign, install, and launch on a connected iPhone
 
@@ -57,7 +58,7 @@ try {
     help()
     process.exit(0)
   }
-  if (!['open', 'doctor', 'test', 'build', 'install'].includes(command)) {
+  if (!['open', 'doctor', 'test', 'test-rooms', 'build', 'install'].includes(command)) {
     throw new Error(`Unknown command: ${command}`)
   }
   if (process.platform !== 'darwin') throw new Error('The iOS tools require macOS and Xcode.')
@@ -67,18 +68,26 @@ try {
     run('xcodebuild', ['-version'])
     run('security', ['find-identity', '-v', '-p', 'codesigning'])
     run('xcrun', ['devicectl', 'list', 'devices'])
-  } else if (command === 'test') {
+  } else if (command === 'test' || command === 'test-rooms') {
+    const rooms = command === 'test-rooms'
+    if (rooms) process.env.NATIVE_ROOMS_URL = 'http://127.0.0.1:8799'
     mkdirSync(path.join(root, '.build'), { recursive: true })
-    const checks = path.join(root, '.build/native-contract-checks')
+    const checks = path.join(
+      root,
+      rooms ? '.build/native-room-checks' : '.build/native-contract-checks',
+    )
     run('xcrun', [
       'swiftc',
+      ...(rooms ? ['-D', 'DEBUG'] : []),
       'ios/TurtleSoup/NativeModels.swift',
+      'ios/TurtleSoup/RoomModels.swift',
+      'ios/TurtleSoup/RoomStore.swift',
       'ios/TurtleSoup/CommunityModels.swift',
       'ios/TurtleSoup/CommunityStore.swift',
       'ios/TurtleSoup/SoupStore.swift',
       'ios/TurtleSoup/CaseArchive.swift',
       'ios/TurtleSoup/SoupAPI.swift',
-      'ios/Tests/NativeContractChecks.swift',
+      rooms ? 'ios/Tests/RoomLiveChecks.swift' : 'ios/Tests/NativeContractChecks.swift',
       '-o',
       checks,
     ])

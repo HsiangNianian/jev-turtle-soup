@@ -122,6 +122,7 @@ import org.json.JSONObject
             if (state.user!!.handle.isNotBlank()) AccountLink("我的主页", "让汤友认识你") {
                 state.open(Page.Author(state.user!!.handle))
             }
+            AccountLink("我的同桌", "共同推理与讨论") { state.open(Page.MyTables) }
             AccountLink("我熬的汤", "作品与私藏") { state.open(Page.MySoups) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
@@ -147,7 +148,7 @@ import org.json.JSONObject
         SectionTitle("偏好与帮助")
         AccountLink("调查员手册", "学会提问") { state.open(Page.Guide) }
         if (state.user != null) TextButton(onClick = { state.signOut() }) { Prose("退出登录", color = redColor(), size = 14) }
-        Mono("海龟汤 · Android 0.1.0\n一人熬汤，众人寻味。")
+        Mono("海龟汤 · Android ${BuildConfig.VERSION_NAME}\n一人熬汤，众人寻味。")
     }
 }
 

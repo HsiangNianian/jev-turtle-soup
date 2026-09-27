@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.36.0 - 2026-09-28
+
+### Features
+
+- Add invitation-only tables for 2–6 signed-in players on Web/PWA, native iOS 0.5.0 and native Android 0.2.0: shared questions, separate discussion, follow-up references, unanimous reveal votes and shared case reports.
+- Keep table archives under My Tables with reconnect recovery, persisted unacknowledged operations, host transfer, invitation controls and a frozen archive for removed members.
+- Publish separate team shortest/longest solve records, exclude tables in which the author participated, and count only consenting nonauthors toward deduplicated manual reveals.
+
+### Reliability and security
+
+- Coordinate each table in a SQLite Durable Object with sequential Jev processing, durable leases, idempotent commands, event replay and retryable D1 projection.
+- Require account authentication, membership checks, same-origin browser requests, single-use session-bound WebSocket tickets and bounded inputs/rates. Keep truth and original stories server-side until an authorized conclusion.
+- Verify native and browser room identity before replaying pending commands; reject expired sessions and stop removed members from receiving later events.
+
 ## 0.35.13 - 2026-09-27
 
 ### Improvements

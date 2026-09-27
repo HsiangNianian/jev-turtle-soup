@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.12 - 2026-09-27
+
+### Improvements
+
+- Cover each library detail's tags and their spacing with one continuous spoiler layer, including wrapped lines, and reveal the group together for three seconds.
+- Replace the solid fill and hard edges with transparent frosted blur, feathered edges, and softer particles with the appearance of dew on glass.
+
 ## 0.35.11 - 2026-09-27
 
 ### Features

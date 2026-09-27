@@ -3,9 +3,9 @@
  * here falls back to Chinese instead of showing a raw key.
  */
 export const en: Record<string, string> = {
-  '显示标签，3 秒后自动隐藏': 'Reveal tag; hides again after 3 seconds',
-  '标签：{tag}，点击延长显示': 'Tag: {tag}; activate to keep it visible longer',
-  '点击或悬停，短暂显示标签': 'Tap or hover to briefly reveal this tag',
+  '显示标签，3 秒后自动隐藏': 'Reveal tags; hide again after 3 seconds',
+  '标签：{tag}，点击延长显示': 'Tags: {tag}; activate to keep them visible longer',
+  '点击或悬停，短暂显示标签': 'Tap or hover to briefly reveal the tags',
   完整背景故事: 'Full backstory',
   '含剧透，点击查看': 'Contains spoilers · tap to read',
   收起故事: 'Hide story',

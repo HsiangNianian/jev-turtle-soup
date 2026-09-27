@@ -90,9 +90,7 @@ export function PuzzleDetailPage({
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
         {puzzle.official ? <OfficialMark /> : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
-        {puzzle.tags.map((tag) => (
-          <TagSpoiler key={tag} tag={tag} />
-        ))}
+        <TagSpoiler tags={puzzle.tags} />
         {genreLabel(puzzle.genreScore, t) ? (
           <span className="text-stamp/80">{genreLabel(puzzle.genreScore, t)}</span>
         ) : null}

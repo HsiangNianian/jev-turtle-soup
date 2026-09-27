@@ -192,35 +192,54 @@
     display: block;
     position: relative;
     max-width: 100%;
-    padding: 5px 7px;
-    overflow: hidden;
-    border-radius: var(--radius);
+    padding: 8px 10px;
   }
 
   .tag-spoiler__text {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
     overflow-wrap: anywhere;
+    text-align: left;
     color: var(--foreground);
-    filter: blur(4px);
-    opacity: 0.3;
+    filter: blur(4.5px);
+    opacity: 0.5;
     transition:
       filter 180ms ease,
       opacity 180ms ease;
   }
 
   .tag-spoiler__veil {
+    --tag-spoiler-mist: rgba(23, 21, 15, 0.045);
     position: absolute;
-    inset: 0;
+    inset: -6px -10px;
     overflow: hidden;
     pointer-events: none;
-    background: rgba(140, 134, 119, 0.55);
-    background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+    /* Let the paper/ink show through; the fog comes from defocus and dew,
+       with just a trace of reflected light instead of a painted white base. */
+    background:
+      linear-gradient(115deg, transparent 15%, rgba(255, 255, 255, 0.04) 48%, transparent 80%),
+      linear-gradient(var(--tag-spoiler-mist), var(--tag-spoiler-mist));
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    -webkit-mask-image:
+      linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent),
+      linear-gradient(to bottom, transparent, #000 9px, #000 calc(100% - 9px), transparent);
+    mask-image:
+      linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent),
+      linear-gradient(to bottom, transparent, #000 9px, #000 calc(100% - 9px), transparent);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
     opacity: 1;
     transition: opacity 180ms ease;
   }
 
-  /* Two drifting dust layers keep the white speckles irregular without a JS
-     animation loop or an animated DOM node for every particle. */
+  .dark .tag-spoiler__veil {
+    --tag-spoiler-mist: rgba(236, 231, 219, 0.025);
+  }
+
+  /* Small highlights and soft shadows read as dew on clear glass. Both layers
+     span the entire tag group, including the gaps and any wrapped lines. */
   .tag-spoiler__veil::before,
   .tag-spoiler__veil::after {
     content: '';
@@ -229,13 +248,15 @@
     background-image: url('./assets/tag-dust.svg');
     background-size: 128px 40px;
     background-position: var(--tag-dust-x) var(--tag-dust-y);
-    animation: tag-spoiler-dust 1700ms ease-in-out infinite alternate;
+    filter: blur(0.25px) drop-shadow(0 0.5px 0.35px rgba(23, 21, 15, 0.25));
+    animation: tag-spoiler-dust 2600ms ease-in-out infinite alternate;
     animation-delay: var(--tag-dust-phase);
   }
 
   .tag-spoiler__veil::after {
     background-position: calc(var(--tag-dust-x) + 43px) calc(var(--tag-dust-y) + 17px);
-    animation-duration: 1300ms;
+    filter: blur(0.6px) drop-shadow(0 0.5px 0.35px rgba(23, 21, 15, 0.18));
+    animation-duration: 2100ms;
     animation-delay: calc(var(--tag-dust-phase) - 900ms);
     animation-direction: alternate-reverse;
   }
@@ -257,14 +278,14 @@
   @keyframes tag-spoiler-dust {
     0% {
       transform: translate(-3px, -2px);
-      opacity: 0.65;
+      opacity: 0.35;
     }
     50% {
-      opacity: 1;
+      opacity: 0.7;
     }
     100% {
       transform: translate(3px, 2px);
-      opacity: 0.5;
+      opacity: 0.4;
     }
   }
 

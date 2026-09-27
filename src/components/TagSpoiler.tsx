@@ -3,13 +3,13 @@ import { useI18n } from '@/lib/i18n'
 
 const REVEAL_MS = 3000
 
-/** A brief peek at a potentially revealing tag, never a persistent spoiler setting. */
-export function TagSpoiler({ tag }: { tag: string }) {
+/** One continuous glass veil over the tags and their spacing. */
+export function TagSpoiler({ tags }: { tags: string[] }) {
   const { t } = useI18n()
   const [revealed, setRevealed] = useState(false)
   const timer = useRef<number | undefined>(undefined)
   const dustSeed =
-    Array.from(tag).reduce(
+    Array.from(tags.join(' ')).reduce(
       (seed, letter) => Math.imul(seed, 31) + (letter.codePointAt(0) ?? 0),
       7,
     ) >>> 0
@@ -39,6 +39,8 @@ export function TagSpoiler({ tag }: { tag: string }) {
     }
   }, [hide])
 
+  if (!tags.length) return null
+
   return (
     <button
       type="button"
@@ -46,7 +48,9 @@ export function TagSpoiler({ tag }: { tag: string }) {
       data-revealed={revealed}
       aria-expanded={revealed}
       aria-label={
-        revealed ? t('标签：{tag}，点击延长显示', { tag }) : t('显示标签，3 秒后自动隐藏')
+        revealed
+          ? t('标签：{tag}，点击延长显示', { tag: tags.join(' · ') })
+          : t('显示标签，3 秒后自动隐藏')
       }
       title={t('点击或悬停，短暂显示标签')}
       onPointerEnter={(event) => {
@@ -60,7 +64,11 @@ export function TagSpoiler({ tag }: { tag: string }) {
       }}
     >
       <span className="tag-spoiler__face" aria-hidden="true">
-        <span className="tag-spoiler__text">#{tag}</span>
+        <span className="tag-spoiler__text">
+          {tags.map((tag, index) => (
+            <span key={`${index}:${tag}`}>#{tag}</span>
+          ))}
+        </span>
         <span
           className="tag-spoiler__veil"
           style={

@@ -138,7 +138,7 @@ describe('first-party engagement', () => {
   })
 })
 
-it('keeps metrics admin-only and disables both digest endpoints', async () => {
+it('keeps metrics and weekly digest admin-only, and preview does not send email', async () => {
   const email = { send: vi.fn().mockResolvedValue(undefined) }
   const env: Env = {
     DB: data.db,
@@ -150,6 +150,8 @@ it('keeps metrics admin-only and disables both digest endpoints', async () => {
   const request = (path: string, init: RequestInit = {}) =>
     worker.fetch(new Request(`http://localhost${path}`, init), env)
   expect((await request('/api/admin/metrics')).status).toBe(401)
+  expect((await request('/api/admin/digest')).status).toBe(401)
+  expect((await request('/api/admin/digest/send', { method: 'POST' })).status).toBe(401)
   const codeResponse = await request('/api/auth/request', {
     method: 'POST',
     body: JSON.stringify({ email: 'admin@example.com' }),
@@ -165,8 +167,8 @@ it('keeps metrics admin-only and disables both digest endpoints', async () => {
   email.send.mockClear()
   const read = await request('/api/admin/digest', { headers: { cookie } })
   const send = await request('/api/admin/digest/send', { method: 'POST', headers: { cookie } })
-  expect(read.status).toBe(410)
-  expect(send.status).toBe(410)
+  expect(read.status).toBe(200)
+  expect(send.status).toBe(403)
   expect(email.send).not.toHaveBeenCalled()
   const metrics = await request('/api/admin/metrics', { headers: { cookie } })
   expect(metrics.status).toBe(200)

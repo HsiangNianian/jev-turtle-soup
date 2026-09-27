@@ -3,6 +3,7 @@
  * 类型和后端 shared/admin.ts、shared/audit.ts、shared/telemetry.ts 一一对应。
  */
 import type { ReportSnapshotRead } from '../../shared/report-snapshot'
+import type { digestOverview } from '../../shared/digest-delivery'
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
@@ -151,36 +152,20 @@ export function getAdminMetrics() {
   return request<AdminMetrics>('/api/admin/metrics?days=28')
 }
 
-export interface DigestCounts {
-  plays: number
-  solves: number
-  likes: number
-  comments: number
-}
-
-export interface DigestRecipient {
-  uid: string
-  email: string
-  displayName: string
-  locale: string
-  total: number
-  counts: DigestCounts
-}
-
-export interface AdminDigest {
-  windowMs: number
-  recipients: DigestRecipient[]
-  preview: { subject: string; text: string; html: string } | null
-}
+export type AdminDigest = Awaited<ReturnType<typeof digestOverview>>
 
 export function getAdminDigest() {
   return request<AdminDigest>('/api/admin/digest')
 }
 
-export function sendAdminDigest() {
-  return request<{ sent: number; failed: number; total: number }>('/api/admin/digest/send', {
-    method: 'POST',
-  })
+export function sendAdminDigest(periodEnd: number) {
+  return request<{ sent: number; failed: number; uncertain: number; total: number }>(
+    '/api/admin/digest/send',
+    {
+      method: 'POST',
+      body: JSON.stringify({ periodEnd }),
+    },
+  )
 }
 
 export function removeAdmin(uid: string) {

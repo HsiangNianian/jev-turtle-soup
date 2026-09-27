@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.37.0 - 2026-09-28
+
+### Features
+
+- Restore the admin author-digest panel alongside community metrics, with email previews, the next scheduled send, per-author status, recent delivery history, and manual send/retry controls.
+- Automatically send author activity digests every Monday at 20:00 Asia/Shanghai (12:00 UTC), starting September 28. Send only to authors with public puzzles, recent activity, and no opt-out; keep Chinese, English, and Japanese email copy and unsubscribe links.
+
+### Reliability
+
+- Use fixed weekly windows and durable per-author reservations so overlapping Cron invocations and manual sends cannot duplicate accepted messages. Preserve the statistics snapshot on retries and expose ambiguous outcomes for inspection.
+- Exclude authors' own actions, page through all eligible authors, escape display names in HTML email, and protect manual sends with administrator and same-origin checks.
+- Add migration `021-weekly-digest.sql` before deploying the Worker. Retain the existing daily-puzzle and maintenance schedules.
+
+### Native apps
+
+- Native clients remain iOS 0.5.0 (build 10) and Android 0.2.0 (build 4), including invited multiplayer tables. The iOS Simulator archive is unsigned and cannot be installed on an iPhone; physical-device builds use the Xcode Personal Team setup in `ios/README.md`. The Android APK is a debug-signed test build.
+
 ## 0.36.0 - 2026-09-28
 
 ### Features

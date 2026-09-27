@@ -8,6 +8,8 @@ import {
   addAdmin,
   clearAdminErrors,
   getAdminMetrics,
+  getAdminDigest,
+  sendAdminDigest,
   deleteAdminError,
   deleteAdminFlag,
   deleteAdminReport,
@@ -20,6 +22,7 @@ import {
   setAdminPuzzleFeatured,
   setAdminReportStatus,
   type AdminMetrics,
+  type AdminDigest,
   type AdminEntry,
   type AdminError,
   type AdminFlag,
@@ -55,12 +58,13 @@ function fmt(ts: number): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-type Tab = 'reports' | 'flags' | 'puzzles' | 'metrics' | 'errors' | 'admins'
+type Tab = 'reports' | 'flags' | 'puzzles' | 'metrics' | 'digest' | 'errors' | 'admins'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'reports', label: '玩家反馈' },
   { key: 'flags', label: '判读巡检' },
   { key: 'puzzles', label: '题库精选' },
   { key: 'metrics', label: '社群观察' },
+  { key: 'digest', label: '作者周报' },
   { key: 'errors', label: '客户端错误' },
   { key: 'admins', label: '管理员' },
 ]
@@ -94,6 +98,7 @@ export function AdminPage() {
         {tab === 'flags' ? <FlagsPanel /> : null}
         {tab === 'puzzles' ? <PuzzlesPanel /> : null}
         {tab === 'metrics' ? <MetricsPanel /> : null}
+        {tab === 'digest' ? <DigestPanel /> : null}
         {tab === 'errors' ? <ErrorsPanel /> : null}
         {tab === 'admins' ? <AdminsPanel /> : null}
       </div>
@@ -114,6 +119,193 @@ function Meta({ children }: { children: React.ReactNode }) {
     <span className="font-mono text-[10px] tracking-[0.12em] text-muted-foreground">
       {children}
     </span>
+  )
+}
+
+const DIGEST_STATUS: Record<string, string> = {
+  pending: '待发送',
+  sent: '已提交发送',
+  failed: '发送失败',
+  uncertain: '结果待核查',
+  sending: '发送中',
+  skipped: '已跳过',
+}
+function digestDate(ts: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(ts)
+}
+
+function DigestPanel() {
+  const [data, setData] = useState<AdminDigest | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(
+    () =>
+      getAdminDigest()
+        .then((value) => {
+          setData(value)
+          setError(null)
+        })
+        .catch((caught: unknown) => {
+          setError(caught instanceof Error ? caught.message : '加载失败')
+        }),
+    [],
+  )
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function send() {
+    if (
+      !data ||
+      !window.confirm(
+        `发送 ${digestDate(data.until)} 这一期周报？将发送或补发 ${data.sendable} 封，已发送的不会重复。`,
+      )
+    )
+      return
+    setBusy(true)
+    setResult(null)
+    setError(null)
+    try {
+      const outcome = await sendAdminDigest(data.until)
+      setResult(
+        `本次提交发送 ${outcome.sent} 封，失败 ${outcome.failed} 封，待核查 ${outcome.uncertain} 封。`,
+      )
+    } catch (caught) {
+      setResult(caught instanceof Error ? caught.message : '发送失败，请刷新查看记录')
+    } finally {
+      await load()
+      setBusy(false)
+    }
+  }
+
+  if (!data && !error) return <Loading />
+  return (
+    <div className="space-y-7">
+      <div className="border-y border-foreground/25 py-5">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+          <h2 className="font-serif text-xl">作者周报</h2>
+          <Meta>每周一 20:00 · 北京时间</Meta>
+        </div>
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">
+          自动汇总过去一周的游玩、解开、赞与留言。只发给有公开作品、有新动态且未退订的作者；没有新动态就不打扰。
+        </p>
+        {data ? <p className="mt-2 text-sm">下次自动发送：{digestDate(data.nextSendAt)}</p> : null}
+      </div>
+      {error ? <Notice tone="stamp">{error}</Notice> : null}
+      {result ? <Notice>{result}</Notice> : null}
+      {data ? (
+        <>
+          {!data.configured ? <Notice tone="stamp">邮件服务尚未配置，当前不能发送。</Notice> : null}
+          <section>
+            <h3 className="font-serif text-lg">最近一期</h3>
+            <p className="mt-2 text-xs leading-6 text-muted-foreground">
+              {digestDate(data.since)} 至 {digestDate(data.until)}（北京时间）
+            </p>
+            <div className="my-4 flex flex-wrap items-center gap-3">
+              <Button
+                onClick={() => void send()}
+                disabled={busy || !data.configured || !data.sendable}
+              >
+                {busy ? '正在发送…' : '发送 / 补发这一期'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => void load()}
+                disabled={busy}
+                className="px-2 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                刷新记录
+              </button>
+              <Meta>待发送 / 可补发 {data.sendable} 封</Meta>
+            </div>
+            {data.recipients.length ? (
+              <ul className="border-t border-foreground/20">
+                {data.recipients.map((item) => (
+                  <li
+                    key={item.uid}
+                    className="rule-dashed flex flex-wrap items-start justify-between gap-2 py-3"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="break-all text-sm">
+                        {item.displayName}{' '}
+                        <span className="text-muted-foreground">· {item.email}</span>
+                      </div>
+                      <div className="text-xs leading-6 text-muted-foreground">
+                        游玩 {item.counts.plays} · 解开 {item.counts.solves} · 赞{' '}
+                        {item.counts.likes} · 留言 {item.counts.comments}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        'text-xs leading-6',
+                        item.status === 'failed' || item.status === 'uncertain'
+                          ? 'text-stamp'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {DIGEST_STATUS[item.status]}
+                      {item.attempts >= 3 && item.status === 'failed' ? '（已达重试上限）' : ''}
+                      {item.errorCode ? (
+                        <span className="block break-all font-mono text-[10px]">
+                          {item.errorCode}
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty>这一期没有需要发送的周报。</Empty>
+            )}
+          </section>
+          {data.preview ? (
+            <details className="border-y border-foreground/20 py-4">
+              <summary className="cursor-pointer text-sm">查看邮件样例</summary>
+              <p className="mt-4 text-sm font-bold">{data.preview.subject}</p>
+              <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-7 text-muted-foreground">
+                {data.preview.text}
+              </pre>
+            </details>
+          ) : null}
+          <section>
+            <h3 className="font-serif text-lg">发送记录</h3>
+            <p className="mt-2 text-xs leading-6 text-muted-foreground">
+              已提交发送表示邮件服务已接收。结果待核查的邮件不会重复发送，需先核对邮件服务日志。
+            </p>
+            {data.history.length ? (
+              <ul className="mt-3 border-t border-foreground/20">
+                {data.history.map((run) => (
+                  <li key={run.periodEnd} className="rule-dashed space-y-1 py-3 text-sm">
+                    <div>
+                      {digestDate(run.periodEnd)} · {run.source === 'cron' ? '自动' : '手动'}
+                    </div>
+                    <p className="text-xs leading-6 text-muted-foreground">
+                      已提交 {run.sent} · 失败 {run.failed} · 待核查 {run.uncertain} · 发送中{' '}
+                      {run.sending} · 跳过 {run.skipped}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                还没有发送记录，等待下一次定时发送。
+              </p>
+            )}
+          </section>
+        </>
+      ) : (
+        <Button onClick={() => void load()}>重新加载</Button>
+      )}
+    </div>
   )
 }
 

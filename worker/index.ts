@@ -27,7 +27,8 @@ import {
   setReportStatus,
 } from '../shared/admin.ts'
 import { composeDaily, LOCALE_LABEL_ZH, utcDateKey } from '../shared/daily.ts'
-import { unsubscribeByToken } from '../shared/digest.ts'
+import { DIGEST_CRON, digestPeriod, unsubscribeByToken } from '../shared/digest.ts'
+import { deliverDigest, digestOverview } from '../shared/digest-delivery.ts'
 import { deleteSave, importSaves, listSaves, putSave } from '../shared/saves.ts'
 import {
   authorActivity,
@@ -848,9 +849,24 @@ async function routeAdmin(
     return json({ ok: true })
   }
 
-  // 作者周报暂不发送。保留退订接口，以便此前收到过邮件的用户仍可退订。
-  if (pathname === '/api/admin/digest' || pathname === '/api/admin/digest/send') {
-    return json({ error: '作者周报暂未启用' }, 410)
+  if (pathname === '/api/admin/digest') {
+    if (request.method !== 'GET') return json({ error: '方法不被允许' }, 405)
+    return json(await digestOverview(db, env))
+  }
+  if (pathname === '/api/admin/digest/send') {
+    if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
+    if (
+      request.headers.get('origin') !== url.origin ||
+      !request.headers.get('content-type')?.toLowerCase().startsWith('application/json')
+    ) {
+      return json({ error: '请从管理后台发送周报' }, 403)
+    }
+    const body = await readJson(request)
+    const now = Date.now()
+    if (body.periodEnd !== digestPeriod(now).until) {
+      return json({ error: '周报期次已更新，请刷新后重试' }, 409)
+    }
+    return json(await deliverDigest(db, env, now, 'manual'))
   }
 
   if (pathname === '/api/admin/metrics') {
@@ -1238,15 +1254,28 @@ async function serveHtml(
 
 export default {
   /**
-   * Cron 分两条线：
+   * Cron 分三条线（UTC）：
    * - 每 6 小时（含 00:00）：生成当天官方汤（缺题时补）
    * - 04:00：清理过期日志，并巡检最近的可疑判读
+   * - 每周一 12:00：发送上一周有动态的作者周报
    */
   async scheduled(
     event: { scheduledTime: number; cron?: string },
     env: Env,
     _ctx: { waitUntil(promise: Promise<unknown>): void },
   ): Promise<void> {
+    if (event.cron === DIGEST_CRON) {
+      try {
+        const result = await deliverDigest(requireDb(env), env, event.scheduledTime, 'cron')
+        console.log(`[digest] ${JSON.stringify(result)}`)
+        if (result.outstanding)
+          throw new Error(`作者周报：${result.outstanding} 封尚未确认发送，请在后台查看`)
+      } catch (error) {
+        await reportWorkerError(env, error, 'worker:cron', 'cron:digest')
+        throw error
+      }
+      return
+    }
     if (event.cron === MAINTENANCE_CRON) {
       try {
         const result = await runMaintenance(env)

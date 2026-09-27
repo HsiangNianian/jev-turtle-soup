@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.11 - 2026-09-27
+
+### Features
+
+- Cover every library-detail tag with Gaussian blur and animated white dust. Hover, tap, or keyboard activation reveals an individual tag for three seconds; activating again renews the timer.
+- Remask tags when focus leaves or the page goes into the background, avoid revealing on touch scrolling, and respect reduced-motion preferences.
+
 ## 0.35.10 - 2026-09-27
 
 ### Features

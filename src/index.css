@@ -168,6 +168,118 @@
     line-height: 1.95;
   }
 
+  .tag-spoiler {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    max-width: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tag-spoiler:focus-visible {
+    outline: 2px solid var(--stamp);
+    outline-offset: 2px;
+  }
+
+  .tag-spoiler__face {
+    display: block;
+    position: relative;
+    max-width: 100%;
+    padding: 5px 7px;
+    overflow: hidden;
+    border-radius: var(--radius);
+  }
+
+  .tag-spoiler__text {
+    display: block;
+    overflow-wrap: anywhere;
+    color: var(--foreground);
+    filter: blur(4px);
+    opacity: 0.3;
+    transition:
+      filter 180ms ease,
+      opacity 180ms ease;
+  }
+
+  .tag-spoiler__veil {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: rgba(140, 134, 119, 0.55);
+    background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+    opacity: 1;
+    transition: opacity 180ms ease;
+  }
+
+  /* Two drifting dust layers keep the white speckles irregular without a JS
+     animation loop or an animated DOM node for every particle. */
+  .tag-spoiler__veil::before,
+  .tag-spoiler__veil::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    background-image: url('./assets/tag-dust.svg');
+    background-size: 128px 40px;
+    background-position: var(--tag-dust-x) var(--tag-dust-y);
+    animation: tag-spoiler-dust 1700ms ease-in-out infinite alternate;
+    animation-delay: var(--tag-dust-phase);
+  }
+
+  .tag-spoiler__veil::after {
+    background-position: calc(var(--tag-dust-x) + 43px) calc(var(--tag-dust-y) + 17px);
+    animation-duration: 1300ms;
+    animation-delay: calc(var(--tag-dust-phase) - 900ms);
+    animation-direction: alternate-reverse;
+  }
+
+  .tag-spoiler[data-revealed='true'] .tag-spoiler__text {
+    filter: blur(0);
+    opacity: 1;
+  }
+
+  .tag-spoiler[data-revealed='true'] .tag-spoiler__veil {
+    opacity: 0;
+  }
+
+  .tag-spoiler[data-revealed='true'] .tag-spoiler__veil::before,
+  .tag-spoiler[data-revealed='true'] .tag-spoiler__veil::after {
+    animation-play-state: paused;
+  }
+
+  @keyframes tag-spoiler-dust {
+    0% {
+      transform: translate(-3px, -2px);
+      opacity: 0.65;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(3px, 2px);
+      opacity: 0.5;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tag-spoiler__text,
+    .tag-spoiler__veil {
+      transition: none;
+    }
+
+    .tag-spoiler__veil::before,
+    .tag-spoiler__veil::after {
+      animation: none;
+    }
+  }
+
   .rule-dashed {
     border-bottom: 1px dashed var(--border);
   }

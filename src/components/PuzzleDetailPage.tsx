@@ -5,6 +5,7 @@ import { Button, Empty, OfficialMark, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
 import { SolveTurnRecords } from '@/components/SolveTurnRecords'
 import { OfficialStory } from '@/components/OfficialStory'
+import { TagSpoiler } from '@/components/TagSpoiler'
 import { genreLabel } from '@/lib/library-client'
 
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
@@ -90,7 +91,7 @@ export function PuzzleDetailPage({
         {puzzle.official ? <OfficialMark /> : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         {puzzle.tags.map((tag) => (
-          <span key={tag}>#{tag}</span>
+          <TagSpoiler key={tag} tag={tag} />
         ))}
         {genreLabel(puzzle.genreScore, t) ? (
           <span className="text-stamp/80">{genreLabel(puzzle.genreScore, t)}</span>
@@ -128,7 +129,7 @@ export function PuzzleDetailPage({
         </Link>
       </div>
 
-      {puzzle.official ? <OfficialStory key={puzzle.id} puzzleId={puzzle.id} /> : null}
+      {puzzle.official ? <OfficialStory key={`story:${puzzle.id}`} puzzleId={puzzle.id} /> : null}
 
       <SocialPanel
         key={puzzle.id}

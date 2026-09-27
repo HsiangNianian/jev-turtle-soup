@@ -14,17 +14,34 @@ import {
   type ArchivedGame,
 } from '@/lib/archive'
 import { useI18n } from '@/lib/i18n'
+import { useReportStory } from '@/lib/use-report-story'
 
-export function ArchiveView({ game, onContinue }: { game: ArchivedGame; onContinue: () => void }) {
+export function ArchiveView({
+  game,
+  onContinue,
+  onStoryLoaded,
+}: {
+  game: ArchivedGame
+  onContinue: () => void
+  onStoryLoaded: (id: string, story: string | null) => void
+}) {
   const { t } = useI18n()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const session = toSession(game)
+  const storyRecovery = useReportStory(
+    session,
+    game.revealed && Boolean(game.truth),
+    game.story,
+    onStoryLoaded,
+  )
   const ledger = buildLedger(game.messages)
   const caseFile = (
     <PuzzlePanel
       session={session}
       revealed={game.revealed}
       truth={game.truth}
+      story={game.story}
+      storyRecovery={storyRecovery}
       solved={game.solved}
       closeness={game.closeness}
       turnCount={game.turnCount}

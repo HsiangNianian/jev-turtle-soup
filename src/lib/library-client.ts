@@ -1,4 +1,4 @@
-import type { AskContext, HostTurn } from '@/lib/api'
+import type { AskContext, HostTurn, RevealResult } from '@/lib/api'
 import { staleWhileRevalidate } from '@/lib/cache'
 
 /**
@@ -282,10 +282,10 @@ export function revealLibraryPuzzle(
   manual = false,
   playerKey?: string,
 ) {
-  return request<{ title: string; truth: string; hint: string }>(
-    `/api/library/puzzles/${encodeURIComponent(id)}/reveal`,
-    { method: 'POST', body: JSON.stringify({ locale, manual, playerKey }) },
-  )
+  return request<RevealResult>(`/api/library/puzzles/${encodeURIComponent(id)}/reveal`, {
+    method: 'POST',
+    body: JSON.stringify({ locale, manual, playerKey }),
+  })
 }
 
 export function createPuzzle(input: PuzzleInput) {

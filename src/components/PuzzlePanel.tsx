@@ -1,14 +1,17 @@
-import { ArrowRight, Lock, Unlock } from 'lucide-react'
+import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
 import type { GameSession } from '@/lib/api'
 import { Link } from '@/components/Link'
 import { cn } from '@/lib/utils'
 import { useI18n, type Locale } from '@/lib/i18n'
+import type { StoryRecovery } from '@/lib/use-report-story'
 
 interface PuzzlePanelProps {
   session: GameSession
   revealed: boolean
   truth: string | null
+  story?: string | null
+  storyRecovery?: StoryRecovery
   solved: boolean
   closeness: number | null
   turnCount: number
@@ -58,6 +61,8 @@ export function PuzzlePanel({
   session,
   revealed,
   truth,
+  story,
+  storyRecovery,
   solved,
   closeness,
   turnCount,
@@ -166,6 +171,41 @@ export function PuzzlePanel({
             <Unlock className="size-3.5" /> {t('汤底')}
           </div>
           <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
+
+          {story || storyRecovery?.loading || storyRecovery?.error ? (
+            <section className="mt-7 border-t border-dashed border-foreground/25 pt-5">
+              <h3 className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
+                {t('完整故事')}
+              </h3>
+              {story ? (
+                <p className="surface-prose mt-3 font-serif text-[15px] leading-8 break-words text-foreground/90">
+                  {story}
+                </p>
+              ) : storyRecovery?.error ? (
+                <div
+                  className="mt-3 font-mono text-[11px] leading-6 text-muted-foreground"
+                  role="status"
+                >
+                  <p>{storyRecovery.error}</p>
+                  <button
+                    type="button"
+                    onClick={storyRecovery.retry}
+                    className="mt-2 underline underline-offset-4"
+                  >
+                    {t('重新加载')}
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="mt-3 flex items-center gap-2 font-mono text-[11px] text-muted-foreground"
+                  role="status"
+                >
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  {t('正在加载完整故事…')}
+                </div>
+              )}
+            </section>
+          ) : null}
 
           {session.libraryId ? (
             <Link

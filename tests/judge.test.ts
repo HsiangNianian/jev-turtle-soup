@@ -39,6 +39,37 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('fresh host judgments', () => {
   it.each([
+    { intent: 'meta', locked: false, solved: 0, revealed: true },
+    { intent: 'meta', locked: true, solved: 0, revealed: false },
+    { intent: 'guess', locked: true, solved: 1, revealed: true },
+  ])(
+    'returns the story with the same reveal gate as the truth ($intent, locked=$locked)',
+    async ({ intent, locked, solved, revealed }) => {
+      mockModel(modelAnswers('yes'), {
+        intent: { choice: intent, confidence: 1, probabilities: { [intent]: 1 } },
+        meta_request: { choice: 'full_answer', confidence: 1, probabilities: { full_answer: 1 } },
+        solved: { noul: solved },
+      })
+      const turn = await judge(
+        { TYPESAFE_API_KEY: 'local-test-only' },
+        { ...puzzle, story: '完整背景第一段。\n\n第二段保留原文。' },
+        { message: '揭晓吧' },
+        { truthLocked: locked },
+      )
+      expect(turn.revealed).toBe(revealed)
+      if (revealed) {
+        expect(turn).toMatchObject({
+          truth: puzzle.truth,
+          story: '完整背景第一段。\n\n第二段保留原文。',
+        })
+      } else {
+        expect(turn).not.toHaveProperty('truth')
+        expect(turn).not.toHaveProperty('story')
+      }
+    },
+  )
+
+  it.each([
     ['哥哥活着', '哥哥死了吗？', 'no', 'yes', '是。'],
     ['妈妈死了', '妈妈活着吗？', 'yes', 'no', '不是。'],
     ['哥哥活着', '哥哥活着', 'no', 'yes', '是。'],

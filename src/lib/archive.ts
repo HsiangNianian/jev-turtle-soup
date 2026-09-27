@@ -20,6 +20,8 @@ export interface ArchivedGame {
   messages: ChatMessage[]
   revealed: boolean
   truth: string | null
+  /** undefined = 旧存档尚未读取，null = 这碗汤没有独立的完整故事。 */
+  story?: string | null
   solved: boolean
   closeness: number | null
   turnCount: number

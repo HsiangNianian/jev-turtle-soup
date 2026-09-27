@@ -44,6 +44,39 @@ async function get<T>(path: string): Promise<T> {
 }
 
 describe('daily API metadata against the current schema', () => {
+  it('keeps full stories out of library browsing and returns them only after an unlocked reveal', async () => {
+    seed('2026-09-23', '昨日官汤')
+    seed('2026-09-24', '今日官汤')
+    const index = await get<{ items: Record<string, unknown>[] }>('/api/library/puzzles')
+    expect(index.items).toHaveLength(1)
+    const detail = await get<Record<string, unknown>>('/api/library/puzzles/2026-09-23')
+    for (const puzzle of [index.items[0], detail]) {
+      expect(puzzle).not.toHaveProperty('truth')
+      expect(puzzle).not.toHaveProperty('story')
+    }
+
+    for (const date of ['2026-09-23', '2026-09-24']) {
+      for (const path of ['/api/game/reveal', `/api/library/puzzles/${date}/reveal`]) {
+        const response = await worker.fetch(
+          new Request(`http://localhost${path}`, {
+            method: 'POST',
+            body: JSON.stringify({ puzzleId: date, manual: true }),
+          }),
+          { DB: data.db },
+        )
+        const result = await response.json()
+        if (date === '2026-09-23') {
+          expect(response.status).toBe(200)
+          expect(result).toMatchObject({ truth: 'truth', story: 'story' })
+        } else {
+          expect(response.ok).toBe(false)
+          expect(result).not.toHaveProperty('truth')
+          expect(result).not.toHaveProperty('story')
+        }
+      }
+    }
+  })
+
   it.each([
     ['2026-09-24', '/api/game/ask'],
     ['2026-09-23', '/api/library/puzzles/2026-09-23/ask'],
@@ -94,6 +127,7 @@ describe('daily API metadata against the current schema', () => {
         { DB: data.db, TYPESAFE_API_KEY: 'local-test-only' },
       )
       expect(response.status).toBe(200)
+      expect(await response.json()).not.toHaveProperty('story')
       const request = JSON.parse(modelFetch.mock.calls[0][1].body)
       expect(request.state.puzzle.canonical_source).toBe('哥哥在十九岁时死了。')
       expect(request.state.recent_player_messages).toEqual([

@@ -72,7 +72,6 @@ const GuidePage = lazy(() =>
 import {
   askHost,
   fetchHealth,
-  revealGame,
   type HostTurn,
   type ChatMessage,
   type GameSession,
@@ -104,10 +103,11 @@ import {
   askLibraryPuzzle,
   fetchUnread,
   listPuzzles,
-  revealLibraryPuzzle,
   type LibraryPuzzleDetail,
 } from '@/lib/library-client'
 import { navigate, matchPath, usePath } from '@/lib/router'
+import { revealSession } from '@/lib/reveal-client'
+import { useReportStory } from '@/lib/use-report-story'
 import { utcToday, type DailyDetail } from '@/lib/daily-client'
 import { dailyLuck, getDeviceId, todayKey } from '@/lib/luck'
 import { cn, uid } from '@/lib/utils'
@@ -282,6 +282,7 @@ function GameApp({
   const [messages, setMessages] = useState<ChatMessage[]>(() => bootGame?.messages ?? [])
   const [revealed, setRevealed] = useState(() => bootGame?.revealed ?? false)
   const [truth, setTruth] = useState<string | null>(() => bootGame?.truth ?? null)
+  const [story, setStory] = useState<string | null | undefined>(() => bootGame?.story)
   const [solved, setSolved] = useState(() => bootGame?.solved ?? false)
   const [closeness, setCloseness] = useState<number | null>(() => bootGame?.closeness ?? null)
   const [asking, setAsking] = useState(false)
@@ -349,6 +350,7 @@ function GameApp({
         messages,
         revealed,
         truth,
+        story,
         solved,
         closeness,
         turnCount,
@@ -369,7 +371,7 @@ function GameApp({
       }
       return entry
     },
-    [session, startedAt, messages, revealed, truth, solved, closeness, turnCount, games],
+    [session, startedAt, messages, revealed, truth, story, solved, closeness, turnCount, games],
   )
 
   const liveEntry = useMemo(() => buildEntry(liveStatus), [buildEntry, liveStatus])
@@ -395,6 +397,7 @@ function GameApp({
     setMessages(game.messages)
     setRevealed(game.revealed)
     setTruth(game.truth)
+    setStory(game.story)
     setSolved(game.solved)
     setCloseness(game.closeness)
     setTurnCount(game.turnCount)
@@ -414,19 +417,37 @@ function GameApp({
     [owner, hydrate, liveEntry],
   )
 
-  /** 从服务端取回汤底（会话题与题库题走同一个出口）。 */
+  const acceptReportStory = useCallback(
+    (id: string, loaded: string | null) => {
+      if (session?.sessionId === id) setStory(loaded)
+      setGames((previous) => {
+        const game = previous.find((item) => item.id === id)
+        if (!game || game.story !== undefined) return previous
+        return persist(
+          upsertGame(previous, {
+            ...game,
+            story: loaded,
+            updatedAt: Math.max(Date.now(), game.updatedAt + 1),
+          }),
+        )
+      })
+    },
+    [session?.sessionId, persist],
+  )
+  const storyRecovery = useReportStory(
+    session,
+    path === '/play' && revealed && Boolean(truth),
+    story,
+    acceptReportStory,
+  )
+
+  /** 从服务端取回汤底和原始故事（会话题与题库题走同一个出口）。 */
   const fetchTruth = useCallback(
     async (manual = false) => {
       if (!session) return null
-      const result = session.libraryId
-        ? await revealLibraryPuzzle(
-            session.libraryId,
-            locale,
-            manual,
-            manual ? getDeviceId() : undefined,
-          )
-        : await revealGame(session.sessionId, locale)
+      const result = await revealSession(session, locale, manual)
       setTruth(result.truth)
+      setStory(result.story ?? null)
       return result.truth
     },
     [session, locale],
@@ -452,6 +473,7 @@ function GameApp({
       ])
       setRevealed(false)
       setTruth(null)
+      setStory(undefined)
       setSolved(false)
       setCloseness(null)
       setTurnCount(0)
@@ -487,6 +509,7 @@ function GameApp({
       setMessages([{ id: uid(), role: 'host', text: greeting }])
       setRevealed(false)
       setTruth(null)
+      setStory(undefined)
       setSolved(false)
       setCloseness(null)
       setTurnCount(0)
@@ -538,7 +561,10 @@ function GameApp({
       if (typeof turn.closeness === 'number') {
         setCloseness((prev) => Math.max(prev ?? 0, turn.closeness ?? 0))
       }
-      if (turn.revealed && turn.truth) setTruth(turn.truth)
+      if (turn.revealed) {
+        if (turn.truth) setTruth(turn.truth)
+        setStory(turn.story ?? null)
+      }
       if (turn.solved) {
         setSolved(true)
         setRevealed(true)
@@ -687,6 +713,7 @@ function GameApp({
         setTurnCount(0)
         setRevealed(false)
         setTruth(null)
+        setStory(undefined)
         setSolved(false)
         setCloseness(null)
       }
@@ -704,6 +731,7 @@ function GameApp({
         setTurnCount(0)
         setRevealed(false)
         setTruth(null)
+        setStory(undefined)
         setSolved(false)
         setCloseness(null)
       }
@@ -758,6 +786,8 @@ function GameApp({
         session={session}
         revealed={revealed}
         truth={truth}
+        story={story}
+        storyRecovery={storyRecovery}
         solved={solved}
         closeness={closeness}
         turnCount={turnCount}
@@ -780,7 +810,14 @@ function GameApp({
           </ScrollArea>
         )
       }
-      return <ArchiveView game={game} onContinue={() => handleContinue(game.id)} />
+      return (
+        <ArchiveView
+          key={game.id}
+          game={game}
+          onContinue={() => handleContinue(game.id)}
+          onStoryLoaded={acceptReportStory}
+        />
+      )
     }
 
     if (path === '/play') {
@@ -896,7 +933,7 @@ function GameApp({
     if (puzzleMatch) {
       return (
         <ScrollArea>
-          <PuzzleDetailPage id={puzzleMatch.id} onStart={startLibraryGame} />
+          <PuzzleDetailPage key={puzzleMatch.id} id={puzzleMatch.id} onStart={startLibraryGame} />
         </ScrollArea>
       )
     }

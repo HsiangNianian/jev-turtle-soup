@@ -16,6 +16,8 @@ export interface RevealResult {
   title: string
   truth: string
   hint: string
+  /** 官方汤的原始故事，和汤底一起揭晓。 */
+  story?: string
 }
 
 export interface ChoiceDebug {
@@ -60,6 +62,7 @@ export interface HostTurn {
   replyLocale?: 'zh-CN' | 'en' | 'ja'
   /** 仅在本次揭晓时返回（服务端不主动给答案）。 */
   truth?: string
+  story?: string
   closeness: number | null
   confidence: number | null
   reply: string

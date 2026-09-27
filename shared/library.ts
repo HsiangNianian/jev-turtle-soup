@@ -491,7 +491,19 @@ export async function revealLibraryPuzzle(
         .run()
     }
   }
-  return { title: row.title, truth: row.truth, hint: row.hint }
+  const daily =
+    row.visibility === 'daily'
+      ? await db
+          .prepare('SELECT story FROM dailies WHERE puzzle_id = ? LIMIT 1')
+          .bind(id)
+          .first<{ story: string }>()
+      : null
+  return {
+    title: row.title,
+    truth: row.truth,
+    hint: row.hint,
+    ...(daily?.story?.trim() ? { story: daily.story } : {}),
+  }
 }
 
 export async function createPuzzle(

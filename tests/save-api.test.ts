@@ -72,9 +72,18 @@ it('round trips through client, Worker routes and SQLite, preserving equal times
     ),
   )
   const options = { owner: uid, signal: new AbortController().signal }
-  await putSave(game as Parameters<typeof putSave>[0], options)
+  await putSave(
+    { ...game, revealed: true, truth: '汤底', story: '完整故事\n\n第二段' } as Parameters<
+      typeof putSave
+    >[0],
+    options,
+  )
   await putSave({ ...game, title: 'equal' } as Parameters<typeof putSave>[0], options)
   expect((await listSaves(options))[0].title).toBe('title')
+  expect((await listSaves(options))[0]).toMatchObject({
+    truth: '汤底',
+    story: '完整故事\n\n第二段',
+  })
   const old = await request('/api/me/saves', {
     method: 'POST',
     headers: { cookie },

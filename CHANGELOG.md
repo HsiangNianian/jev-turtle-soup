@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.35.10 - 2026-09-27
+
+### Features
+
+- Add a collapsed spoiler section to official daily puzzles in the library, loading the full original story only when the reader opens it.
+- Show the full story alongside the truth in revealed and solved case reports, preserve its paragraphs in saved archives, and recover it for older reports.
+- Keep the story behind the same reveal rules as the truth: ordinary questions and locked manual reveals do not return it, while successfully solving a daily bowl reveals both.
+
 ## 0.35.9 - 2026-09-25
 
 ### Features

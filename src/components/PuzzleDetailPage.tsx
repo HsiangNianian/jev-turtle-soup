@@ -4,6 +4,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 import { Button, Empty, OfficialMark, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
 import { SolveTurnRecords } from '@/components/SolveTurnRecords'
+import { OfficialStory } from '@/components/OfficialStory'
 import { genreLabel } from '@/lib/library-client'
 
 import { getPuzzle, type LibraryPuzzleDetail } from '@/lib/library-client'
@@ -126,6 +127,8 @@ export function PuzzleDetailPage({
           {t('回到题库')}
         </Link>
       </div>
+
+      {puzzle.official ? <OfficialStory key={puzzle.id} puzzleId={puzzle.id} /> : null}
 
       <SocialPanel
         key={puzzle.id}

@@ -3,6 +3,12 @@
  * here falls back to Chinese instead of showing a raw key.
  */
 export const en: Record<string, string> = {
+  完整背景故事: 'Full backstory',
+  '含剧透，点击查看': 'Contains spoilers · tap to read',
+  收起故事: 'Hide story',
+  '正在加载完整故事…': 'Loading the full story…',
+  完整故事加载失败: 'Could not load the full story',
+  '这碗汤暂时没有完整故事。': 'The full story is not available for this bowl.',
   ' · 可上下滑动': ' · scroll for more',
   '10 分钟内有效': 'valid for 10 minutes',
   '3-20 位小写字母、数字或连字符': '3–20 lowercase letters, digits or hyphens',

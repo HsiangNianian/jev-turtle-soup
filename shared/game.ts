@@ -395,7 +395,8 @@ const HOST_QUESTIONS = {
       },
       guess: {
         what: 'The player proposes an explanation, theory, or reconstruction of what happened, usually as a statement, possibly wrapped in a question like "so did he...?".',
-        not_for: 'One checkable fact about one event, person, or property, even if phrased as a statement without a question mark; that is yes_no_question.',
+        not_for:
+          'One checkable fact about one event, person, or property, even if phrased as a statement without a question mark; that is yes_no_question.',
         examples: ['He killed her because she cheated, right?', 'I think the mirror was fake.'],
       },
       meta: {
@@ -425,7 +426,7 @@ const HOST_QUESTIONS = {
         'recent_player_messages',
       ],
       focus:
-        'puzzle.canonical_source is the only authority for factual events. Use its final reveal and established events, not an earlier character belief or apparent mystery that the source later disproves. Ignore puzzle.solution_summary if it disagrees; do not average the two into partly. Puzzle.surface anchors references but is not proof that its apparent event happened. Use recent_player_messages only to resolve references, never as evidence. First identify the exact person or event the player names; do not transfer a relative\'s fate to that person. If someone speaks or acts in the source\'s present, they are alive at that time. For an exact age or year, calculate the timeline and distinguish an event happening then from having happened earlier. (1) Search the canonical source for the fact. If it is there, even incidentally, answer yes, no or partly — never irrelevant. (2) Choose partly only when two legitimate readings of the player\'s claim are genuinely supported by that source, or the claim bundles true and false facts; a conflict with the nonauthoritative summary is not a partly answer. (3) Choose irrelevant only if the canonical source genuinely says nothing about the fact. (4) If the message is not a yes/no question or narrow factual claim about the story, choose cannot_answer.',
+        "puzzle.canonical_source is the only authority for factual events. Use its final reveal and established events, not an earlier character belief or apparent mystery that the source later disproves. Ignore puzzle.solution_summary if it disagrees; do not average the two into partly. Puzzle.surface anchors references but is not proof that its apparent event happened. Use recent_player_messages only to resolve references, never as evidence. First identify the exact person or event the player names; do not transfer a relative's fate to that person. If someone speaks or acts in the source's present, they are alive at that time. For an exact age or year, calculate the timeline and distinguish an event happening then from having happened earlier. (1) Search the canonical source for the fact. If it is there, even incidentally, answer yes, no or partly — never irrelevant. (2) Choose partly only when two legitimate readings of the player's claim are genuinely supported by that source, or the claim bundles true and false facts; a conflict with the nonauthoritative summary is not a partly answer. (3) Choose irrelevant only if the canonical source genuinely says nothing about the fact. (4) If the message is not a yes/no question or narrow factual claim about the story, choose cannot_answer.",
     },
     {
       yes: 'The authoritative source confirms the claim or answers the question YES.',
@@ -457,8 +458,7 @@ const HOST_QUESTIONS = {
   ),
   motive_correct: noul(
     {
-      question:
-        "Is the player's stated motive correct according to `puzzle.canonical_source`?",
+      question: "Is the player's stated motive correct according to `puzzle.canonical_source`?",
       compare: ['latest_player_message', 'puzzle.canonical_source', 'puzzle.solution_summary'],
       focus:
         'Judge only the reason or intention behind the events. The canonical source overrides a conflicting solution summary; use the summary only to identify which motive is central. If the player proposed no explanation, answer false.',
@@ -483,8 +483,7 @@ const HOST_QUESTIONS = {
   ),
   twist_correct: noul(
     {
-      question:
-        'Has the player identified the key twist established by `puzzle.canonical_source`?',
+      question: 'Has the player identified the key twist established by `puzzle.canonical_source`?',
       compare: ['latest_player_message', 'puzzle.canonical_source', 'puzzle.solution_summary'],
       focus:
         'Judge only the single surprising fact that makes the surface make sense. The canonical source overrides a conflicting solution summary; use the summary only to locate the intended twist. If no explanation was proposed, answer false.',
@@ -1331,7 +1330,12 @@ export async function revealGame(store: PuzzleStore, body: Record<string, unknow
   const puzzleId = typeof body.puzzleId === 'string' ? body.puzzleId : ''
   const puzzle = puzzleId ? await store.get(puzzleId) : null
   if (!puzzle) throw askError(readLocale(body.locale), 'missing')
-  return { title: puzzle.title, truth: puzzle.truth, hint: puzzle.hint }
+  return {
+    title: puzzle.title,
+    truth: puzzle.truth,
+    hint: puzzle.hint,
+    ...(puzzle.story?.trim() ? { story: puzzle.story } : {}),
+  }
 }
 
 /** Judge a single player message against a puzzle whose truth we already hold. */
@@ -1406,7 +1410,9 @@ export async function judge(
     replyLocale,
     // 低置信度时实际回答是「无法回答」，明细仍保留模型的原始判读。
     debug: { ...buildDebug(answers), finalVerdict: turn.verdict, finalIntent: turn.intent },
-    // 只有「这一次真的揭晓了」才把汤底一起带回去，其余一律不给
-    ...(turn.revealed ? { truth: puzzle.truth } : {}),
+    // 完整故事和汤底共用揭晓条件，普通提问与未解锁的主动揭晓都不下发。
+    ...(turn.revealed
+      ? { truth: puzzle.truth, ...(puzzle.story?.trim() ? { story: puzzle.story } : {}) }
+      : {}),
   }
 }

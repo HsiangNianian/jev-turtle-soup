@@ -4,6 +4,7 @@ import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 import { Button, Empty, Notice, OfficialMark, PageShell } from '@/components/Bits'
 import { Link } from '@/components/Link'
 import { SolveTurnRecords } from '@/components/SolveTurnRecords'
+import { TagSpoiler } from '@/components/TagSpoiler'
 import { findActiveDaily, type ArchivedGame } from '@/lib/archive'
 import { genreLabel } from '@/lib/library-client'
 import {
@@ -39,7 +40,7 @@ function StartButton({
 /**
  * 难度和题材标签。**当天的汤不显示标签** —— 标签会直接点名题材
  * （#怪力乱神、#电梯 之类），对还没揭晓的汤来说等于剧透。
- * 过期进了题库之后才和别的题一样带上标签。
+ * 过期之后才显示标签，并和题库一样默认用遮罩保护。
  */
 function Meta({
   difficulty,
@@ -54,7 +55,7 @@ function Meta({
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
       <span className="border border-foreground/25 px-1.5 py-0.5">{t(difficulty)}</span>
-      {locked ? null : tags.map((tag) => <span key={tag}>#{tag}</span>)}
+      {locked ? null : <TagSpoiler tags={tags} />}
     </div>
   )
 }
@@ -174,7 +175,7 @@ export function DailyDetailPage({
         {/* 认证勋章就放在难度左边，和题库卡片上那枚一致 */}
         <OfficialMark />
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(daily.difficulty)}</span>
-        {daily.locked ? null : daily.tags.map((tag) => <span key={tag}>#{tag}</span>)}
+        {daily.locked ? null : <TagSpoiler key={daily.puzzleId} tags={daily.tags} />}
         {genreLabel(daily.genreScore, t) ? (
           <span className="text-stamp/80">{genreLabel(daily.genreScore, t)}</span>
         ) : null}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.35.13 - 2026-09-27
+
+### Improvements
+
+- Apply the same continuous, feathered glass spoiler to tags on daily soup pages. Hover or tap reveals the group for three seconds, while today's locked soup continues to withhold its tags.
+
 ## 0.35.12 - 2026-09-27
 
 ### Improvements

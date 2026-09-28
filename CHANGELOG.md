@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.38.0 - 2026-09-28
+
+### Improvements
+
+- Give mobile Web/PWA, iOS and Android tables one chronological conversation for player questions, host answers and discussion. Switch the composer between asking Yan and chatting without hiding messages or losing either draft.
+- Use a three-column desktop workspace for the case and members, formal questions, and discussion. Keep both composers available and preserve drafts when resizing the window.
+- Open long premises and member controls in separate panels, and keep the invitation card compact and inside the scrolling conversation.
+- Keep the mobile web composer within the visible viewport when the keyboard opens, restore focus after closing a panel, and distinguish empty or unavailable send buttons in native apps.
+
+### Validation
+
+- Verify waiting, joining, questions, discussion, reveal votes and archives with authenticated local WebSocket clients. Cover native iOS/Android interaction, long English premises, narrow screens, independent drafts and desktop/mobile transitions.
+- Retain the A/B/C interactive prototypes and screenshots as the design reference for the selected mobile A and desktop C layouts.
+
+### Native apps
+
+- Update iOS to 0.6.0 (build 11) and Android to 0.3.0 (build 5). The attached iOS archive is an unsigned Simulator app; physical iPhones use the Personal Team installation in `ios/README.md`. The Android APK is a debug-signed test build.
+- This release uses the existing room protocol and database schema; no new migration is required.
+
 ## 0.37.0 - 2026-09-28
 
 ### Features

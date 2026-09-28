@@ -155,25 +155,34 @@ struct TableScreen: View {
   var body: some View {
     VStack(spacing: 0) {
       if let s = table.snapshot {
-        VStack(alignment: .leading, spacing: 9) {
-          HStack {
-            Text("\(s.phaseLabel) · \(s.turns) 轮").font(SoupFont.mono(10)).foregroundStyle(
-              SoupTheme.muted)
-            Spacer()
-            Button {
-              showMembers = true
-            } label: {
-              Label("\(s.seats.count)/6", systemImage: "person.2").font(SoupFont.mono(11))
+        HStack(spacing: 12) {
+          VStack(alignment: .leading, spacing: 5) {
+            Text(s.puzzle.title).font(SoupFont.serif(18, weight: .semibold)).lineLimit(1)
+            HStack(spacing: 6) {
+              Circle().fill(table.online ? SoupTheme.green : SoupTheme.muted).frame(
+                width: 5, height: 5)
+              Text("\(s.phaseLabel) · \(s.turns) 轮").font(SoupFont.mono(10)).foregroundStyle(
+                SoupTheme.muted)
             }
-          }
-          Text(s.puzzle.title).font(SoupFont.serif(20, weight: .semibold)).lineLimit(2)
-          DisclosureGroup("汤面", isExpanded: $showSurface) {
-            ScrollView {
-              Text(s.puzzle.surface).font(SoupFont.prose).lineSpacing(6).frame(
-                maxWidth: .infinity, alignment: .leading)
-            }.frame(maxHeight: 150)
-          }.font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
-        }.padding(.horizontal, 20).padding(.vertical, 12)
+          }.frame(maxWidth: .infinity, alignment: .leading)
+          Button {
+            showMembers = true
+          } label: {
+            Label("\(s.seats.count)/6", systemImage: "person.2").font(SoupFont.mono(11))
+          }.frame(minWidth: 44, minHeight: 44).accessibilityLabel("同桌成员")
+        }.padding(.horizontal, 20).padding(.vertical, 8)
+        PaperRule()
+        Button {
+          showSurface = true
+        } label: {
+          HStack(spacing: 12) {
+            Text("汤面").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.red)
+            Text(s.puzzle.surface).font(SoupFont.mono(11)).foregroundStyle(SoupTheme.muted)
+              .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(
+              SoupTheme.muted)
+          }.padding(.horizontal, 20).frame(minHeight: 42)
+        }.accessibilityLabel("查看汤面")
         PaperRule()
         if let vote = s.vote { voteView(vote) }
       }
@@ -184,39 +193,18 @@ struct TableScreen: View {
           Spacer()
         }.foregroundStyle(SoupTheme.muted).padding(.horizontal, 20).padding(.vertical, 8)
       }
-      HStack {
-        PaperFilters(options: [("ask", "问砚"), ("discuss", "桌内讨论")], selection: $tab)
-        Spacer()
-        Button {
-          showFeedback = true
-        } label: {
-          Image(systemName: "flag").font(.system(size: 14))
-        }.accessibilityLabel("反馈").frame(width: 44, height: 44)
-      }.padding(.horizontal, 20)
-      PaperRule()
       ScrollViewReader { proxy in
         ScrollView {
           LazyVStack(alignment: .leading, spacing: 0) {
-            if let s = table.snapshot, s.phase == "waiting" { waitingView(s).padding(.bottom, 20) }
+            if let s = table.snapshot, s.phase == "waiting" { waitingView(s).padding(.bottom, 16) }
             if table.hasEarlier {
               Button("查看更早的记录 ↑") { Task { await table.earlier() } }.font(SoupFont.mono(11)).frame(
                 maxWidth: .infinity, minHeight: 44)
             }
-            ForEach(
-              table.events.filter {
-                $0.type == "system"
-                  || (tab == "ask" ? $0.type != "discussion" : $0.type == "discussion")
-              }
-            ) { event in eventView(event).id(event.id) }
-            if tab == "discuss", !table.events.contains(where: { $0.type == "discussion" }) {
-              VStack(spacing: 10) {
-                Text("把你的猜想说给同桌听。").font(SoupFont.prose)
-                Text("讨论不计轮数，也不会作为正式提问交给砚。").font(SoupFont.mono(10)).multilineTextAlignment(.center)
-              }.foregroundStyle(SoupTheme.muted).frame(maxWidth: .infinity).padding(.vertical, 36)
-            }
+            ForEach(table.events) { event in eventView(event).id(event.id) }
             if let s = table.snapshot, let report = s.report { reportView(report, snapshot: s) }
             Color.clear.frame(height: 1).id("table-bottom")
-          }.padding(20)
+          }.padding(.horizontal, 20).padding(.vertical, 16)
         }.scrollDismissesKeyboard(.interactively)
           .onChange(of: table.events.last?.id) { _, _ in
             if !table.hasEarlier {
@@ -266,12 +254,32 @@ struct TableScreen: View {
             Image(systemName: "chevron.down")
           }.accessibilityLabel("回到案卷")
         }
+        ToolbarItem(placement: .topBarTrailing) {
+          Button {
+            showFeedback = true
+          } label: {
+            Image(systemName: "flag").font(.system(size: 14))
+          }.accessibilityLabel("反馈")
+        }
+      }
+      .sheet(isPresented: $showSurface) {
+        NavigationStack {
+          PaperPage {
+            if let puzzle = table.snapshot?.puzzle {
+              Text(puzzle.title).font(SoupFont.title)
+              Text(puzzle.surface).font(SoupFont.prose).lineSpacing(8).textSelection(.enabled)
+            }
+          }.navigationTitle("汤面").navigationBarTitleDisplayMode(.inline).toolbar {
+            ToolbarItem(placement: .confirmationAction) { Button("完成") { showSurface = false } }
+          }
+        }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
       }
       .task { table.start() }
       .onChange(of: table.snapshot?.phase) { old, phase in
         if old == nil && phase == "waiting" {
-          showSurface = true
           tab = "discuss"
+        } else if old == "waiting" && phase == "playing" && discussion.isEmpty {
+          tab = "ask"
         }
       }
       .onChange(of: table.requiresLogin) { _, required in
@@ -332,38 +340,45 @@ struct TableScreen: View {
       }
   }
   private func waitingView(_ s: TableSnapshot) -> some View {
-    VStack(alignment: .leading, spacing: 18) {
-      Text("入座后就开汤").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.red)
-      Text("空着的座位，留给朋友").font(SoupFont.serif(23))
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Text("等朋友入座，先聊两句").font(SoupFont.serif(17))
+        Spacer()
+        Text("\(s.seats.count)/6").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
+      }
       HStack(spacing: 8) {
         ForEach(0..<6) { i in
-          VStack(spacing: 10) {
-            Text(i < s.seats.count ? String(s.seats[i].name.prefix(1)) : "＋").font(
-              SoupFont.serif(16)
-            ).frame(width: 30, height: 30).background(
-              i < s.seats.count ? SoupTheme.ink : Color.clear
-            ).foregroundStyle(i < s.seats.count ? SoupTheme.paper : SoupTheme.muted.opacity(0.4))
+          VStack(spacing: 5) {
+            Text(i < s.seats.count ? String(s.seats[i].name.prefix(1)) : "＋")
+              .font(SoupFont.serif(15)).frame(width: 28, height: 28)
+              .background(i < s.seats.count ? SoupTheme.ink : Color.clear)
+              .foregroundStyle(i < s.seats.count ? SoupTheme.paper : SoupTheme.muted.opacity(0.4))
             Text(i < s.seats.count ? s.seats[i].name : "空位").font(SoupFont.mono(9)).lineLimit(1)
-            PaperRule()
+              .foregroundStyle(SoupTheme.muted)
           }.frame(maxWidth: .infinity)
         }
       }
-      Text("把邀请发给朋友。至少两人在线，房主就可以开始。").font(SoupFont.prose).foregroundStyle(SoupTheme.muted)
-        .lineSpacing(6)
-      if let invitation = s.invitation {
-        ShareLink(item: invitation) {
-          Label("邀请朋友", systemImage: "square.and.arrow.up").font(SoupFont.mono(11)).frame(
-            minHeight: 40)
+      HStack {
+        if let invitation = s.invitation {
+          ShareLink(item: invitation) {
+            Label("邀请朋友", systemImage: "square.and.arrow.up").font(SoupFont.mono(11)).frame(
+              minHeight: 44)
+          }
+        }
+        Spacer()
+        if s.hostId == owner {
+          Button {
+            table.send(TableCommand(type: "start"))
+          } label: {
+            Text("开始同桌 →").font(SoupFont.mono(11)).padding(.horizontal, 14).frame(minHeight: 44)
+              .background(SoupTheme.ink).foregroundStyle(SoupTheme.paper)
+          }.disabled(!available || s.seats.filter { $0.disconnectedAt == nil }.count < 2)
+            .opacity(!available || s.seats.filter { $0.disconnectedAt == nil }.count < 2 ? 0.35 : 1)
+            .accessibilityLabel("开始同桌")
         }
       }
-      if let code = s.inviteCode {
-        Text(code).font(SoupFont.mono(12)).tracking(2).textSelection(.enabled)
-      }
-      if s.hostId == owner {
-        InkButton(title: "开始同桌") { table.send(TableCommand(type: "start")) }.disabled(
-          !available || s.seats.filter { $0.disconnectedAt == nil }.count < 2)
-      }
-    }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(SoupTheme.sheet)
+      Text("至少两人在线，房主就可以开始。").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
+    }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(SoupTheme.sheet)
       .overlay(Rectangle().stroke(SoupTheme.line))
   }
   @ViewBuilder private func eventView(_ e: TableEvent) -> some View {
@@ -372,13 +387,16 @@ struct TableScreen: View {
         .center
       ).frame(maxWidth: .infinity).padding(.vertical, 12)
     } else {
-      VStack(alignment: .leading, spacing: 10) {
+      VStack(alignment: .leading, spacing: 8) {
         HStack {
           Text(
             e.type == "answer"
               ? "砚" : table.snapshot?.members.first(where: { $0.uid == e.actorId })?.name ?? "汤友"
           ).foregroundStyle(e.type == "answer" ? SoupTheme.red : SoupTheme.muted)
           if e.type != "answer", e.actorId == owner { Text("· 你") }
+          Text(e.type == "question" ? "问砚" : e.type == "discussion" ? "桌内讨论" : "主持人").font(
+            SoupFont.mono(9)
+          ).opacity(0.7)
           Spacer()
           Text(Date(timeIntervalSince1970: e.at / 1000), style: .time)
         }.font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
@@ -397,8 +415,12 @@ struct TableScreen: View {
             tab = "ask"
           }.font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted).frame(minHeight: 32)
         }
-        PaperRule(dashed: true)
-      }.padding(.vertical, 14).padding(.leading, e.type == "answer" ? 16 : 0)
+      }.padding(.vertical, e.type == "answer" ? 10 : 2).padding(.horizontal, 12)
+        .background(e.type == "answer" ? SoupTheme.sheet : Color.clear)
+        .overlay(alignment: .leading) {
+          Rectangle().fill(e.type == "question" ? SoupTheme.red : SoupTheme.line).frame(width: 2)
+        }
+        .padding(.leading, e.type == "answer" ? 12 : 0).padding(.bottom, 18)
     }
   }
   private func voteView(_ vote: TableVote) -> some View {
@@ -428,8 +450,23 @@ struct TableScreen: View {
       || (tab == "ask"
         && (s.phase != "playing" || mine != nil || s.processing?.uid == owner || s.vote != nil
           || s.revealPending || s.seats.count < 2))
-    return VStack(alignment: .leading, spacing: 8) {
+    return VStack(alignment: .leading, spacing: 6) {
       PaperRule()
+      HStack(spacing: 22) {
+        ForEach(["ask", "discuss"], id: \.self) { mode in
+          Button {
+            tab = mode
+          } label: {
+            Text(mode == "ask" ? "问砚" : "和大家聊").font(SoupFont.mono(11))
+              .foregroundStyle(tab == mode ? SoupTheme.red : SoupTheme.muted).frame(minHeight: 36)
+              .overlay(alignment: .bottom) {
+                Rectangle().fill(tab == mode ? SoupTheme.red : Color.clear).frame(height: 2)
+              }
+          }.accessibilityIdentifier("tableMode.\(mode)").accessibilityAddTraits(
+            tab == mode ? .isSelected : [])
+        }
+      }
+
       if let q = s.processing {
         Text("砚正在回答 · \(s.members.first(where:{$0.uid==q.uid})?.name ?? "汤友")").font(
           SoupFont.mono(10)
@@ -475,11 +512,18 @@ struct TableScreen: View {
             .foregroundStyle(SoupTheme.paper)
         }.disabled(
           disabled || draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        ).opacity(disabled ? 0.3 : 1).accessibilityLabel("发送").accessibilityIdentifier("tableSend")
+        ).opacity(
+          disabled || draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? 0.3 : 1
+        )
+        .accessibilityLabel("发送").accessibilityIdentifier("tableSend")
       }.padding(10).background(SoupTheme.sheet).overlay(
         Rectangle().stroke(SoupTheme.ink.opacity(0.4)))
       HStack {
-        Text(table.pendingCount > 0 ? "等待服务器确认" : tab == "ask" ? "正式提问按顺序回答" : "讨论仅在这一桌可见")
+        Text(
+          table.pendingCount > 0
+            ? "等待服务器确认"
+            : tab == "ask" ? (s.phase == "waiting" ? "开汤后，就可以向砚提问" : "正式提问按顺序回答") : "讨论仅在这一桌可见")
         Spacer()
         if s.phase == "playing" {
           Button("提议揭晓") { table.send(TableCommand(type: "reveal")) }.disabled(
@@ -497,7 +541,7 @@ struct TableScreen: View {
         referenceId: tab == "ask" ? reference?.id : nil))
     {
       draft.wrappedValue = ""
-      reference = nil
+      if tab == "ask" { reference = nil }
     }
   }
   private var membersView: some View {

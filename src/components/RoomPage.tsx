@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import './RoomPage.css'
+import {
+  type ReactNode,
+  useId,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import {
   ArrowLeft,
   ArrowUp,
   Check,
+  ChevronRight,
   Copy,
   Flag,
   Loader2,
@@ -214,7 +224,15 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   const { t, locale } = useI18n()
   const connection = useMemo(() => new RoomConnection(owner, id), [owner, id])
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot)
-  const [tab, setTab] = useState<'ask' | 'discuss'>('ask')
+  const [chosenMode, setTab] = useState<'ask' | 'discuss' | null>(null)
+  const media = useMemo(() => window.matchMedia('(min-width: 1024px)'), [])
+  const desktop = useSyncExternalStore(
+    (notify) => {
+      media.addEventListener('change', notify)
+      return () => media.removeEventListener('change', notify)
+    },
+    () => media.matches,
+  )
   const draftKey = `soup:room-draft:v1:${owner}:${id}`
   const [drafts, setDrafts] = useState(() => {
     try {
@@ -236,17 +254,35 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   const [membersOpen, setMembersOpen] = useState(false)
   const [loadingEarlier, setLoadingEarlier] = useState(false)
   const [now, setNow] = useState(() => Date.now())
-  const [chatSeen, setChatSeen] = useState(0)
+  const [surfaceOpen, setSurfaceOpen] = useState(false)
+  const discussionScroller = useRef<HTMLDivElement>(null)
+  const discussionNearBottom = useRef(true)
   const scroller = useRef<HTMLDivElement>(null)
   const nearBottom = useRef(true)
   const s = state.snapshot
+  const tab = chosenMode ?? (s?.phase === 'waiting' ? 'discuss' : 'ask')
   const member = s?.members.find((m) => m.uid === owner)
   const seats = s?.members.filter((m) => m.seat === 'seated') ?? []
   const mine = s?.queue.find((q) => q.uid === owner)
   const failed = s?.failed.find((q) => q.uid === owner)
   const available = state.status === 'online' && !s?.readOnly
   const chatTotal = state.events.filter((e) => e.type === 'discussion').length
-  const chatUnread = Math.max(0, chatTotal - chatSeen)
+  useEffect(() => {
+    // Safari resizes the visual viewport, rather than dvh, when the keyboard opens.
+    const viewport = window.visualViewport
+    const root = document.documentElement
+    const resize = () => {
+      if (!desktop && viewport?.scale === 1)
+        root.style.setProperty('--room-viewport-height', `${viewport.height}px`)
+      else root.style.removeProperty('--room-viewport-height')
+    }
+    resize()
+    viewport?.addEventListener('resize', resize)
+    return () => {
+      viewport?.removeEventListener('resize', resize)
+      root.style.removeProperty('--room-viewport-height')
+    }
+  }, [desktop])
   useEffect(() => {
     try {
       localStorage.setItem(draftKey, JSON.stringify(drafts))
@@ -272,7 +308,9 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   useEffect(() => {
     const node = scroller.current
     if (node && nearBottom.current) node.scrollTop = node.scrollHeight
-  }, [state.events, tab, s?.report])
+    const discussion = discussionScroller.current
+    if (discussion && discussionNearBottom.current) discussion.scrollTop = discussion.scrollHeight
+  }, [state.events, desktop, s?.report])
   const send = (action: RoomAction) => {
     try {
       connection.send(action)
@@ -294,18 +332,30 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
       setError(t('无法复制，请长按邀请码复制'))
     }
   }
-  function submit() {
-    const text = drafts[tab].trim()
+  function submit(mode: 'ask' | 'discuss') {
+    if (
+      !available ||
+      (mode === 'ask' &&
+        (s?.phase !== 'playing' ||
+          mine ||
+          s.processing?.uid === owner ||
+          s.vote ||
+          s.revealPending ||
+          seats.length < 2))
+    )
+      return
+    const text = drafts[mode].trim()
     if (!text) return
     const ok = send(
-      tab === 'ask'
+      mode === 'ask'
         ? { type: 'ask', text, locale, ...(reference ? { referenceId: reference.id } : {}) }
         : { type: 'discuss', text },
     )
     if (ok) {
-      setDrafts((prev) => ({ ...prev, [tab]: '' }))
-      setReference(null)
-      nearBottom.current = true
+      setDrafts((prev) => ({ ...prev, [mode]: '' }))
+      if (mode === 'ask') setReference(null)
+      if (mode === 'discuss' && desktop) discussionNearBottom.current = true
+      else nearBottom.current = true
     }
   }
   const title = s?.puzzle.title ?? t('同桌')
@@ -317,47 +367,316 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
     removed: '已离开同桌',
     error: '暂时无法连接',
   }[state.status]
-  return (
-    <main className="room-screen flex min-h-0 flex-1 flex-col">
-      <header className="shrink-0 border-b border-foreground/30 px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <Link
-            to="/me/rooms"
-            className="-ml-2 flex size-10 shrink-0 items-center justify-center"
-            aria-label={t('我的同桌')}
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <p className="mb-1 font-mono text-[10px] tracking-wider text-muted-foreground">
-              {t('同桌')} · {s ? t(phases[s.phase]) : t(statusLabel)}
-              {s ? ` · ${t('{turns} 轮', { turns: s.turns })}` : ''}
+
+  const renderEvents = (channel: 'all' | 'ask' | 'discuss') => (
+    <>
+      {state.events
+        .filter(
+          (e) =>
+            channel === 'all' ||
+            (channel === 'ask' ? e.type !== 'discussion' : e.type === 'discussion'),
+        )
+        .map((e) =>
+          e.type === 'system' ? (
+            <p
+              key={e.id}
+              data-event-type={e.type}
+              className="my-4 text-center font-mono text-[10px] leading-5 text-muted-foreground"
+            >
+              {e.text}
             </p>
-            <h1 className="truncate font-serif text-lg sm:text-xl">{title}</h1>
-          </div>
-          <button
-            onClick={() => setMembersOpen(!membersOpen)}
-            aria-expanded={membersOpen}
-            className="flex min-h-10 items-center gap-1.5 px-2 font-mono text-xs"
-          >
-            <UsersRound className="size-4" />
-            {seats.length}/6
-          </button>
+          ) : (
+            <article
+              key={e.id}
+              data-event-type={e.type}
+              className={cn('room-event', `room-event-${e.type}`)}
+            >
+              <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
+                <span className={e.type === 'answer' ? 'text-stamp' : ''}>
+                  {e.type === 'answer'
+                    ? t('砚')
+                    : (s?.members.find((m) => m.uid === e.actorId)?.name ?? t('汤友'))}
+                </span>
+                {e.type !== 'answer' && e.actorId === owner ? <span>· {t('你')}</span> : null}
+                <span className="room-event-kind">
+                  {t(
+                    e.type === 'question'
+                      ? '问砚'
+                      : e.type === 'discussion'
+                        ? '桌内讨论'
+                        : '主持人',
+                  )}
+                </span>
+                <time className="ml-auto tabular-nums">
+                  {new Date(e.at).toLocaleTimeString(locale, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </time>
+              </div>
+              {e.referenceId ? (
+                <p className="mb-2 border-l border-foreground/30 pl-2 font-mono text-[10px] text-muted-foreground">
+                  {t('接着这个问题')} ·{' '}
+                  {state.events.find((q) => q.questionId === e.referenceId && q.type === 'question')
+                    ?.text ?? t('查看更早的记录')}
+                </p>
+              ) : null}
+              <p
+                className={cn(
+                  'whitespace-pre-wrap break-words font-serif text-[15px] leading-7 sm:text-base',
+                  e.type === 'answer' && e.turn?.verdict === 'no' && 'text-stamp',
+                )}
+              >
+                {e.text}
+              </p>
+              {e.type === 'question' && available ? (
+                <button
+                  className="mt-2 min-h-8 font-mono text-[10px] text-muted-foreground"
+                  onClick={() => {
+                    setReference({ id: e.questionId!, text: e.text })
+                    setTab('ask')
+                  }}
+                >
+                  {t('引用提问')} ↳
+                </button>
+              ) : null}
+            </article>
+          ),
+        )}
+
+      {channel === 'discuss' && chatTotal === 0 ? (
+        <div className="py-10 text-center text-muted-foreground">
+          <MessageSquare className="mx-auto mb-3 size-5" />
+          <p className="font-serif text-sm">{t('把你的猜想说给同桌听。')}</p>
+          <p className="mt-2 font-mono text-[10px]">
+            {t('讨论不计轮数，砚也不会把它当成正式提问。')}
+          </p>
         </div>
-        {s ? (
-          <details
-            className="mx-auto max-w-5xl pl-11"
-            open={s.phase === 'waiting' ? true : undefined}
-          >
-            <summary className="cursor-pointer py-1 font-mono text-[10px] text-muted-foreground">
-              {t('汤面')}
-            </summary>
-            <p className="max-h-44 overflow-auto pt-2 pb-3 font-serif text-sm leading-7">
-              {s.puzzle.surface}
-            </p>
-          </details>
-        ) : null}
+      ) : null}
+    </>
+  )
+  const renderEarlier = () => (
+    <>
+      {state.hasEarlier ? (
+        <button
+          disabled={loadingEarlier}
+          className="mb-5 min-h-10 w-full font-mono text-[11px] text-muted-foreground"
+          onClick={() => {
+            setLoadingEarlier(true)
+            nearBottom.current = false
+            discussionNearBottom.current = false
+            void connection
+              .earlier()
+              .catch((e) => setError(errorText(e)))
+              .finally(() => setLoadingEarlier(false))
+          }}
+        >
+          {t(loadingEarlier ? '正在加载' : '查看更早的记录')} ↑
+        </button>
+      ) : null}
+    </>
+  )
+  const renderComposer = (mode: 'ask' | 'discuss') => (
+    <>
+      {s && !s.readOnly ? (
+        <footer className="room-composer shrink-0 border-t border-foreground/25 bg-background px-4 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto max-w-3xl">
+            {!desktop ? (
+              <div className="room-send-mode" role="group" aria-label={t('发送给')}>
+                {(['ask', 'discuss'] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={mode === value}
+                    onClick={() => setTab(value)}
+                  >
+                    {t(value === 'ask' ? '问砚' : '和大家聊')}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {(!desktop || mode === 'ask') && (s.processing || mine || failed || s.revealPending) ? (
+              <div
+                aria-live="polite"
+                className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[10px] leading-5 text-muted-foreground"
+              >
+                {s.revealPending ? (
+                  t('当前问题答完后，发起揭晓投票。')
+                ) : s.processing ? (
+                  <span>
+                    {t('砚正在回答')} · {s.members.find((m) => m.uid === s.processing!.uid)?.name}
+                  </span>
+                ) : null}
+                {mine ? (
+                  <>
+                    <span>
+                      ·{' '}
+                      {t('你的问题排在第 {n} 位', {
+                        n: s.queue.findIndex((q) => q.id === mine.id) + 1,
+                      })}
+                    </span>
+                    <button
+                      className="px-2 underline underline-offset-4"
+                      onClick={() => send({ type: 'cancel', questionId: mine.id })}
+                    >
+                      {t('撤回')}
+                    </button>
+                  </>
+                ) : null}
+                {failed ? (
+                  <>
+                    <span>{failed.error}</span>
+                    <button
+                      className="px-2 text-stamp underline underline-offset-4"
+                      onClick={() => send({ type: 'retry', questionId: failed.id })}
+                    >
+                      {t('重试问题')}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            {reference && mode === 'ask' ? (
+              <div className="mb-2 flex items-center gap-2 border-l-2 border-stamp pl-2 font-mono text-[10px] text-muted-foreground">
+                <span className="truncate">{reference.text}</span>
+                <button
+                  className="ml-auto p-2"
+                  aria-label={t('取消引用')}
+                  onClick={() => setReference(null)}
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            ) : null}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                submit(mode)
+              }}
+              className="flex items-end gap-2 border border-foreground/45 bg-card p-2 focus-within:border-foreground"
+            >
+              <textarea
+                value={drafts[mode]}
+                onChange={(e) => setDrafts((prev) => ({ ...prev, [mode]: e.target.value }))}
+                rows={1}
+                data-room-editor={mode}
+                ref={(node) => {
+                  if (node) {
+                    node.style.height = 'auto'
+                    node.style.height = `${Math.min(128, node.scrollHeight)}px`
+                  }
+                }}
+                maxLength={600}
+                aria-label={t(mode === 'ask' ? '向砚提问' : '桌内讨论')}
+                placeholder={t(mode === 'ask' ? '把你的问题交给砚……' : '和同桌说说你的猜想……')}
+                className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-2 py-1 font-serif text-base leading-6 outline-none placeholder:text-muted-foreground/60"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault()
+                    submit(mode)
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                aria-label={t(desktop && mode === 'discuss' ? '发送讨论' : '发送')}
+                disabled={
+                  !available ||
+                  !drafts[mode].trim() ||
+                  (mode === 'ask' &&
+                    (s.phase !== 'playing' ||
+                      Boolean(mine) ||
+                      s.processing?.uid === owner ||
+                      Boolean(s.vote) ||
+                      s.revealPending ||
+                      seats.length < 2))
+                }
+                className="flex size-10 shrink-0 items-center justify-center bg-foreground text-background disabled:opacity-25"
+              >
+                <ArrowUp className="size-5" />
+              </button>
+            </form>
+            <div className="mt-1 flex min-h-7 items-center justify-between gap-3 font-mono text-[10px] text-muted-foreground">
+              <span>
+                {state.pending > 0
+                  ? t('等待服务器确认')
+                  : t(
+                      mode === 'ask'
+                        ? s.phase === 'waiting'
+                          ? '开汤后，就可以向砚提问'
+                          : '正式提问按顺序回答'
+                        : '讨论仅在这一桌可见',
+                    )}
+              </span>
+              {mode === 'ask' && s.phase === 'playing' ? (
+                <button
+                  disabled={
+                    !available ||
+                    !!s.vote ||
+                    s.revealPending ||
+                    s.puzzle.dailyDate === new Date(now).toISOString().slice(0, 10)
+                  }
+                  className="py-1 disabled:opacity-35"
+                  onClick={() => send({ type: 'reveal' })}
+                >
+                  {t('提议揭晓')}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </footer>
+      ) : null}
+    </>
+  )
+  return (
+    <main
+      className="room-screen flex min-h-0 flex-1 flex-col"
+      data-layout={desktop ? 'workbench' : 'conversation'}
+    >
+      <header className="room-header shrink-0 border-b border-foreground/25 px-4 py-2">
+        <Link to="/me/rooms" aria-label={t('我的同桌')} className="room-icon-button">
+          <ArrowLeft className="size-4" />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-serif text-base sm:text-lg">{title}</h1>
+          <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+            <span
+              className={cn(
+                'size-1.5 rounded-full',
+                available ? 'bg-[var(--v-yes)]' : 'bg-muted-foreground/40',
+              )}
+            />
+            {s ? t(phases[s.phase]) : t(statusLabel)}
+            {s ? ` · ${t('{turns} 轮', { turns: s.turns })}` : ''}
+          </p>
+        </div>
+        <button
+          onClick={() => setMembersOpen(true)}
+          aria-label={t('同桌成员')}
+          className="flex min-h-11 items-center gap-2 px-1 font-mono text-xs"
+        >
+          <UsersRound className="size-4" />
+          {seats.length}/6
+        </button>
+        <button
+          onClick={() => setShowReport(true)}
+          aria-label={t('反馈')}
+          className="room-icon-button text-muted-foreground"
+        >
+          <Flag className="size-4" />
+        </button>
       </header>
+      {!desktop && s ? (
+        <button
+          className="room-surface-peek"
+          onClick={() => setSurfaceOpen(true)}
+          aria-label={t('查看汤面')}
+        >
+          <span className="shrink-0 font-mono text-[10px] text-stamp">{t('汤面')}</span>
+          <span className="truncate text-xs text-muted-foreground">{s.puzzle.surface}</span>
+          <ChevronRight className="size-3.5 shrink-0" />
+        </button>
+      ) : null}
       {state.status === 'auth' ? (
         <div className="p-5">
           <Notice>
@@ -376,8 +695,9 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           {t(statusLabel)}
         </p>
       ) : null}
+
       {membersOpen && s ? (
-        <section className="max-h-[45dvh] shrink-0 overflow-y-auto border-b border-foreground/30 bg-card px-5 py-4">
+        <RoomDialog title={t('同桌成员')} onClose={() => setMembersOpen(false)}>
           <div className="mx-auto max-w-5xl">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {s.members
@@ -470,7 +790,14 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
               ) : null}
             </div>
           </div>
-        </section>
+        </RoomDialog>
+      ) : null}
+
+      {surfaceOpen && s ? (
+        <RoomDialog title={t('汤面')} onClose={() => setSurfaceOpen(false)}>
+          <h2 className="mb-5 font-serif text-2xl">{s.puzzle.title}</h2>
+          <p className="whitespace-pre-wrap font-serif text-base leading-8">{s.puzzle.surface}</p>
+        </RoomDialog>
       ) : null}
       {s?.vote ? (
         <section aria-live="polite" className="shrink-0 border-b border-stamp/35 bg-card px-5 py-3">
@@ -503,392 +830,238 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           </div>
         </section>
       ) : null}
-      <div
-        className="mx-auto flex w-full max-w-3xl shrink-0 items-center border-b border-foreground/20 px-4 sm:px-0"
-        role="tablist"
-        aria-label={t('同桌记录')}
-      >
-        {(['ask', 'discuss'] as const).map((value) => (
-          <button
-            role="tab"
-            aria-selected={tab === value}
-            key={value}
-            onClick={() => {
-              setTab(value)
-              nearBottom.current = true
-              if (value === 'discuss') setChatSeen(chatTotal)
-            }}
-            className={cn(
-              'relative min-h-11 px-3 font-mono text-[11px] tracking-wider',
-              tab === value
-                ? 'text-foreground after:absolute after:right-3 after:bottom-0 after:left-3 after:h-0.5 after:bg-stamp'
-                : 'text-muted-foreground',
-            )}
-          >
-            {t(value === 'ask' ? '问砚' : '桌内讨论')}
-            {value === 'discuss' && tab !== 'discuss' && chatUnread > 0 ? (
-              <span className="ml-1.5 text-stamp">{chatUnread}</span>
-            ) : null}
-          </button>
-        ))}
-        <button
-          onClick={() => setShowReport(!showReport)}
-          className="ml-auto flex min-h-11 items-center px-2 text-muted-foreground"
-          aria-label={t('反馈')}
-        >
-          <Flag className="size-3.5" />
-        </button>
-      </div>
-      <div
-        ref={scroller}
-        onScroll={() => {
-          const n = scroller.current
-          if (n) nearBottom.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90
-        }}
-        className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 sm:px-8"
-      >
-        <div className="mx-auto max-w-3xl py-5">
-          {s?.phase === 'waiting' ? (
-            <div className="mb-6 border border-foreground/30 bg-card px-5 py-6 sm:px-7">
-              <p className="font-mono text-[10px] tracking-[.2em] text-stamp">
-                {t('入座后就开汤')}
-              </p>
-              <h2 className="mt-3 font-serif text-2xl">{t('空着的座位，留给朋友')}</h2>
-              <div className="my-6 grid grid-cols-6 gap-2">
-                {Array.from({ length: 6 }, (_, i) => {
-                  const m = seats[i]
-                  return (
-                    <div
-                      key={i}
-                      className={cn(
-                        'flex min-w-0 flex-col items-center border-b-2 pb-2',
-                        m ? 'border-foreground/60' : 'border-dashed border-foreground/15',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'mb-2 flex size-8 items-center justify-center font-serif text-sm',
-                          m ? 'bg-foreground text-background' : 'text-muted-foreground/35',
-                        )}
-                      >
-                        {m ? m.name.slice(0, 1) : '＋'}
-                      </span>
-                      <span className="max-w-full truncate font-mono text-[9px] text-muted-foreground">
-                        {m?.name ?? t('空位')}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-              <p className="mb-4 font-serif text-sm leading-7 text-muted-foreground">
-                {t('把邀请发给朋友。至少两人在线，房主就可以开始。')}
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button variant="outline" onClick={() => void copyInvite()}>
-                  <Copy className="size-3.5" />
-                  {t(copied ? '已复制' : '复制邀请')}
-                </Button>
-                {s.hostId === owner ? (
-                  <Button
-                    disabled={
-                      !available || seats.filter((m) => m.disconnectedAt === null).length < 2
-                    }
-                    onClick={() => send({ type: 'start' })}
-                  >
-                    {t('开始同桌')}
-                  </Button>
-                ) : null}
-              </div>
-              <p className="mt-4 select-all font-mono text-xs tracking-widest text-muted-foreground">
-                {s.inviteCode?.match(/.{1,4}/g)?.join(' ')}
-              </p>
-            </div>
-          ) : null}
-          {state.hasEarlier ? (
+
+      <div className="room-workspace">
+        {desktop && s ? (
+          <aside className="room-case-rail" aria-label={t('案卷')}>
+            <p className="font-mono text-[10px] tracking-widest text-stamp">{t('案卷')}</p>
+            <h2 className="mt-3 font-serif text-xl leading-relaxed">{s.puzzle.title}</h2>
+            <p className="mt-4 line-clamp-6 font-serif text-sm leading-7 text-muted-foreground">
+              {s.puzzle.surface}
+            </p>
             <button
-              disabled={loadingEarlier}
-              className="mb-5 min-h-10 w-full font-mono text-[11px] text-muted-foreground"
-              onClick={() => {
-                setLoadingEarlier(true)
-                nearBottom.current = false
-                void connection
-                  .earlier()
-                  .catch((e) => setError(errorText(e)))
-                  .finally(() => setLoadingEarlier(false))
-              }}
+              className="mt-2 min-h-11 font-mono text-xs underline underline-offset-4"
+              onClick={() => setSurfaceOpen(true)}
             >
-              {t(loadingEarlier ? '正在加载' : '查看更早的记录')} ↑
+              {t('查看汤面')} ↗
             </button>
-          ) : null}
-          {state.events
-            .filter(
-              (e) =>
-                e.type === 'system' ||
-                (tab === 'ask' ? e.type !== 'discussion' : e.type === 'discussion'),
-            )
-            .map((e) =>
-              e.type === 'system' ? (
-                <p
-                  key={e.id}
-                  className="my-4 text-center font-mono text-[10px] leading-5 text-muted-foreground"
-                >
-                  {e.text}
-                </p>
-              ) : (
-                <article
-                  key={e.id}
-                  className={cn(
-                    'border-b border-dashed border-foreground/20 py-5',
-                    e.type === 'answer' && 'pl-5',
-                  )}
-                >
-                  <div className="mb-2 flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
-                    <span className={e.type === 'answer' ? 'text-stamp' : ''}>
-                      {e.type === 'answer'
-                        ? t('砚')
-                        : (s?.members.find((m) => m.uid === e.actorId)?.name ?? t('汤友'))}
-                    </span>
-                    {e.type !== 'answer' && e.actorId === owner ? <span>· {t('你')}</span> : null}
-                    <time className="ml-auto tabular-nums">
-                      {new Date(e.at).toLocaleTimeString(locale, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </time>
-                  </div>
-                  {e.referenceId ? (
-                    <p className="mb-2 border-l border-foreground/30 pl-2 font-mono text-[10px] text-muted-foreground">
-                      {t('接着这个问题')} ·{' '}
-                      {state.events.find(
-                        (q) => q.questionId === e.referenceId && q.type === 'question',
-                      )?.text ?? t('查看更早的记录')}
-                    </p>
-                  ) : null}
-                  <p
-                    className={cn(
-                      'whitespace-pre-wrap break-words font-serif text-[15px] leading-7 sm:text-base',
-                      e.type === 'answer' && e.turn?.verdict === 'no' && 'text-stamp',
-                    )}
-                  >
-                    {e.text}
-                  </p>
-                  {e.type === 'question' && available ? (
-                    <button
-                      className="mt-2 min-h-8 font-mono text-[10px] text-muted-foreground"
-                      onClick={() => {
-                        setReference({ id: e.questionId!, text: e.text })
-                        setTab('ask')
-                      }}
-                    >
-                      {t('引用提问')} ↳
-                    </button>
-                  ) : null}
-                </article>
-              ),
-            )}
-          {tab === 'discuss' && chatTotal === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
-              <MessageSquare className="mx-auto mb-3 size-5" />
-              <p className="font-serif text-sm">{t('把你的猜想说给同桌听。')}</p>
-              <p className="mt-2 font-mono text-[10px]">
-                {t('讨论不计轮数，砚也不会把它当成正式提问。')}
-              </p>
-            </div>
-          ) : null}
-          {s?.report ? <RoomReportView snapshot={s} /> : null}
-        </div>
-      </div>
-      {error || state.error ? (
-        <div
-          role="alert"
-          className="flex shrink-0 items-center gap-3 border-t border-stamp/20 bg-card px-5 py-2 font-mono text-[11px] text-stamp"
-        >
-          <p className="flex-1">{error ?? state.error}</p>
-          <button
-            aria-label={t('关闭')}
-            className="p-2"
-            onClick={() => {
-              setError(null)
-              connection.clearError()
-            }}
-          >
-            <X className="size-3.5" />
-          </button>
-        </div>
-      ) : null}
-      {showReport ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void roomAPI
-              .report(id, reportNote)
-              .then(() => {
-                setReported(true)
-                setShowReport(false)
-                setReportNote('')
-              })
-              .catch((e) => setError(errorText(e)))
-          }}
-          className="shrink-0 border-t border-foreground/20 p-4"
-        >
-          <label className="mb-2 block font-mono text-[11px]">{t('这桌遇到了什么问题？')}</label>
-          <div className="flex gap-2">
-            <input
-              className={inputClass}
-              value={reportNote}
-              maxLength={1000}
-              onChange={(e) => setReportNote(e.target.value)}
-              required
-            />
-            <Button type="submit">{t('提交反馈')}</Button>
-          </div>
-        </form>
-      ) : null}
-      {reported ? (
-        <p role="status" className="shrink-0 px-5 py-2 font-mono text-[10px] text-[var(--v-yes)]">
-          {t('反馈已收到，谢谢。')}
-        </p>
-      ) : null}
-      {s && !s.readOnly ? (
-        <footer className="shrink-0 border-t border-foreground/30 bg-background px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:px-6">
-          <div className="mx-auto max-w-3xl">
-            {s.processing || mine || failed || s.revealPending ? (
-              <div
-                aria-live="polite"
-                className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[10px] leading-5 text-muted-foreground"
-              >
-                {s.revealPending ? (
-                  t('当前问题答完后，发起揭晓投票。')
-                ) : s.processing ? (
-                  <span>
-                    {t('砚正在回答')} · {s.members.find((m) => m.uid === s.processing!.uid)?.name}
-                  </span>
-                ) : null}
-                {mine ? (
-                  <>
-                    <span>
-                      ·{' '}
-                      {t('你的问题排在第 {n} 位', {
-                        n: s.queue.findIndex((q) => q.id === mine.id) + 1,
-                      })}
-                    </span>
-                    <button
-                      className="px-2 underline underline-offset-4"
-                      onClick={() => send({ type: 'cancel', questionId: mine.id })}
-                    >
-                      {t('撤回')}
-                    </button>
-                  </>
-                ) : null}
-                {failed ? (
-                  <>
-                    <span>{failed.error}</span>
-                    <button
-                      className="px-2 text-stamp underline underline-offset-4"
-                      onClick={() => send({ type: 'retry', questionId: failed.id })}
-                    >
-                      {t('重试问题')}
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-            {reference && tab === 'ask' ? (
-              <div className="mb-2 flex items-center gap-2 border-l-2 border-stamp pl-2 font-mono text-[10px] text-muted-foreground">
-                <span className="truncate">{reference.text}</span>
-                <button
-                  className="ml-auto p-2"
-                  aria-label={t('取消引用')}
-                  onClick={() => setReference(null)}
-                >
-                  <X className="size-3" />
-                </button>
-              </div>
-            ) : null}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                submit()
-              }}
-              className="flex items-end gap-2 border border-foreground/45 bg-card p-2 focus-within:border-foreground"
-            >
-              <textarea
-                value={drafts[tab]}
-                onChange={(e) => setDrafts((prev) => ({ ...prev, [tab]: e.target.value }))}
-                rows={2}
-                maxLength={600}
-                aria-label={t(tab === 'ask' ? '向砚提问' : '桌内讨论')}
-                placeholder={t(tab === 'ask' ? '把你的问题交给砚……' : '和同桌说说你的猜想……')}
-                className="min-h-12 min-w-0 flex-1 resize-none bg-transparent px-2 py-1 font-serif text-base leading-6 outline-none placeholder:text-muted-foreground/60"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault()
-                    submit()
-                  }
-                }}
-              />
-              <button
-                type="submit"
-                aria-label={t('发送')}
-                disabled={
-                  !available ||
-                  !drafts[tab].trim() ||
-                  (tab === 'ask' &&
-                    (s.phase !== 'playing' ||
-                      Boolean(mine) ||
-                      s.processing?.uid === owner ||
-                      Boolean(s.vote) ||
-                      s.revealPending ||
-                      seats.length < 2))
-                }
-                className="flex size-10 shrink-0 items-center justify-center bg-foreground text-background disabled:opacity-25"
-              >
-                <ArrowUp className="size-5" />
-              </button>
-            </form>
-            <div className="mt-1 flex min-h-7 items-center justify-between gap-3 font-mono text-[10px] text-muted-foreground">
-              <span>
-                {state.pending > 0
-                  ? t('等待服务器确认')
-                  : t(tab === 'ask' ? '正式提问按顺序回答' : '讨论仅在这一桌可见')}
+            <div className="mt-6 flex items-center justify-between border-t border-foreground/25 pt-4">
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {t('在座成员')} · {seats.length}/6
               </span>
-              {s.phase === 'playing' ? (
-                <button
-                  disabled={
-                    !available ||
-                    !!s.vote ||
-                    s.revealPending ||
-                    s.puzzle.dailyDate === new Date(now).toISOString().slice(0, 10)
-                  }
-                  className="py-1 disabled:opacity-35"
-                  onClick={() => send({ type: 'reveal' })}
-                >
-                  {t('提议揭晓')}
-                </button>
+              <button
+                className="min-h-10 font-mono text-[10px]"
+                onClick={() => setMembersOpen(true)}
+              >
+                {t('管理')}
+              </button>
+            </div>
+            {seats.map((m) => (
+              <div key={m.uid} className="flex items-center gap-2 py-2">
+                <span className="flex size-7 items-center justify-center bg-foreground/5 font-serif text-sm">
+                  {m.name.slice(0, 1)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-xs">{m.name}</span>
+                <span
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    m.disconnectedAt === null ? 'bg-[var(--v-yes)]' : 'bg-muted-foreground/40',
+                  )}
+                />
+              </div>
+            ))}
+            {s.inviteCode ? (
+              <button
+                className="mt-4 flex min-h-11 items-center gap-2 font-mono text-xs"
+                onClick={() => void copyInvite()}
+              >
+                <Copy className="size-3.5" />
+                {t(copied ? '已复制' : '复制邀请')}
+              </button>
+            ) : null}
+          </aside>
+        ) : null}
+        <section className="room-main-column" aria-label={t(desktop ? '问砚' : '同桌记录')}>
+          {desktop ? (
+            <div className="room-column-title">
+              <h2>{t('问砚')}</h2>
+              <span>{t('正式提问按顺序回答')}</span>
+            </div>
+          ) : null}
+          <div
+            ref={scroller}
+            onScroll={() => {
+              const n = scroller.current
+              if (n) nearBottom.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90
+            }}
+            className="room-timeline chat-scroll"
+            data-testid="room-timeline"
+          >
+            <div className="mx-auto w-full max-w-3xl">
+              {s?.phase === 'waiting' ? (
+                <div className="room-waiting mb-4 border border-foreground/25 bg-card p-4">
+                  <p className="font-mono text-[10px] tracking-[.2em] text-stamp">
+                    {t('入座后就开汤')}
+                  </p>
+                  <h2 className="mt-1 font-serif text-lg">{t('空着的座位，留给朋友')}</h2>
+                  <div className="my-3 grid grid-cols-6 gap-2">
+                    {Array.from({ length: 6 }, (_, i) => {
+                      const m = seats[i]
+                      return (
+                        <div
+                          key={i}
+                          className={cn(
+                            'flex min-w-0 flex-col items-center border-b-2 pb-2',
+                            m ? 'border-foreground/60' : 'border-dashed border-foreground/15',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'mb-2 flex size-8 items-center justify-center font-serif text-sm',
+                              m ? 'bg-foreground text-background' : 'text-muted-foreground/35',
+                            )}
+                          >
+                            {m ? m.name.slice(0, 1) : '＋'}
+                          </span>
+                          <span className="max-w-full truncate font-mono text-[9px] text-muted-foreground">
+                            {m?.name ?? t('空位')}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className="mb-3 font-mono text-[10px] leading-5 text-muted-foreground">
+                    {t('把邀请发给朋友。至少两人在线，房主就可以开始。')}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button size="sm" variant="outline" onClick={() => void copyInvite()}>
+                      <Copy className="size-3.5" />
+                      {t(copied ? '已复制' : '复制邀请')}
+                    </Button>
+                    {s.hostId === owner ? (
+                      <Button
+                        size="sm"
+                        disabled={
+                          !available || seats.filter((m) => m.disconnectedAt === null).length < 2
+                        }
+                        onClick={() => send({ type: 'start' })}
+                      >
+                        {t('开始同桌')}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
+
+              {renderEarlier()}
+              {renderEvents(desktop ? 'ask' : 'all')}
+              {s?.report ? <RoomReportView snapshot={s} /> : null}
             </div>
           </div>
-        </footer>
-      ) : member?.seat === 'left' && s?.inviteCode ? (
-        <div className="shrink-0 border-t border-foreground/25 p-4 text-center">
-          <Button
-            onClick={() =>
-              void roomAPI
-                .join(s.inviteCode!)
-                .then(() => {
-                  connection.stop()
-                  location.reload()
-                })
-                .catch((e) => setError(errorText(e)))
-            }
-          >
-            {t('再次入座')}
-          </Button>
-        </div>
-      ) : null}
+          {error || state.error ? (
+            <div
+              role="alert"
+              className="flex shrink-0 items-center gap-3 border-t border-stamp/20 bg-card px-5 py-2 font-mono text-[11px] text-stamp"
+            >
+              <p className="flex-1">{error ?? state.error}</p>
+              <button
+                aria-label={t('关闭')}
+                className="p-2"
+                onClick={() => {
+                  setError(null)
+                  connection.clearError()
+                }}
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : null}
+          {showReport ? (
+            <RoomDialog title={t('反馈')} onClose={() => setShowReport(false)}>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void roomAPI
+                    .report(id, reportNote)
+                    .then(() => {
+                      setReported(true)
+                      setShowReport(false)
+                      setReportNote('')
+                    })
+                    .catch((e) => setError(errorText(e)))
+                }}
+                className="shrink-0 border-t border-foreground/20 p-4"
+              >
+                <label className="mb-2 block font-mono text-[11px]">
+                  {t('这桌遇到了什么问题？')}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    className={inputClass}
+                    value={reportNote}
+                    maxLength={1000}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    required
+                  />
+                  <Button type="submit">{t('提交反馈')}</Button>
+                </div>
+              </form>
+            </RoomDialog>
+          ) : null}
+          {reported ? (
+            <p
+              role="status"
+              className="shrink-0 px-5 py-2 font-mono text-[10px] text-[var(--v-yes)]"
+            >
+              {t('反馈已收到，谢谢。')}
+            </p>
+          ) : null}
+
+          {renderComposer(desktop ? 'ask' : tab)}
+          {member?.seat === 'left' && s?.inviteCode ? (
+            <div className="shrink-0 border-t border-foreground/25 p-4 text-center">
+              <Button
+                onClick={() =>
+                  void roomAPI
+                    .join(s.inviteCode!)
+                    .then(() => {
+                      connection.stop()
+                      location.reload()
+                    })
+                    .catch((e) => setError(errorText(e)))
+                }
+              >
+                {t('再次入座')}
+              </Button>
+            </div>
+          ) : null}
+        </section>
+        {desktop ? (
+          <aside className="room-discussion-column" aria-label={t('桌内讨论')}>
+            <div className="room-column-title">
+              <h2>{t('桌内讨论')}</h2>
+              <MessageSquare className="size-3.5 text-muted-foreground" />
+            </div>
+            <div
+              ref={discussionScroller}
+              onScroll={() => {
+                const n = discussionScroller.current
+                if (n)
+                  discussionNearBottom.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90
+              }}
+              className="room-timeline chat-scroll"
+            >
+              {renderEarlier()}
+              {renderEvents('discuss')}
+            </div>
+            {renderComposer('discuss')}
+          </aside>
+        ) : null}
+      </div>
     </main>
   )
 }
+
 function RoomReportView({ snapshot: s }: { snapshot: RoomSnapshot }) {
   const { t } = useI18n()
   if (!s.report) return null
@@ -939,5 +1112,52 @@ function RoomReportView({ snapshot: s }: { snapshot: RoomSnapshot }) {
         </Link>
       </div>
     </section>
+  )
+}
+
+function RoomDialog({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  const { t } = useI18n()
+  const ref = useRef<HTMLDialogElement>(null)
+  const label = useId()
+  useEffect(() => {
+    const dialog = ref.current
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialog?.showModal()
+    return () => {
+      dialog?.close()
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
+    }
+  }, [])
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={label}
+      className="room-dialog"
+      onCancel={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="room-dialog-body">
+        <header className="mb-5 flex items-center justify-between gap-4 border-b border-foreground/25 pb-3">
+          <h2 id={label} className="font-mono text-xs tracking-widest">
+            {title}
+          </h2>
+          <button className="room-icon-button" onClick={onClose} aria-label={t('关闭')}>
+            <X className="size-4" />
+          </button>
+        </header>
+        {children}
+      </div>
+    </dialog>
   )
 }

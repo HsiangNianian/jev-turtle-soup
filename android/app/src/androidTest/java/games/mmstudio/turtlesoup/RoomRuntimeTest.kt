@@ -38,11 +38,20 @@ class RoomRuntimeTest {
             until {guest.online && guest.snapshot?.arr("members")?.objects()?.count {it.isNull("disconnectedAt")}==2}
             compose.onNodeWithText("开始同桌").performClick()
             until {guest.snapshot?.str("phase")=="playing"}
-            compose.onNodeWithText("问砚",useUnmergedTree=true).performClick()
+            compose.onNodeWithTag("tableSurface").performClick()
+            compose.onNodeWithText("完成").performClick()
+            compose.onNodeWithTag("tableMode.ask").performClick()
             compose.onNode(hasSetTextAction()).performTextInput("A neighbor leaves the elevator?")
             compose.onNodeWithContentDescription("发送").performClick()
             until {guest.snapshot?.optInt("turns")==1}
             compose.onNodeWithText("是。").assertExists()
+            compose.onNodeWithTag("tableMode.discuss").performClick()
+            compose.onNodeWithText("是。").assertExists()
+            compose.onNode(hasSetTextAction()).performTextInput("A shared clue from Android")
+            compose.onNodeWithContentDescription("发送").performClick()
+            until {guest.events.any {it.str("text")=="A shared clue from Android"}}
+            compose.onNodeWithTag("tableMode.ask").performClick()
+            compose.onNodeWithText("A shared clue from Android").assertExists()
             InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().also { image ->
                 File(context.getExternalFilesDir(null),"rooms-native-answer.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
             }

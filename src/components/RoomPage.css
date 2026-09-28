@@ -1,0 +1,172 @@
+.room-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.room-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 44px;
+}
+.room-surface-peek {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.room-workspace,
+.room-main-column,
+.room-discussion-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+.room-timeline {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 20px;
+  scroll-padding-block: 20px;
+}
+.room-column-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  min-height: 51px;
+  border-bottom: 1px solid var(--border);
+  font: 11px var(--font-mono);
+}
+.room-column-title span {
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.room-event {
+  position: relative;
+  margin: 4px 0 16px;
+  padding: 0 0 0 14px;
+  border-left: 2px solid transparent;
+  overflow-wrap: anywhere;
+}
+.room-event-question {
+  border-color: var(--stamp);
+}
+.room-event-answer {
+  margin-left: 12px;
+  padding: 12px 14px;
+  background: var(--card);
+  border-color: var(--border);
+}
+.room-event-discussion {
+  border-color: var(--border);
+}
+.room-event-kind {
+  font-size: 9px;
+  opacity: 0.8;
+}
+.room-send-mode {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  min-height: 36px;
+  margin: -4px 0 4px;
+  font: 11px var(--font-mono);
+}
+.room-send-mode button {
+  min-height: 36px;
+  color: var(--muted-foreground);
+  border-bottom: 2px solid transparent;
+}
+.room-send-mode button[aria-pressed='true'] {
+  color: var(--stamp);
+  border-color: var(--stamp);
+}
+.room-composer textarea {
+  overflow-y: auto;
+}
+.room-dialog {
+  padding: 0;
+  width: min(620px, calc(100% - 32px));
+  max-height: 85dvh;
+  margin: auto;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  background: var(--background);
+}
+.room-dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(4px);
+}
+.room-dialog-body {
+  padding: 12px 24px 28px;
+}
+@media (min-width: 1024px) {
+  .room-header {
+    padding-inline: 24px;
+  }
+  .room-workspace {
+    display: grid;
+    grid-template-columns: clamp(200px, 19vw, 280px) minmax(0, 1fr) clamp(280px, 26vw, 380px);
+    width: 100%;
+    max-width: 1680px;
+    margin-inline: auto;
+  }
+  .room-case-rail {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 24px 20px;
+    border-right: 1px solid var(--border);
+  }
+  .room-discussion-column {
+    border-left: 1px solid var(--border);
+  }
+  .room-main-column .room-timeline {
+    padding: 24px 28px;
+  }
+  .room-discussion-column .room-event {
+    padding-left: 10px;
+  }
+  .room-discussion-column .room-event p {
+    font-size: 14px;
+    line-height: 1.8;
+  }
+  .room-event {
+    margin-bottom: 24px;
+  }
+}
+@media (max-width: 600px) {
+  .room-dialog {
+    width: 100%;
+    max-height: 85dvh;
+    margin: auto 0 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+@media (max-height: 520px) {
+  .room-header {
+    padding-block: 0;
+  }
+  .room-surface-peek {
+    min-height: 32px;
+    padding-block: 4px;
+  }
+  .room-composer {
+    padding-top: 0;
+  }
+  .room-send-mode,
+  .room-send-mode button {
+    min-height: 30px;
+  }
+}

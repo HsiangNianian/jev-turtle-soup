@@ -1,5 +1,6 @@
 import { chromium } from 'playwright'
 import { readFile } from 'node:fs/promises'
+import assert from 'node:assert/strict'
 const fixture = JSON.parse(await readFile('.build/rooms/preview.json', 'utf8'))
 const browser = await chromium.launch({
   headless: true,
@@ -27,6 +28,19 @@ try {
   await a.goto(fixture.url + '/rooms/new?puzzle=' + fixture.puzzleId)
   await a.getByRole('button', { name: '开一桌，邀请朋友' }).click()
   await a.getByRole('heading', { name: '空着的座位，留给朋友' }).waitFor()
+  assert.equal(await a.getByRole('textbox', { name: '桌内讨论' }).count(), 1)
+  const timeline = a.getByTestId('room-timeline')
+  assert.ok(
+    (await timeline.boundingBox()).height > 450,
+    'Waiting lobby stays inside a spacious conversation',
+  )
+  await a.getByRole('button', { name: '查看汤面' }).click()
+  await a.getByRole('dialog', { name: '汤面' }).waitFor()
+  await a.getByRole('dialog').getByRole('button', { name: '关闭' }).click()
+  assert.ok(
+    (await timeline.boundingBox()).height > 450,
+    'Closing the premise restores the conversation',
+  )
   await a.screenshot({ path: '.build/rooms/waiting-mobile.png' })
   const id = new URL(a.url()).pathname.split('/').at(-1)
   const state = await a.evaluate(async (id) => (await fetch('/api/rooms/' + id)).json(), id)
@@ -34,21 +48,48 @@ try {
   await b.getByRole('button', { name: '入座', exact: true }).click()
   await b.getByRole('heading', { name: '空着的座位，留给朋友' }).waitFor()
   await a.getByRole('button', { name: '开始同桌' }).click()
+  await a.getByRole('button', { name: '问砚', exact: true }).click()
   await a.getByRole('textbox', { name: '向砚提问' }).fill('有人特意把电梯留在这一层吗？')
   await a.getByRole('button', { name: '发送', exact: true }).click()
   await a.getByText('是。', { exact: true }).waitFor()
-  await b.getByRole('tab', { name: '桌内讨论' }).click()
+  assert.equal(
+    await b.getByRole('textbox').count(),
+    2,
+    'Desktop has independent question and discussion composers',
+  )
   await b
     .getByRole('textbox', { name: '桌内讨论' })
     .fill('我猜是每天同一时间出门的邻居。大家觉得呢？')
-  await b.getByRole('button', { name: '发送', exact: true }).click()
-  await a.getByRole('tab', { name: /桌内讨论/ }).click()
+  await b.getByRole('button', { name: '发送讨论', exact: true }).click()
   await a.getByText('我猜是每天同一时间出门的邻居。大家觉得呢？', { exact: true }).waitFor()
+  assert.equal(
+    await a.getByText('是。', { exact: true }).count(),
+    1,
+    'Questions, answers and discussion share the mobile timeline',
+  )
+  await a.getByRole('textbox', { name: '向砚提问' }).fill('留下这条提问草稿')
+  await a.getByRole('button', { name: '和大家聊', exact: true }).click()
+  await a.getByRole('textbox', { name: '桌内讨论' }).fill('先聊两句，问题草稿稍后再发')
+  assert.equal(
+    await a.getByText('是。', { exact: true }).count(),
+    1,
+    'Changing send mode never filters the timeline',
+  )
+  await a.getByRole('button', { name: '发送', exact: true }).click()
+  await b.getByText('先聊两句，问题草稿稍后再发', { exact: true }).waitFor()
   await a.screenshot({ path: '.build/rooms/discussion-mobile.png' })
-  await a.getByRole('tab', { name: '问砚', exact: true }).click()
+  await a.getByRole('button', { name: '问砚', exact: true }).click()
+  assert.equal(await a.getByRole('textbox', { name: '向砚提问' }).inputValue(), '留下这条提问草稿')
+  await a.getByRole('textbox', { name: '向砚提问' }).fill('')
   await a.screenshot({ path: '.build/rooms/playing-mobile.png' })
-  await b.getByRole('tab', { name: '问砚', exact: true }).click()
   await b.screenshot({ path: '.build/rooms/playing-desktop.png' })
+  // Resizing preserves drafts and changes layout without opening another socket.
+  await b.getByRole('textbox', { name: '桌内讨论' }).fill('桌边的草稿')
+  await b.setViewportSize({ width: 390, height: 844 })
+  await b.getByRole('button', { name: '和大家聊', exact: true }).click()
+  assert.equal(await b.getByRole('textbox', { name: '桌内讨论' }).inputValue(), '桌边的草稿')
+  await b.setViewportSize({ width: 1365, height: 844 })
+  assert.equal(await b.getByRole('textbox', { name: '桌内讨论' }).inputValue(), '桌边的草稿')
   await a.getByRole('button', { name: '提议揭晓', exact: true }).click()
   await b.getByRole('button', { name: '同意揭晓', exact: true }).waitFor()
   await a.screenshot({ path: '.build/rooms/vote-mobile.png' })
@@ -69,15 +110,58 @@ try {
       { theme, locale },
     )
     await a.reload()
-    await a.getByRole('tab').first().waitFor()
+    await a.getByTestId('room-timeline').waitFor()
     await a.waitForFunction(() => !document.querySelector('.animate-spin'))
     await a.screenshot({ path: `.build/rooms/report-${width}-${theme}-${locale}.png` })
     if (await a.evaluate(() => document.documentElement.scrollWidth > innerWidth))
       throw new Error(`Overflow at ${width}/${locale}`)
   }
+  await a.setViewportSize({ width: 390, height: 844 })
+  await a.evaluate(() => {
+    localStorage.setItem('turtle-soup.locale', 'zh-CN')
+    localStorage.setItem('turtle-soup.theme', 'dark')
+  })
+  await a.goto(fixture.url + '/rooms/new?puzzle=' + fixture.longPuzzleId)
+  await a.getByRole('button', { name: '开一桌，邀请朋友' }).click()
+  await a.getByRole('heading', { name: 'The Woman at the Edge of the Frame' }).waitFor()
+  assert.ok(
+    (await a.getByTestId('room-timeline').boundingBox()).height > 450,
+    'Long English premise never expands the header',
+  )
+  await a.screenshot({ path: '.build/rooms/long-premise-mobile.png' })
+  await a.getByRole('button', { name: '查看汤面' }).click()
+  const dialog = a.getByRole('dialog', { name: '汤面' })
+  await dialog.waitFor()
+  assert.ok(
+    await dialog.evaluate((el) => el.scrollHeight > el.clientHeight),
+    'Long premise scrolls in its own sheet',
+  )
+  await dialog.evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await a.keyboard.press('Escape')
+  assert.ok(
+    await a
+      .getByRole('button', { name: '查看汤面' })
+      .evaluate((el) => el === document.activeElement),
+    'Closing sheet returns focus',
+  )
+  // Exercise the Safari visual viewport resize path independently of layout viewport size.
+  await a.evaluate(() => {
+    Object.defineProperty(visualViewport, 'height', { configurable: true, value: 420 })
+    visualViewport.dispatchEvent(new Event('resize'))
+  })
+  const send = await a.getByRole('button', { name: '发送', exact: true }).boundingBox()
+  assert.ok(send.y + send.height <= 420, 'Composer stays above the keyboard')
+  await a.evaluate(() => {
+    delete visualViewport.height
+    visualViewport.dispatchEvent(new Event('resize'))
+  })
+  await a.setViewportSize({ width: 320, height: 568 })
+  assert.equal(await a.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
   const overflow = await a.evaluate(() => document.documentElement.scrollWidth > innerWidth)
   if (errors.length || overflow) throw new Error(JSON.stringify({ errors, overflow }))
-  console.log(JSON.stringify({ roomId: id, errors, overflow, screenshots: 9 }))
+  console.log(JSON.stringify({ roomId: id, errors, overflow, screenshots: 10 }))
 } finally {
   await browser.close()
 }

@@ -18,6 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -142,10 +147,9 @@ import java.util.UUID
     LaunchedEffect(table.rejected?.str("commandId")) {
         table.rejected?.let { if(it.str("type") == "ask" && question.isBlank()) question = it.str("text"); if(it.str("type") == "discuss" && discussion.isBlank()) discussion = it.str("text") }
     }
-    LaunchedEffect(s?.str("phase")) { if(s?.str("phase") == "waiting") { surface = true; tab = "discuss" } }
+    LaunchedEffect(s?.str("phase")) { if(s?.str("phase") == "waiting") tab = "discuss" else if(s?.str("phase") == "playing" && discussion.isBlank()) tab = "ask" }
     LaunchedEffect(table.status) { if(table.status.contains("登录")) state.refreshAccount() }
-    val filtered = table.events.filter { it.str("type") == "system" || if(tab == "ask") it.str("type") != "discussion" else it.str("type") == "discussion" }
-    LaunchedEffect(table.events.lastOrNull()?.str("id"), tab, s?.optJSONObject("report")) {
+    LaunchedEffect(table.events.lastOrNull()?.str("id"), s?.optJSONObject("report")) {
         val nearEnd = list.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= list.layoutInfo.totalItemsCount - 3 } ?: true
         if(nearEnd && list.layoutInfo.totalItemsCount > 0) list.animateScrollToItem(list.layoutInfo.totalItemsCount - 1)
     }
@@ -159,24 +163,39 @@ import java.util.UUID
             state.api.request("/api/rooms/$roomId/report", "POST", JSONObject().put("note", feedback)); reportOpen = false; feedback = ""; table.error = "反馈已收到，谢谢。"
         } catch(e: CancellationException) { throw e } catch(e: Exception) { table.error = e.message.orEmpty() } } }) { Prose("提交反馈", size = 14) } },
         dismissButton = { TextButton(onClick = { reportOpen = false }) { Prose("取消", size = 14) } })
-    Column(Modifier.fillMaxSize().imePadding()) {
-        if(s != null) Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Mono("${tablePhaseLabel(s.str("phase"))} · ${s.optInt("turns")} 轮"); Prose(s.obj("puzzle").str("title"), size = 20) }
-                TextButton(onClick = { members = !members }) { Icon(Icons.Outlined.Group, null, Modifier.size(16.dp), tint = inkColor()); Mono(" ${seats.size}/6") } }
-            TextButton(onClick = { surface = !surface }, contentPadding = PaddingValues(0.dp)) { Mono(if(surface) "收起汤面 ↑" else "汤面 ↓") }
-            if(surface) Box(Modifier.heightIn(max = 150.dp).verticalScroll(rememberScrollState())) { Prose(s.obj("puzzle").str("surface"), size = 14) }
-        }
-        if(members && s != null) Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).background(sheetColor()).padding(16.dp)) {
+    if(surface && s != null) TableSheet("汤面", { surface = false }) {
+        Prose(s.obj("puzzle").str("title"), size = 23)
+        Spacer(Modifier.height(20.dp))
+        SelectionContainer { Prose(s.obj("puzzle").str("surface"), size = 16, lineHeight = 30) }
+    }
+        if(members && s != null) TableSheet("同桌成员", { members = false }) {
             seats.forEach { m -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 8.dp)) { Prose(m.str("name"), size = 14); Mono("${if(m.str("uid") == s.str("hostId")) "房主" else if(m.isNull("disconnectedAt")) "在座" else "暂时离线"} · ${m.optInt("questions")} 轮") }
                 if(s.str("hostId") == owner && m.str("uid") != owner && available) {
-                    TextButton(onClick = { confirmText = "把房主交给 ${m.str("name")}？"; confirmation = tableCommand("transfer", "uid" to m.str("uid")) }) { Mono("转交") }
-                    TextButton(onClick = { confirmText = "移出后，这位汤友不能重新进入这一桌。"; confirmation = tableCommand("kick", "uid" to m.str("uid")) }) { Mono("移出", color = redColor()) }
+                    TextButton(onClick = { confirmText = "把房主交给 ${m.str("name")}？"; members = false; confirmation = tableCommand("transfer", "uid" to m.str("uid")) }) { Mono("转交") }
+                    TextButton(onClick = { confirmText = "移出后，这位汤友不能重新进入这一桌。"; members = false; confirmation = tableCommand("kick", "uid" to m.str("uid")) }) { Mono("移出", color = redColor()) }
                 }
             } }
             if(s.str("inviteCode").isNotBlank()) { SelectionContainer { Mono(s.str("inviteCode"), size = 13) }; TextButton(onClick = ::invite) { Prose("邀请朋友", size = 13) } }
             if(available && s.str("hostId") == owner) TextButton(onClick = { table.send(tableCommand("invitations", "open" to !s.optBoolean("invitationsOpen"))) }) { Mono(if(s.optBoolean("invitationsOpen")) "停止新成员入座" else "开放新成员入座") }
-            if(available) TextButton(onClick = { confirmText = "离座后保留共同案卷；有空位时可以再次入座。"; confirmation = tableCommand("leave") }) { Mono("离座") }
+            if(available) TextButton(onClick = { confirmText = "离座后保留共同案卷；有空位时可以再次入座。"; members = false; confirmation = tableCommand("leave") }) { Mono("离座") }
+        }
+    Column(Modifier.fillMaxSize().imePadding()) {
+        if(s != null) {
+            Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(s.obj("puzzle").str("title"), fontFamily = Ink.serif, fontSize = 18.sp, color = inkColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Mono("${tablePhaseLabel(s.str("phase"))} · ${s.optInt("turns")} 轮")
+                }
+                TextButton(onClick = { members = true }) { Icon(Icons.Outlined.Group, "同桌成员", Modifier.size(16.dp), tint = inkColor()); Mono(" ${seats.size}/6") }
+                IconButton(onClick = { reportOpen = true }) { Icon(Icons.Outlined.Flag, "反馈", Modifier.size(16.dp), tint = mutedColor()) }
+            }
+            Rule()
+            Row(Modifier.fillMaxWidth().clickable { surface = true }.padding(horizontal = 20.dp).heightIn(min = 42.dp).testTag("tableSurface"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Mono("汤面", color = redColor())
+                Text(s.obj("puzzle").str("surface"), Modifier.weight(1f), fontSize = 11.sp, color = mutedColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(Icons.Outlined.ChevronRight, "查看汤面", Modifier.size(16.dp), tint = mutedColor())
+            }
         }
         if(!table.online) Mono(table.status, Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
         if(vote != null) Column(Modifier.fillMaxWidth().background(sheetColor()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -186,26 +205,23 @@ import java.util.UUID
                 TextButton(enabled = available && owner !in vote.arr("agreed").strings(), onClick = { table.send(tableCommand("vote", "voteId" to vote.str("id"), "agree" to true)) }) { Prose(if(owner in vote.arr("agreed").strings()) "已同意" else "同意揭晓", size = 13) } }
         }
         Rule()
-        Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            listOf("ask" to "问砚", "discuss" to "桌内讨论").forEach { (value, label) -> TextButton(onClick = { tab = value }) { Mono(label, size = 11, color = if(tab == value) redColor() else mutedColor()) } }
-            Spacer(Modifier.weight(1f)); IconButton(onClick = { reportOpen = true }) { Icon(Icons.Outlined.Flag, "反馈", Modifier.size(16.dp), tint = mutedColor()) }
-        }
-        Rule()
-        LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(20.dp)) {
+        LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)) {
             if(s?.str("phase") == "waiting") item { TableWaiting(s, owner, available, ::invite) { table.send(tableCommand("start")) } }
             if(table.hasEarlier) item { TextButton(onClick = { scope.launch { table.earlier() } }, modifier = Modifier.fillMaxWidth()) { Mono("查看更早的记录 ↑") } }
-            items(filtered, key = { it.str("id") }) { e ->
+            items(table.events, key = { it.str("id") }) { e ->
                 if(e.str("type") == "system") Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Mono(e.str("text")) }
-                else Column(Modifier.fillMaxWidth().padding(start = if(e.str("type") == "answer") 16.dp else 0.dp).padding(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                else Row(Modifier.fillMaxWidth().padding(start = if(e.str("type") == "answer") 12.dp else 0.dp).padding(bottom = 18.dp).height(IntrinsicSize.Min).background(if(e.str("type") == "answer") sheetColor() else paperColor())) {
+                    Box(Modifier.width(2.dp).fillMaxHeight().background(if(e.str("type") == "question") redColor() else lineColor()))
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = if(e.str("type") == "answer") 10.dp else 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row { Mono(if(e.str("type") == "answer") "砚" else (roster.firstOrNull { it.str("uid") == e.str("actorId") }?.str("name") ?: "汤友") + if(e.str("actorId") == owner && e.str("type") != "answer") " · 你" else "", color = if(e.str("type") == "answer") redColor() else mutedColor())
+                        Spacer(Modifier.width(6.dp)); Mono(if(e.str("type") == "question") "问砚" else if(e.str("type") == "discussion") "桌内讨论" else "主持人", size = 9)
                         Spacer(Modifier.weight(1f)); Mono(java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(e.optLong("at")))) }
                     if(e.str("referenceId").isNotBlank()) Mono("↳ ${table.events.firstOrNull { it.str("type") == "question" && it.str("questionId") == e.str("referenceId") }?.str("text") ?: "接着前面的问题"}")
                     SelectionContainer { Prose(e.str("text"), size = 15) }
                     if(e.str("type") == "question" && available) TextButton(onClick = { reference = e; tab = "ask" }) { Mono("引用提问 ↳") }
-                    Rule()
+                    }
                 }
             }
-            if(tab == "discuss" && table.events.none { it.str("type") == "discussion" }) item { Column(Modifier.fillMaxWidth().padding(vertical = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) { Prose("把你的猜想说给同桌听。", color = mutedColor(), size = 14); Mono("讨论不计轮数，也不会作为正式提问交给砚。") } }
             s?.optJSONObject("report")?.let { report -> item { TableReport(report, roster) } }
         }
         if(table.error.isNotBlank()) Row(Modifier.fillMaxWidth().background(sheetColor()).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -213,18 +229,27 @@ import java.util.UUID
         }
         if(s != null && !s.optBoolean("readOnly")) Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Rule()
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                listOf("ask" to "问砚", "discuss" to "和大家聊").forEach { (value, label) ->
+                    Column(Modifier.semantics { selected = tab == value }.testTag("tableMode.$value").clickable { tab = value }) {
+                        Box(Modifier.heightIn(min = 38.dp), contentAlignment = Alignment.Center) { Mono(label, size = 11, color = if(tab == value) redColor() else mutedColor()) }
+                        Box(Modifier.width(48.dp).height(2.dp).background(if(tab == value) redColor() else paperColor()))
+                    }
+                }
+            }
             if(active != null) Mono("砚正在回答 · ${roster.firstOrNull { it.str("uid") == active.str("uid") }?.str("name") ?: "汤友"}")
             if(mine != null) Row(verticalAlignment = Alignment.CenterVertically) { Mono("你的问题正在排队"); TextButton(onClick = { table.send(tableCommand("cancel", "questionId" to mine.str("id"))) }) { Mono("撤回") } }
             if(failed != null) Row(verticalAlignment = Alignment.CenterVertically) { Mono(failed.str("error"), Modifier.weight(1f)); TextButton(onClick = { table.send(tableCommand("retry", "questionId" to failed.str("id"))) }) { Mono("重试问题", color = redColor()) } }
             if(reference != null && tab == "ask") TextButton(onClick = { reference = null }) { Mono("↳ ${reference!!.str("text")}  ×") }
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(draft, { if(tab == "ask") question = it.take(600) else discussion = it.take(600) }, Modifier.weight(1f), shape = RectangleShape, maxLines = 4,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = inkColor(), unfocusedBorderColor = lineColor(), cursorColor = redColor()),
                     placeholder = { Prose(if(tab == "ask") "把你的问题交给砚……" else "和同桌说说你的猜想……", size = 14, color = mutedColor()) }, textStyle = TextStyle(fontFamily = Ink.serif, fontSize = 16.sp))
                 IconButton(enabled = available && draft.isNotBlank() && (tab != "ask" || canAsk), onClick = {
                     val command = tableCommand(if(tab == "ask") "ask" else "discuss", "text" to draft.trim())
                     if(tab == "ask") { command.put("locale", "zh-CN"); reference?.let { command.put("referenceId", it.str("questionId")) } }
-                    if(table.send(command)) { if(tab == "ask") question = "" else discussion = ""; reference = null }
-                }, modifier = Modifier.background(inkColor())) { Icon(Icons.Outlined.ArrowUpward, "发送", tint = paperColor()) }
+                    if(table.send(command)) { if(tab == "ask") { question = ""; reference = null } else discussion = "" }
+                }, modifier = Modifier.background(inkColor().copy(alpha = if(available && draft.isNotBlank() && (tab != "ask" || canAsk)) 1f else 0.3f))) { Icon(Icons.Outlined.ArrowUpward, "发送", tint = paperColor()) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) { Mono(if(table.pendingCount > 0) "等待服务器确认" else if(tab == "ask") "正式提问按顺序回答" else "讨论仅在这一桌可见", Modifier.weight(1f))
                 if(s.str("phase") == "playing") TextButton(enabled = available && vote == null && !s.optBoolean("revealPending") && s.obj("puzzle").str("dailyDate") != java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(), onClick = { table.send(tableCommand("reveal")) }) { Mono("提议揭晓") } }
@@ -234,18 +259,30 @@ import java.util.UUID
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun TableSheet(title: String, close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    ModalBottomSheet(onDismissRequest = close, containerColor = paperColor(), contentColor = inkColor(), shape = RectangleShape) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Mono(title, Modifier.weight(1f), size = 12)
+            TextButton(onClick = close) { Mono("完成") }
+        }
+        Rule()
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp).padding(bottom = 24.dp), content = content)
+    }
+}
 @Composable private fun TableWaiting(s: JSONObject, owner: String, available: Boolean, invite: () -> Unit, start: () -> Unit) {
     val seats = s.arr("members").objects().filter { it.str("seat") == "seated" }
-    Column(Modifier.fillMaxWidth().border(1.dp, lineColor()).background(sheetColor()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Mono("入座后就开汤", color = redColor()); Prose("空着的座位，留给朋友", size = 23)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { repeat(6) { i -> Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Prose(seats.getOrNull(i)?.str("name")?.take(1) ?: "＋", Modifier.background(if(i < seats.size) inkColor() else sheetColor()).padding(6.dp), color = if(i < seats.size) paperColor() else mutedColor(), size = 15)
-            Mono(seats.getOrNull(i)?.str("name")?.take(3) ?: "空位", size = 9); Rule()
+    Column(Modifier.fillMaxWidth().padding(bottom = 16.dp).border(1.dp, lineColor()).background(sheetColor()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Prose("等朋友入座，先聊两句", size = 17)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { repeat(6) { i -> Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Prose(seats.getOrNull(i)?.str("name")?.take(1) ?: "＋", Modifier.background(if(i < seats.size) inkColor() else sheetColor()).padding(horizontal = 6.dp, vertical = 2.dp), color = if(i < seats.size) paperColor() else mutedColor(), size = 15)
+            Mono(seats.getOrNull(i)?.str("name")?.take(3) ?: "空位", size = 9)
         } } }
-        Prose("把邀请发给朋友。至少两人在线，房主就可以开始。", size = 14, color = mutedColor())
-        SelectionContainer { Mono(s.str("inviteCode"), size = 13) }
-        OutlinedButton(onClick = invite, shape = RectangleShape) { Prose("邀请朋友", size = 13) }
-        if(s.str("hostId") == owner) InkButton("开始同桌", start, enabled = available && seats.count { it.isNull("disconnectedAt") } >= 2)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = invite) { Prose("邀请朋友", size = 12) }
+            if(s.str("hostId") == owner) Button(onClick = start, enabled = available && seats.count { it.isNull("disconnectedAt") } >= 2, shape = RectangleShape, colors = ButtonDefaults.buttonColors(containerColor = inkColor(), contentColor = paperColor())) { Text("开始同桌", fontFamily = Ink.mono, fontSize = 11.sp) }
+        }
+        Mono("至少两人在线，房主就可以开始。")
     }
 }
 @Composable private fun TableReport(report: JSONObject, roster: List<JSONObject>) {

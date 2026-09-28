@@ -1,4 +1,12 @@
 const phrases: [string, string, string][] = [
+  ['发送给', 'Send to', '送信先'],
+  ['和大家聊', 'Chat with everyone', 'みんなと相談'],
+  ['发送讨论', 'Send discussion', '相談を送信'],
+  ['查看汤面', 'Read the premise', '問題文を読む'],
+  ['同桌成员', 'Table members', '同卓のメンバー'],
+  ['在座成员', 'At the table', '着席中のメンバー'],
+  ['主持人', 'Host', '司会'],
+  ['开汤后，就可以向砚提问', 'You can ask Yan once the game starts', '開始後、硯に質問できます'],
   ['同桌', 'Table', '同卓'],
   ['我的同桌', 'My tables', '参加した卓'],
   ['邀朋友同桌', 'Play with friends', '友達と同卓'],

@@ -99,10 +99,34 @@ await db
     Date.now(),
   )
   .run()
+// Long English text exercises the compact header and scrollable premise sheets.
+await db
+  .prepare(
+    'INSERT INTO puzzles(id,owner_id,title,surface,truth,hint,difficulty,visibility,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+  )
+  .bind(
+    'room-preview-long',
+    'author',
+    'The Woman at the Edge of the Frame',
+    'After my father died, I opened a painted-over cupboard and found a hidden room filled with numbered photographs. In every picture, a woman stood at the edge of the frame. Why had nobody told me who she was?\n\n'.repeat(
+      8,
+    ),
+    'The photographer had arranged the pictures as a family history.',
+    'Look at the edges.',
+    '中等',
+    'public',
+    Date.now(),
+  )
+  .run()
 await mkdir('.build/rooms', { recursive: true })
 await writeFile(
   '.build/rooms/preview.json',
-  JSON.stringify({ url: (await mf.ready).origin, cookies, puzzleId: 'room-preview-puzzle' }),
+  JSON.stringify({
+    url: (await mf.ready).origin,
+    cookies,
+    puzzleId: 'room-preview-puzzle',
+    longPuzzleId: 'room-preview-long',
+  }),
 )
 console.log(
   `Local room preview: ${(await mf.ready).origin}; fixture session data in .build/rooms/preview.json`,

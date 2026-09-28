@@ -1021,7 +1021,14 @@ function GameApp({
   }
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
+    <div
+      className="flex h-dvh flex-col overflow-hidden"
+      style={
+        /^\/rooms\/(?!new$|join$)/.test(path)
+          ? { height: 'var(--room-viewport-height, 100dvh)' }
+          : undefined
+      }
+    >
       <header className="z-20 shrink-0 bg-bar text-bar-foreground">
         <div className="mx-auto flex h-12 w-full min-w-0 items-center gap-2 px-4 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">

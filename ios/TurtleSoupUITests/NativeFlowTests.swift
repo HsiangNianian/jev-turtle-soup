@@ -3,22 +3,37 @@ import XCTest
 @MainActor
 final class NativeFlowTests: XCTestCase {
   func testRoomsOnLocalRuntime() throws {
-    guard let id = ProcessInfo.processInfo.environment["NATIVE_ROOMS_ID"], let cookie = ProcessInfo.processInfo.environment["NATIVE_ROOMS_COOKIE"] else {throw XCTSkip("Run the isolated rooms preview first")}
+    guard let id = ProcessInfo.processInfo.environment["NATIVE_ROOMS_ID"],
+      let cookie = ProcessInfo.processInfo.environment["NATIVE_ROOMS_COOKIE"]
+    else { throw XCTSkip("Run the isolated rooms preview first") }
     continueAfterFailure = false
     let app = XCUIApplication()
     app.launchEnvironment["NATIVE_ROOMS_URL"] = "http://127.0.0.1:8799"
     app.launchEnvironment["NATIVE_ROOMS_ID"] = id
     app.launchEnvironment["NATIVE_ROOMS_COOKIE"] = cookie
     app.launch()
-    XCTAssertTrue(app.staticTexts["八点半的电梯"].waitForExistence(timeout:30))
-    XCTAssertEqual(app.webViews.count,0)
+    XCTAssertTrue(app.staticTexts["八点半的电梯"].waitForExistence(timeout: 30))
+    XCTAssertEqual(app.webViews.count, 0)
+    app.buttons["查看汤面"].tap()
+    XCTAssertTrue(app.navigationBars["汤面"].waitForExistence(timeout: 5))
+    capture("rooms-native-premise-sheet")
+    app.buttons["完成"].tap()
     capture("rooms-native-connected")
-    let question=app.descendants(matching:.any).matching(identifier:"tableQuestion").firstMatch
-    XCTAssertTrue(question.waitForExistence(timeout:10))
-    question.tap(); question.typeText("Did a neighbor leave the lift here?")
+    let question = app.descendants(matching: .any).matching(identifier: "tableQuestion").firstMatch
+    XCTAssertTrue(question.waitForExistence(timeout: 10))
+    question.tap()
+    question.typeText("Did a neighbor leave the lift here?")
     capture("rooms-native-keyboard")
     app.buttons["tableSend"].tap()
-    XCTAssertTrue(app.staticTexts["是。"].waitForExistence(timeout:20))
+    XCTAssertTrue(app.staticTexts["是。"].waitForExistence(timeout: 20))
+    app.buttons["tableMode.discuss"].tap()
+    XCTAssertTrue(app.staticTexts["是。"].exists, "Send mode must not filter the conversation")
+    question.tap()
+    question.typeText("Let us compare our clues.")
+    app.buttons["tableSend"].tap()
+    XCTAssertTrue(app.staticTexts["Let us compare our clues."].waitForExistence(timeout: 10))
+    app.buttons["tableMode.ask"].tap()
+    XCTAssertTrue(app.staticTexts["Let us compare our clues."].exists)
     capture("rooms-native-answer")
   }
 

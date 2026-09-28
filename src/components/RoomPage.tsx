@@ -321,6 +321,13 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
       return false
     }
   }
+  const leave = () => {
+    if (
+      confirm(t('离开后不再接收本桌新消息，共同案卷会保留；有空位时可以再次入座。')) &&
+      send({ type: 'leave' })
+    )
+      setMembersOpen(false)
+  }
   async function copyInvite() {
     if (!s?.inviteCode) return
     const url = `https://hgt.mmstudio.games/rooms/join?code=${s.inviteCode}`
@@ -363,6 +370,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
     connecting: '正在连接',
     online: '实时连接',
     offline: '正在重连，记录会自动补齐',
+    archive: '只读案卷',
     auth: '需要重新登录',
     removed: '已离开同桌',
     error: '暂时无法连接',
@@ -658,13 +666,16 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           <UsersRound className="size-4" />
           {seats.length}/6
         </button>
-        <button
-          onClick={() => setShowReport(true)}
-          aria-label={t('反馈')}
-          className="room-icon-button text-muted-foreground"
-        >
-          <Flag className="size-4" />
-        </button>
+        {s && !s.readOnly ? (
+          <button
+            onClick={leave}
+            disabled={!available}
+            aria-label={t('离开同桌')}
+            className="min-h-11 px-2 font-mono text-xs text-muted-foreground disabled:opacity-40"
+          >
+            {t('离开')}
+          </button>
+        ) : null}
       </header>
       {!desktop && s ? (
         <button
@@ -694,6 +705,19 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           <Loader2 className="size-3 animate-spin" />
           {t(statusLabel)}
         </p>
+      ) : null}
+      {state.status === 'archive' ? (
+        <div
+          role="status"
+          className="flex items-center justify-between border-b border-foreground/15 px-5 py-2 font-mono text-[10px] text-muted-foreground"
+        >
+          <span>{t(member?.seat === 'left' ? '已离开同桌' : '共同案卷已保存')}</span>
+          {s?.phase === 'waiting' || s?.phase === 'playing' ? (
+            <button onClick={connection.refresh} className="min-h-9 px-2">
+              {t('刷新记录')}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {membersOpen && s ? (
@@ -777,17 +801,20 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
                 </Button>
               ) : null}
               {available ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(t('离座后保留共同案卷；有空位时可以再次入座。')))
-                      send({ type: 'leave' })
-                  }}
-                >
-                  {t('离座')}
+                <Button variant="ghost" size="sm" onClick={leave}>
+                  {t('离开同桌')}
                 </Button>
               ) : null}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMembersOpen(false)
+                  setShowReport(true)
+                }}
+              >
+                <Flag className="size-4" /> {t('反馈')}
+              </Button>
             </div>
           </div>
         </RoomDialog>
@@ -1018,15 +1045,16 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           ) : null}
 
           {renderComposer(desktop ? 'ask' : tab)}
-          {member?.seat === 'left' && s?.inviteCode ? (
+          {member?.seat === 'left' &&
+          s?.inviteCode &&
+          (s.phase === 'waiting' || s.phase === 'playing') ? (
             <div className="shrink-0 border-t border-foreground/25 p-4 text-center">
               <Button
                 onClick={() =>
                   void roomAPI
                     .join(s.inviteCode!)
                     .then(() => {
-                      connection.stop()
-                      location.reload()
+                      connection.refresh()
                     })
                     .catch((e) => setError(errorText(e)))
                 }

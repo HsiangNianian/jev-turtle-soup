@@ -191,6 +191,9 @@ struct TableScreen: View {
           if table.status.contains("连接") { ProgressView().controlSize(.mini) }
           Text(table.status).font(SoupFont.mono(10))
           Spacer()
+          if table.archived, let s = table.snapshot, s.phase == "waiting" || s.phase == "playing" {
+            Button("刷新记录") { table.refresh() }.font(SoupFont.mono(10)).frame(minHeight: 36)
+          }
         }.foregroundStyle(SoupTheme.muted).padding(.horizontal, 20).padding(.vertical, 8)
       }
       ScrollViewReader { proxy in
@@ -230,14 +233,14 @@ struct TableScreen: View {
       if let s = table.snapshot, !s.readOnly {
         composer(s)
       } else if let s = table.snapshot, s.members.first(where: { $0.uid == owner })?.seat == "left",
-        let code = s.inviteCode
+        let code = s.inviteCode, s.phase == "waiting" || s.phase == "playing"
       {
         InkButton(title: "再次入座") {
           Task {
             do {
               let _: TableSnapshot = try await SoupAPI.shared.send(
                 "/api/rooms/join", body: TableJoin(code: code))
-              table.resume()
+              table.refresh()
             } catch {
               if !isRequestCancellation(error) { table.error = error.localizedDescription }
             }
@@ -255,11 +258,10 @@ struct TableScreen: View {
           }.accessibilityLabel("回到案卷")
         }
         ToolbarItem(placement: .topBarTrailing) {
-          Button {
-            showFeedback = true
-          } label: {
-            Image(systemName: "flag").font(.system(size: 14))
-          }.accessibilityLabel("反馈")
+          if table.snapshot?.readOnly == false {
+            Button("离开") { confirmLeave() }.font(SoupFont.mono(12))
+              .disabled(!available).accessibilityLabel("离开同桌")
+          }
         }
       }
       .sheet(isPresented: $showSurface) {
@@ -585,16 +587,18 @@ struct TableScreen: View {
           }
         }
         if available {
-          Button("离座", role: .destructive) {
-            confirmationText = "离座后保留共同案卷；有空位时可以再次入座。"
-            confirmation = TableCommand(type: "leave")
-            showMembers = false
-          }
+          Button("离开同桌", role: .destructive) { confirmLeave() }
         }
+        Button("反馈") { showMembers = false; showFeedback = true }
       }
     }.navigationTitle("同桌成员").toolbar {
       ToolbarItem(placement: .confirmationAction) { Button("完成") { showMembers = false } }
     }
+  }
+  private func confirmLeave() {
+    confirmationText = "离开后不再接收本桌新消息，共同案卷会保留；有空位时可以再次入座。"
+    confirmation = TableCommand(type: "leave")
+    showMembers = false
   }
   private func reportView(_ report: TableReport, snapshot: TableSnapshot) -> some View {
     VStack(alignment: .leading, spacing: 18) {

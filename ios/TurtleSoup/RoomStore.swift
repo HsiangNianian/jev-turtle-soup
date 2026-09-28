@@ -8,6 +8,7 @@ import Foundation
   @Published private(set) var events: [TableEvent] = []
   @Published private(set) var status = "正在连接"
   @Published private(set) var online = false
+  @Published private(set) var archived = false
   @Published private(set) var requiresLogin = false
   @Published var error: String?
   @Published private(set) var hasEarlier = false
@@ -54,6 +55,9 @@ import Foundation
   }
   func stop() {
     stopped = true
+    disconnect()
+  }
+  private func disconnect() {
     generation += 1
     online = false
     request?.cancel()
@@ -64,16 +68,23 @@ import Foundation
     socket = nil
   }
   func resume() {
-    guard !stopped, !terminal else { return }
-    generation += 1
-    request?.cancel()
-    receiver?.cancel()
-    heartbeat?.cancel()
-    reconnect?.cancel()
-    socket?.cancel(with: .goingAway, reason: nil)
-    socket = nil
-    online = false
+    guard !stopped, !terminal, !archived else { return }
+    disconnect()
     connect()
+  }
+  func refresh() {
+    guard !stopped, !terminal else { return }
+    disconnect()
+    connect(refresh: true)
+  }
+  private func archive() {
+    disconnect()
+    archived = true
+    status = "只读案卷"
+    error = nil
+    pending = []
+    try? persist()
+    pendingCount = 0
   }
   private func persist() throws {
     try FileManager.default.createDirectory(
@@ -86,7 +97,8 @@ import Foundation
       end("auth", message: "账号或协议已变化，请重新登录")
       return
     }
-    if snapshot == nil || value.revision >= snapshot!.revision { snapshot = value }
+    if snapshot == nil || value.revision >= snapshot!.revision
+      || value.members.contains(where: { $0.uid == owner && $0.seat == "removed" }) { snapshot = value }
     var known = Dictionary(events.map { ($0.seq, $0) }, uniquingKeysWith: { _, last in last })
     for e in incoming {
       known[e.seq] = e
@@ -94,25 +106,35 @@ import Foundation
     }
     events = known.values.sorted { $0.seq < $1.seq }
   }
-  private func connect() {
-    guard !stopped, !terminal else { return }
+  private func readPage(current: Int) async throws {
+    let initial = snapshot == nil
+    var more: Bool
+    repeat {
+      let path = initial ? "/api/rooms/\(roomID)" : "/api/rooms/\(roomID)/events?after=\(cursor)"
+      let page: TablePage = try await api.request(path)
+      guard !Task.isCancelled, current == generation, !stopped else { return }
+      accept(page.snapshot, page.events)
+      if initial { hasEarlier = page.hasMore }
+      more = !initial && page.hasMore
+    } while more && !terminal
+  }
+  private func connect(refresh: Bool = false) {
+    guard !stopped, !terminal, !archived || refresh else { return }
     generation += 1
     let current = generation
     status = "正在连接"
     request = Task {
       do {
-        if snapshot == nil {
-          let page: TablePage = try await api.request("/api/rooms/\(roomID)")
-          guard !Task.isCancelled, current == generation else { return }
-          accept(page.snapshot, page.events)
-          hasEarlier = page.hasMore
-        }
-        guard !terminal else { return }
+        if refresh || snapshot == nil { try await readPage(current: current) }
+        guard !Task.isCancelled, current == generation, !terminal else { return }
         if snapshot?.members.first(where: { $0.uid == owner })?.seat == "removed" {
+          archive()
           terminal = true
           status = "已被移出同桌"
           return
         }
+        if snapshot?.readOnly == true { archive(); return }
+        archived = false
         let ticket: TableTicket = try await api.send(
           "/api/rooms/\(roomID)/ticket", body: [String: String]())
         guard !Task.isCancelled, current == generation else { return }
@@ -122,8 +144,24 @@ import Foundation
         receiver = Task { await receive(ws, current: current) }
       } catch {
         guard !Task.isCancelled, current == generation else { return }
+        if let failure = error as? SoupAPIError, failure.status == 403 {
+          do {
+            try await readPage(current: current)
+            guard !Task.isCancelled, current == generation, !terminal else { return }
+            if snapshot?.readOnly == true { archive(); return }
+          } catch {
+            if let auth = error as? SoupAPIError, auth.status == 401 {
+              end("auth", message: auth.message)
+              return
+            }
+          }
+          guard !Task.isCancelled, current == generation else { return }
+        }
         if let failure = error as? SoupAPIError, [401, 403, 404].contains(failure.status) {
           end(failure.status == 401 ? "auth" : "removed", message: failure.message)
+        } else if refresh && archived {
+          status = "只读案卷"
+          self.error = "记录暂时无法刷新，请稍后重试"
         } else {
           retryLater()
         }
@@ -148,6 +186,10 @@ import Foundation
         if message.type == "snapshot" || message.type == "update", let value = message.snapshot {
           accept(value, message.events ?? [])
           guard !terminal else { return }
+          if snapshot?.readOnly == true {
+            if message.hasMore != true { archive(); return }
+            continue
+          }
           if !online {
             online = true
             status = "实时连接"
@@ -192,7 +234,7 @@ import Foundation
     }
   }
   private func retryLater() {
-    guard !stopped, !terminal else { return }
+    guard !stopped, !terminal, !archived else { return }
     generation += 1
     online = false
     status = "正在重连，记录会自动补齐"
@@ -241,7 +283,7 @@ import Foundation
     try await ws.send(.string(text))
   }
   @discardableResult func send(_ command: TableCommand) -> Bool {
-    guard online, let ws = socket, !stopped, !terminal else {
+    guard online, let ws = socket, !stopped, !terminal, snapshot?.readOnly == false else {
       error = "连接恢复后再发送，内容可以先留在输入框"
       return false
     }

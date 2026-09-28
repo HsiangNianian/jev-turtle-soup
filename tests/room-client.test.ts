@@ -232,3 +232,131 @@ it('waits for socket identity before replaying pending commands after an account
   expect(second.sent).toEqual([])
   expect(c.getSnapshot()).toMatchObject({ status: 'auth', snapshot: null, events: [] })
 })
+
+for (const phase of ['solved', 'revealed', 'abandoned', 'playing'] as const) {
+  it(`reads a ${phase} archive over HTTP without tickets, heartbeats or reconnects`, async () => {
+    const archived = {
+      ...snapshot,
+      phase,
+      readOnly: true,
+      members: snapshot.members.map((m) => ({ ...m, seat: 'left' })),
+    }
+    const fetch = vi.fn(async () =>
+      Response.json({ snapshot: archived, events: [], hasMore: true }),
+    )
+    vi.stubGlobal('fetch', fetch)
+    const c = make()
+    c.start()
+    await settle()
+    expect(c.getSnapshot()).toMatchObject({ status: 'archive', hasEarlier: true })
+    window.dispatchEvent(new Event('online'))
+    document.dispatchEvent(new Event('visibilitychange'))
+    c.reconnect()
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(Socket.sockets).toHaveLength(0)
+  })
+}
+
+it('drains the final event pages before disconnecting and never replays obsolete pending commands', async () => {
+  const c = make()
+  c.start()
+  await settle()
+  const ws = Socket.sockets[0]
+  ws.open()
+  c.send({ type: 'leave' })
+  const archived = { ...snapshot, revision: 2, phase: 'revealed', readOnly: true, eventSeq: 101 }
+  const events = Array.from({ length: 101 }, (_, i) => ({
+    id: `e${i}`,
+    seq: i + 1,
+    type: 'discussion',
+    text: `event ${i}`,
+    at: 1,
+  }))
+  ws.receive({ type: 'update', snapshot: archived, events: events.slice(0, 100), hasMore: true })
+  expect(ws.readyState).toBe(1)
+  ws.receive({ type: 'update', snapshot: archived, events: events.slice(100), hasMore: false })
+  expect(ws.readyState).toBe(3)
+  expect(c.getSnapshot()).toMatchObject({ status: 'archive', pending: 0, events })
+  expect(storage.size).toBe(0)
+  const calls = vi.mocked(fetch).mock.calls.length
+  await vi.advanceTimersByTimeAsync(120_000)
+  expect(vi.mocked(fetch).mock.calls).toHaveLength(calls)
+  expect(ws.sent).toHaveLength(1)
+})
+
+it('refreshes a left seat on demand without a socket, then reconnects only after explicit rejoining', async () => {
+  let seated = false
+  const fetch = vi.fn(async (url: string) =>
+    Response.json(
+      url.endsWith('/ticket')
+        ? { ticket: 'ticket' }
+        : {
+            snapshot: {
+              ...snapshot,
+              readOnly: !seated,
+              members: snapshot.members.map((m) => ({ ...m, seat: seated ? 'seated' : 'left' })),
+            },
+            events: [],
+            hasMore: false,
+          },
+    ),
+  )
+  vi.stubGlobal('fetch', fetch)
+  const c = make()
+  c.start()
+  await settle()
+  c.refresh()
+  await settle()
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(Socket.sockets).toHaveLength(0)
+  seated = true
+  c.refresh()
+  await settle()
+  expect(Socket.sockets).toHaveLength(1)
+  Socket.sockets[0].open()
+  expect(c.getSnapshot().status).toBe('online')
+  expect(Socket.sockets[0].sent).toEqual([])
+})
+
+it('switches to an HTTP archive when the room finishes before a reconnect ticket is issued', async () => {
+  const c = make()
+  c.start()
+  await settle()
+  Socket.sockets[0].open()
+  Socket.sockets[0].close(1006)
+  const fetch = vi.fn(async (url: string) =>
+    url.endsWith('/ticket')
+      ? Response.json({ error: '只读案卷' }, { status: 403 })
+      : Response.json({
+          snapshot: { ...snapshot, revision: 2, phase: 'solved', readOnly: true },
+          events: [],
+          hasMore: false,
+        }),
+  )
+  vi.stubGlobal('fetch', fetch)
+  await vi.advanceTimersByTimeAsync(120_000)
+  expect(c.getSnapshot().status).toBe('archive')
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(Socket.sockets).toHaveLength(1)
+})
+
+it('does not automatically retry a failed manual archive refresh', async () => {
+  const fetch = vi.fn(async () =>
+    Response.json({ snapshot: { ...snapshot, readOnly: true }, events: [], hasMore: false }),
+  )
+  vi.stubGlobal('fetch', fetch)
+  const c = make()
+  c.start()
+  await settle()
+  fetch.mockRejectedValue(new Error('Offline'))
+  c.refresh()
+  await settle()
+  expect(c.getSnapshot()).toMatchObject({
+    status: 'archive',
+    error: '记录暂时无法刷新，请稍后重试',
+  })
+  await vi.advanceTimersByTimeAsync(120_000)
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(Socket.sockets).toHaveLength(0)
+})

@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowUpward
-import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -154,6 +154,7 @@ import java.util.UUID
         if(nearEnd && list.layoutInfo.totalItemsCount > 0) list.animateScrollToItem(list.layoutInfo.totalItemsCount - 1)
     }
     fun invite() { s?.str("inviteCode")?.takeIf { it.isNotBlank() }?.let { code -> context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://hgt.mmstudio.games/rooms/join?code=$code") }, "邀请朋友同桌")) } }
+    fun leave() { confirmText = "离开后不再接收本桌新消息，共同案卷会保留；有空位时可以再次入座。"; members = false; confirmation = tableCommand("leave") }
     if(confirmation != null) AlertDialog(onDismissRequest = { confirmation = null }, title = { Prose("同桌操作", size = 20) }, text = { Prose(confirmText, size = 14) },
         confirmButton = { TextButton(onClick = { confirmation?.let(table::send); confirmation = null }) { Prose("确认", size = 14, color = redColor()) } },
         dismissButton = { TextButton(onClick = { confirmation = null }) { Prose("取消", size = 14) } })
@@ -178,7 +179,8 @@ import java.util.UUID
             } }
             if(s.str("inviteCode").isNotBlank()) { SelectionContainer { Mono(s.str("inviteCode"), size = 13) }; TextButton(onClick = ::invite) { Prose("邀请朋友", size = 13) } }
             if(available && s.str("hostId") == owner) TextButton(onClick = { table.send(tableCommand("invitations", "open" to !s.optBoolean("invitationsOpen"))) }) { Mono(if(s.optBoolean("invitationsOpen")) "停止新成员入座" else "开放新成员入座") }
-            if(available) TextButton(onClick = { confirmText = "离座后保留共同案卷；有空位时可以再次入座。"; members = false; confirmation = tableCommand("leave") }) { Mono("离座") }
+            if(available) TextButton(onClick = ::leave) { Mono("离开同桌") }
+            TextButton(onClick = { members = false; reportOpen = true }) { Mono("反馈") }
         }
     Column(Modifier.fillMaxSize().imePadding()) {
         if(s != null) {
@@ -188,7 +190,7 @@ import java.util.UUID
                     Mono("${tablePhaseLabel(s.str("phase"))} · ${s.optInt("turns")} 轮")
                 }
                 TextButton(onClick = { members = true }) { Icon(Icons.Outlined.Group, "同桌成员", Modifier.size(16.dp), tint = inkColor()); Mono(" ${seats.size}/6") }
-                IconButton(onClick = { reportOpen = true }) { Icon(Icons.Outlined.Flag, "反馈", Modifier.size(16.dp), tint = mutedColor()) }
+                if(!s.optBoolean("readOnly")) TextButton(enabled = available, onClick = ::leave, modifier = Modifier.semantics { contentDescription = "离开同桌" }) { Mono("离开") }
             }
             Rule()
             Row(Modifier.fillMaxWidth().clickable { surface = true }.padding(horizontal = 20.dp).heightIn(min = 42.dp).testTag("tableSurface"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -197,7 +199,10 @@ import java.util.UUID
                 Icon(Icons.Outlined.ChevronRight, "查看汤面", Modifier.size(16.dp), tint = mutedColor())
             }
         }
-        if(!table.online) Mono(table.status, Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+        if(!table.online) Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Mono(table.status, Modifier.weight(1f))
+            if(table.archived && s?.str("phase") in listOf("waiting", "playing")) TextButton(onClick = table::refresh) { Mono("刷新记录") }
+        }
         if(vote != null) Column(Modifier.fillMaxWidth().background(sheetColor()).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Prose("这碗汤，一起揭晓吗？", size = 15)
             Mono("需全员同意 · ${vote.arr("agreed").length()}/${vote.arr("members").length()} · ${maxOf(0, (vote.optLong("expiresAt") - now) / 1000)}s")
@@ -253,8 +258,8 @@ import java.util.UUID
             }
             Row(verticalAlignment = Alignment.CenterVertically) { Mono(if(table.pendingCount > 0) "等待服务器确认" else if(tab == "ask") "正式提问按顺序回答" else "讨论仅在这一桌可见", Modifier.weight(1f))
                 if(s.str("phase") == "playing") TextButton(enabled = available && vote == null && !s.optBoolean("revealPending") && s.obj("puzzle").str("dailyDate") != java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(), onClick = { table.send(tableCommand("reveal")) }) { Mono("提议揭晓") } }
-        } else if(s != null && roster.firstOrNull { it.str("uid") == owner }?.str("seat") == "left" && s.str("inviteCode").isNotBlank()) {
-            InkButton("再次入座", { scope.launch { try { state.api.request("/api/rooms/join", "POST", JSONObject().put("code", s.str("inviteCode"))); table.resume() } catch(e: CancellationException) { throw e } catch(e: Exception) { table.error = e.message.orEmpty() } } }, Modifier.align(Alignment.CenterHorizontally))
+        } else if(s != null && roster.firstOrNull { it.str("uid") == owner }?.str("seat") == "left" && s.str("inviteCode").isNotBlank() && s.str("phase") in listOf("waiting", "playing")) {
+            InkButton("再次入座", { scope.launch { try { state.api.request("/api/rooms/join", "POST", JSONObject().put("code", s.str("inviteCode"))); table.refresh() } catch(e: CancellationException) { throw e } catch(e: Exception) { table.error = e.message.orEmpty() } } }, Modifier.align(Alignment.CenterHorizontally))
         }
     }
 }

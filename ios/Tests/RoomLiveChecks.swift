@@ -54,6 +54,26 @@ struct LiveFixture: Decodable {
     try await until("Reconnect restores transcript without duplicates") {
       host.online && host.events.filter { $0.type == "answer" }.count == 1 && host.pendingCount == 0
     }
+    guest.send(TableCommand(type: "leave"))
+    try await until("Leaving closes the native socket and keeps the shared archive") {
+      guest.archived && !guest.online && guest.pendingCount == 0 && !guest.events.isEmpty
+    }
+    guest.resume()
+    host.send(TableCommand(type: "discuss", text: "Only fetch this on refresh"))
+    try await until("Remaining member can continue the discussion") {
+      host.events.contains { $0.text == "Only fetch this on refresh" }
+    }
+    try await Task.sleep(for: .milliseconds(250))
+    guard guest.archived, !guest.online,
+      !guest.events.contains(where: { $0.text == "Only fetch this on refresh" })
+    else { throw NSError(domain: "Archive should not reconnect", code: 1) }
+    guest.refresh()
+    try await until("Manual archive refresh fetches new records over HTTP") {
+      guest.archived && guest.events.contains { $0.text == "Only fetch this on refresh" }
+    }
+    let _: TableSnapshot = try await b.send("/api/rooms/join", body: TableJoin(code: room.inviteCode!))
+    guest.refresh()
+    try await until("Explicit rejoin restores a live native seat") { guest.online && !guest.archived }
     host.send(TableCommand(type: "reveal"))
     try await until("Native reveal waits for all seats") {
       guest.snapshot?.vote != nil && host.snapshot?.report == nil
@@ -61,6 +81,13 @@ struct LiveFixture: Decodable {
     guest.send(TableCommand(type: "vote", voteId: guest.snapshot!.vote!.id, agree: true))
     try await until("Both native clients receive the shared report") {
       host.snapshot?.report?.truth != nil && guest.snapshot?.phase == "revealed"
+        && host.archived && guest.archived && !host.online && !guest.online
+    }
+    let archive = TableStore(owner: "alice", roomID: room.roomId, api: a)
+    archive.start()
+    defer { archive.stop() }
+    try await until("Reopening a completed native archive does not open a socket") {
+      archive.archived && !archive.online && archive.snapshot?.report?.truth != nil
     }
     let feedback: TableFeedbackReply = try await a.send(
       "/api/rooms/\(room.roomId)/report", body: TableFeedback(note: "Isolated native QA"))

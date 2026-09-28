@@ -54,7 +54,7 @@ export type RoomAction = RoomCommand extends infer C
 export interface RoomClientState {
   snapshot: RoomSnapshot | null
   events: RoomEvent[]
-  status: 'connecting' | 'online' | 'offline' | 'auth' | 'removed' | 'error'
+  status: 'connecting' | 'online' | 'offline' | 'archive' | 'auth' | 'removed' | 'error'
   error: string | null
   hasEarlier: boolean
   pending: number
@@ -132,14 +132,29 @@ export class RoomConnection {
   }
   stop() {
     this.stopped = true
+    this.disconnect()
+    window.removeEventListener('online', this.resume)
+    document.removeEventListener('visibilitychange', this.resume)
+  }
+  private disconnect() {
     this.connecting = false
     clearTimeout(this.reconnectTimer)
     clearInterval(this.heartbeat)
     this.controller?.abort()
-    this.socket?.close(1000)
+    const ws = this.socket
     this.socket = null
-    window.removeEventListener('online', this.resume)
-    document.removeEventListener('visibilitychange', this.resume)
+    ws?.close(1000)
+  }
+  private archive() {
+    this.disconnect()
+    // These operations cannot run in an archive or be replayed after a later rejoin.
+    this.pending = []
+    try {
+      this.persist()
+    } catch {
+      /* A subsequent read-only snapshot also discards them. */
+    }
+    this.set({ status: 'archive', pending: 0, error: null })
   }
   private resume = () => {
     if (
@@ -159,6 +174,11 @@ export class RoomConnection {
     clearTimeout(this.reconnectTimer)
     void this.connect()
   }
+  refresh = () => {
+    if (this.stopped || this.connecting) return
+    this.disconnect()
+    void this.connect(true)
+  }
   clearError = () => this.set({ error: null })
   private accept(
     page: RoomPage | { snapshot: RoomSnapshot; events: RoomEvent[] },
@@ -177,7 +197,9 @@ export class RoomConnection {
     for (const event of page.events) events.set(event.seq, event)
     this.cursor = Math.max(this.cursor, ...page.events.map((e) => e.seq))
     const snapshot =
-      !this.current.snapshot || page.snapshot.revision >= this.current.snapshot.revision
+      !this.current.snapshot ||
+      page.snapshot.revision >= this.current.snapshot.revision ||
+      page.snapshot.members.some((m) => m.uid === this.owner && m.seat === 'removed')
         ? page.snapshot
         : this.current.snapshot
     this.set({
@@ -186,21 +208,42 @@ export class RoomConnection {
       ...(initial && 'hasMore' in page ? { hasEarlier: page.hasMore } : {}),
     })
   }
-  private async connect() {
-    if (this.stopped || this.connecting || this.socket?.readyState === WebSocket.OPEN) return
+  private async readPage(signal: AbortSignal) {
+    const initial = !this.current.snapshot
+    let more: boolean
+    do {
+      const page = await roomRequest<RoomPage>(
+        this.path(initial ? '' : `/events?after=${this.cursor}`),
+        undefined,
+        signal,
+      )
+      if (this.stopped || signal.aborted) return
+      this.accept(page, initial)
+      more = !initial && page.hasMore
+    } while (more && !this.stopped && !signal.aborted)
+  }
+  private async connect(refresh = false) {
+    if (
+      this.stopped ||
+      this.connecting ||
+      this.socket?.readyState === WebSocket.OPEN ||
+      (!refresh && ['archive', 'auth', 'removed'].includes(this.current.status))
+    )
+      return
     this.connecting = true
     const controller = new AbortController()
     this.controller = controller
     this.set({ status: 'connecting' })
     try {
-      if (!this.current.snapshot) {
-        const page = await roomRequest<RoomPage>(this.path(), undefined, controller.signal)
-        if (this.stopped || controller.signal.aborted) return
-        this.accept(page, true)
-      }
+      if (refresh || !this.current.snapshot) await this.readPage(controller.signal)
       if (this.stopped || controller.signal.aborted) return
       if (this.current.snapshot?.members.find((m) => m.uid === this.owner)?.seat === 'removed') {
+        this.archive()
         this.set({ status: 'removed' })
+        return
+      }
+      if (this.current.snapshot?.readOnly) {
+        this.archive()
         return
       }
       const { ticket } = await roomRequest<{ ticket: string }>(
@@ -242,6 +285,10 @@ export class RoomConnection {
             // A cookie can change between the HTTP read and the handshake. Verify
             // the socket's account before replaying this account's pending commands.
             if (this.stopped || this.socket !== ws) return
+            if (this.current.snapshot?.readOnly) {
+              if (!message.hasMore) this.archive()
+              return
+            }
             if (this.current.status !== 'online') {
               this.attempt = 0
               this.set({ status: 'online', error: null })
@@ -283,8 +330,22 @@ export class RoomConnection {
     } catch (error) {
       if (this.stopped || controller.signal.aborted) return
       if (error instanceof RoomError && error.status === 401) this.terminal('auth')
-      else if (error instanceof RoomError && [403, 404].includes(error.status))
-        this.set({ status: error.status === 401 ? 'auth' : 'error', error: error.message })
+      else if (error instanceof RoomError && error.status === 403) {
+        // A room can finish or a member can leave between the page read and ticket request.
+        try {
+          await this.readPage(controller.signal)
+          if (this.stopped || controller.signal.aborted) return
+          if (this.current.snapshot?.readOnly) this.archive()
+          else this.set({ status: 'error', error: error.message })
+        } catch (readError) {
+          if (this.stopped || controller.signal.aborted) return
+          if (readError instanceof RoomError && readError.status === 401) this.terminal('auth')
+          else this.set({ status: 'error', error: error.message })
+        }
+      } else if (error instanceof RoomError && error.status === 404)
+        this.set({ status: 'error', error: error.message })
+      else if (refresh && this.current.snapshot?.readOnly)
+        this.set({ status: 'archive', error: '记录暂时无法刷新，请稍后重试' })
       else this.retryLater()
     } finally {
       if (this.controller === controller) this.connecting = false
@@ -319,6 +380,7 @@ export class RoomConnection {
         .catch(() => undefined)
   }
   private retryLater() {
+    if (this.stopped || ['archive', 'auth', 'removed'].includes(this.current.status)) return
     this.set({ status: 'offline' })
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = setTimeout(
@@ -327,7 +389,11 @@ export class RoomConnection {
     )
   }
   send(action: RoomAction) {
-    if (this.current.status !== 'online' || this.socket?.readyState !== WebSocket.OPEN)
+    if (
+      this.current.snapshot?.readOnly ||
+      this.current.status !== 'online' ||
+      this.socket?.readyState !== WebSocket.OPEN
+    )
       throw new Error('连接恢复后再发送，内容可以先留在输入框')
     if (this.pending.length >= 12) throw new Error('请等前面的操作确认后再试')
     const command = roomCommandSchema.parse({ ...action, commandId: crypto.randomUUID() })

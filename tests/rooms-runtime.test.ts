@@ -325,13 +325,67 @@ describe('room Worker and real WebSockets', { timeout: 15000 }, () => {
     b.send({ type: 'vote', voteId: latest(b)!.vote!.id, agree: true })
     await until(() => latest(a)?.phase === 'revealed')
     expect(latest(a)?.report?.truth).toBe('PRIVATE_TRUTH_CANARY')
+    await until(() => a.closed() === 1000 && b.closed() === 1000)
+    expect((await request(`/api/rooms/${room.roomId}/ticket`, 'carol', {})).status).toBe(403)
     const rooms = await mf.getDurableObjectNamespace('ROOMS')
     await rooms.get(rooms.idFromName(room.roomId)).flushForTest()
+    expect(await rooms.get(rooms.idFromName(room.roomId)).alarmForTest()).toBeNull()
+    const archive = await json<{ snapshot: RoomSnapshot }>(`/api/rooms/${room.roomId}`, 'carol')
+    expect(archive.snapshot.report?.truth).toBe('PRIVATE_TRUTH_CANARY')
+    expect(archive.snapshot.revision).toBe(latest(a)?.revision)
     const db = await mf.getD1Database('DB')
     expect(
       (await db.prepare('SELECT count(*) AS n FROM manual_reveals').first<{ n: number }>())?.n,
     ).toBe(2)
     modelMode = 'answer'
+  })
+  it('disconnects every device on leave, keeps the archive and requires a rejoin before a new socket', async () => {
+    const { room, a, b } = await playing('alice', 'bob')
+    const revision = latest(a)!.revision
+    const other = await socket(room.roomId, 'alice')
+    await until(() => latest(other))
+    expect(latest(other)?.revision).toBe(revision)
+    const { ticket } = await json<{ ticket: string }>(
+      `/api/rooms/${room.roomId}/ticket`,
+      'alice',
+      {},
+    )
+    const rooms = await mf.getDurableObjectNamespace('ROOMS')
+    const stub = rooms.get(rooms.idFromName(room.roomId))
+    await stub.historyForTest(230)
+    const late = await socket(room.roomId, 'alice')
+    await until(() =>
+      late.messages.some((m) => 'events' in m && m.events.some((e) => e.text === 'History 229')),
+    )
+    expect(latest(late)?.revision).toBe(revision + 1)
+    a.send({ type: 'leave' })
+    await until(() => a.closed() === 1000 && latest(other)?.readOnly && latest(late)?.readOnly)
+    expect(await stub.openSocketsForTest('alice')).toBe(0)
+    // Finish the close handshake on the second test peer, just as the clients do
+    // after consuming the last read-only page (workerd has already closed its side).
+    other.ws.close(1000)
+    late.ws.close(1000)
+    expect(latest(a)?.members.find((m) => m.uid === 'alice')?.seat).toBe('left')
+    expect(
+      a.messages
+        .flatMap((m) => ('events' in m ? m.events : []))
+        .some((e) => e.text === 'History 229'),
+    ).toBe(true)
+    expect(a.messages.some((m) => m.type === 'update' && m.hasMore)).toBe(true)
+    expect(b.closed()).toBe(0)
+    expect((await request(`/api/rooms/${room.roomId}/ticket`, 'alice', {})).status).toBe(403)
+    const stale = await request(`/api/rooms/${room.roomId}/ws`, 'alice', undefined, {
+      upgrade: 'websocket',
+      'sec-websocket-protocol': `soup-room-v1,ticket.${ticket}`,
+    })
+    expect(stale.status).toBe(403)
+    const archive = await json<{ snapshot: RoomSnapshot }>(`/api/rooms/${room.roomId}`, 'alice')
+    expect(archive.snapshot.readOnly).toBe(true)
+    expect(archive.snapshot.revision).toBe(latest(a)?.revision)
+    expect(archive.snapshot.hostId).toBe('bob')
+    await joinRoom(room, 'alice')
+    const rejoined = await socket(room.roomId, 'alice')
+    await until(() => latest(rejoined)?.readOnly === false)
   })
   it('fences a late answer after its lease expires and requires an explicit retry', async () => {
     const { room, a } = await playing('dave', 'erin')

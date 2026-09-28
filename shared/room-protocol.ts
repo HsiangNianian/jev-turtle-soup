@@ -107,7 +107,7 @@ export interface RoomSummary {
 }
 export type RoomServerMessage =
   | { type: 'snapshot'; snapshot: RoomSnapshot; events: RoomEvent[]; hasMore: boolean }
-  | { type: 'update'; snapshot: RoomSnapshot; events: RoomEvent[] }
+  | { type: 'update'; snapshot: RoomSnapshot; events: RoomEvent[]; hasMore?: boolean }
   | { type: 'ack'; commandId: string; eventSeq: number }
   | {
       type: 'error'

@@ -1,4 +1,19 @@
 const phrases: [string, string, string][] = [
+  ['离开', 'Leave', '退席'],
+  ['离开同桌', 'Leave table', '退席する'],
+  ['只读案卷', 'Read-only case file', '閲覧用の記録'],
+  ['共同案卷已保存', 'Shared case file saved', '共同の記録を保存しました'],
+  ['刷新记录', 'Refresh records', '記録を更新'],
+  [
+    '记录暂时无法刷新，请稍后重试',
+    'Could not refresh the records. Please try again later.',
+    '記録を更新できませんでした。しばらくしてから再試行してください。',
+  ],
+  [
+    '离开后不再接收本桌新消息，共同案卷会保留；有空位时可以再次入座。',
+    'Leave this table and stop receiving live messages? Your shared case file stays available, and you can rejoin if a seat opens.',
+    '退席すると新着メッセージの受信は止まります。共同の記録は残り、空席があれば再参加できます。',
+  ],
   ['发送给', 'Send to', '送信先'],
   ['和大家聊', 'Chat with everyone', 'みんなと相談'],
   ['发送讨论', 'Send discussion', '相談を送信'],

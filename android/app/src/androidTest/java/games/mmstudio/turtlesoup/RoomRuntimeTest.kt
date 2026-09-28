@@ -58,12 +58,29 @@ class RoomRuntimeTest {
             withContext(Dispatchers.Main) {guest.send(tableCommand("discuss","text" to "Android discussion"));guest.resume()}
             until {guest.online && guest.events.any {it.str("text")=="Android discussion"}}
             assertEquals(1,withContext(Dispatchers.Main) {guest.events.count{it.str("type")=="answer"}})
+            withContext(Dispatchers.Main) { guest.send(tableCommand("leave")) }
+            until { guest.archived && !guest.online && guest.pendingCount == 0 }
+            withContext(Dispatchers.Main) { guest.resume() }
+            compose.onNodeWithTag("tableMode.discuss").performClick()
+            compose.onNode(hasSetTextAction()).performTextInput("Android archive refresh")
+            compose.onNodeWithContentDescription("发送").performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithText("Android archive refresh").fetchSemanticsNodes().isNotEmpty() }
+            assertFalse(withContext(Dispatchers.Main) { guest.events.any { it.str("text") == "Android archive refresh" } })
+            withContext(Dispatchers.Main) { guest.refresh() }
+            until { guest.archived && guest.events.any { it.str("text") == "Android archive refresh" } }
+            b.request("/api/rooms/join", "POST", JSONObject().put("code", room.str("inviteCode")))
+            withContext(Dispatchers.Main) { guest.refresh() }
+            until { guest.online && !guest.archived }
+            compose.onNodeWithTag("tableMode.ask").performClick()
             compose.onNodeWithText("提议揭晓").performClick()
             until {guest.snapshot?.optJSONObject("vote") != null}
             withContext(Dispatchers.Main) {guest.send(tableCommand("vote","voteId" to guest.snapshot!!.obj("vote").str("id"),"agree" to true))}
-            until {guest.snapshot?.str("phase")=="revealed"}
+            until {guest.snapshot?.str("phase")=="revealed" && guest.archived && !guest.online}
             compose.onNodeWithText("共同揭晓").assertExists()
             assertTrue(withContext(Dispatchers.Main){guest.snapshot!!.obj("report").str("truth").isNotBlank()})
+            val archive = withContext(Dispatchers.Main) { TableStore(context, "bob", id, b).also { it.start() } }
+            try { until { archive.archived && !archive.online && archive.snapshot!!.obj("report").str("truth").isNotBlank() } }
+            finally { withContext(Dispatchers.Main) { archive.stop() } }
         } finally {withContext(Dispatchers.Main){guest.stop()}}
     }
 }

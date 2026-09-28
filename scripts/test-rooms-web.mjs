@@ -7,6 +7,7 @@ const browser = await chromium.launch({
   ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
 })
 const errors = []
+const connections = new WeakMap()
 async function user(uid, width) {
   const c = await browser.newContext({
     viewport: { width, height: 844 },
@@ -19,6 +20,13 @@ async function user(uid, width) {
       localStorage.setItem('turtle-soup.locale', 'zh-CN')
   })
   const p = await c.newPage()
+  const sockets = { total: 0, open: new Set() }
+  connections.set(p, sockets)
+  p.on('websocket', (ws) => {
+    sockets.total++
+    sockets.open.add(ws)
+    ws.on('close', () => sockets.open.delete(ws))
+  })
   p.on('pageerror', (e) => errors.push(e.message))
   return p
 }
@@ -90,11 +98,42 @@ try {
   assert.equal(await b.getByRole('textbox', { name: '桌内讨论' }).inputValue(), '桌边的草稿')
   await b.setViewportSize({ width: 1365, height: 844 })
   assert.equal(await b.getByRole('textbox', { name: '桌内讨论' }).inputValue(), '桌边的草稿')
+  b.once('dialog', (dialog) => dialog.accept())
+  await b.getByRole('button', { name: '离开同桌', exact: true }).click()
+  await b.getByText('已离开同桌', { exact: true }).waitFor()
+  const beforeRefresh = connections.get(b).total
+  await a.getByRole('button', { name: '和大家聊', exact: true }).click()
+  await a.getByRole('textbox', { name: '桌内讨论' }).fill('离座后按需刷新这条记录')
+  await a.getByRole('button', { name: '发送', exact: true }).click()
+  await a.getByText('离座后按需刷新这条记录', { exact: true }).waitFor()
+  assert.equal(await b.getByText('离座后按需刷新这条记录', { exact: true }).count(), 0)
+  await b.getByRole('button', { name: '刷新记录', exact: true }).click()
+  await b.getByText('离座后按需刷新这条记录', { exact: true }).waitFor()
+  assert.equal(
+    connections.get(b).total,
+    beforeRefresh,
+    'Refreshing an archive never opens a socket',
+  )
+  assert.equal(connections.get(b).open.size, 0, 'Leaving closes the socket')
+  await b.screenshot({ path: '.build/rooms/left-desktop.png' })
+  await b.getByRole('button', { name: '再次入座', exact: true }).click()
+  await b.getByRole('button', { name: '离开同桌', exact: true }).waitFor()
+  await a.getByRole('button', { name: '问砚', exact: true }).click()
   await a.getByRole('button', { name: '提议揭晓', exact: true }).click()
   await b.getByRole('button', { name: '同意揭晓', exact: true }).waitFor()
   await a.screenshot({ path: '.build/rooms/vote-mobile.png' })
   await b.getByRole('button', { name: '同意揭晓', exact: true }).click()
   await a.getByRole('heading', { name: '共同揭晓', exact: true }).waitFor()
+  await a.getByText('共同案卷已保存', { exact: true }).waitFor()
+  await b.getByText('共同案卷已保存', { exact: true }).waitFor()
+  const completedConnections = connections.get(a).total
+  await a.reload()
+  await a.getByText('共同案卷已保存', { exact: true }).waitFor()
+  assert.equal(
+    connections.get(a).total,
+    completedConnections,
+    'Reopening a completed archive uses HTTP only',
+  )
   await a.screenshot({ path: '.build/rooms/report-mobile.png' })
   for (const [width, theme, locale] of [
     [320, 'light', 'en'],

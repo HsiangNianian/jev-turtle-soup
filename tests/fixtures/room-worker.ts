@@ -15,6 +15,12 @@ export class SoupRoom extends ProductionRoom {
   async flushForTest() {
     await this.alarm()
   }
+  async alarmForTest() {
+    return this.ctx.storage.getAlarm()
+  }
+  openSocketsForTest(uid: string) {
+    return this.ctx.getWebSockets(uid).filter((ws) => ws.readyState === WebSocket.OPEN).length
+  }
   expireTicketsForTest() {
     this.ctx.storage.sql.exec('UPDATE tickets SET expires=0')
   }

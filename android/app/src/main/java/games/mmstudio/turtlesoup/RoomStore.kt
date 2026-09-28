@@ -39,6 +39,7 @@ class TableStore(context: Context, val owner: String, val roomId: String, privat
     var events by mutableStateOf<List<JSONObject>>(emptyList()); private set
     var status by mutableStateOf("正在连接"); private set
     var online by mutableStateOf(false); private set
+    var archived by mutableStateOf(false); private set
     var error by mutableStateOf("")
     var hasEarlier by mutableStateOf(false); private set
     var pendingCount by mutableStateOf(0); private set
@@ -68,9 +69,21 @@ class TableStore(context: Context, val owner: String, val roomId: String, privat
     }
     fun stop() { stopped = true; generation++; online = false; socket?.close(1000, null); socket = null; scope.cancel() }
     fun resume() {
-        if (stopped || terminal) return
-        generation++; requestJob?.cancel(); retryJob?.cancel(); socket?.cancel(); socket = null; online = false
+        if (stopped || terminal || archived) return
+        disconnect()
         connect()
+    }
+    fun refresh() {
+        if (stopped || terminal) return
+        disconnect()
+        connect(refresh = true)
+    }
+    private fun disconnect() {
+        generation++; requestJob?.cancel(); retryJob?.cancel(); socket?.close(1000, null); socket = null; online = false
+    }
+    private fun archive() {
+        disconnect(); archived = true; status = "只读案卷"; error = ""
+        pending = emptyList(); runCatching { persist() }; pendingCount = 0
     }
     private fun persist() {
         check(prefs.edit().putString(key, pending.jsonArray().toString()).commit()) { "无法保存待确认操作，请检查手机存储空间" }
@@ -80,25 +93,34 @@ class TableStore(context: Context, val owner: String, val roomId: String, privat
         if (value.str("meId") != owner || value.str("roomId") != roomId || value.optInt("protocol") != 1) {
             end("auth", "账号或协议已变化，请重新登录"); return
         }
-        if (snapshot == null || value.optLong("revision") >= snapshot!!.optLong("revision")) snapshot = value
+        if (snapshot == null || value.optLong("revision") >= snapshot!!.optLong("revision") ||
+            value.arr("members").objects().any { it.str("uid") == owner && it.str("seat") == "removed" }) snapshot = value
         events = (events + incoming).associateBy { it.optLong("seq") }.toSortedMap().values.toList()
         cursor = maxOf(cursor, incoming.maxOfOrNull { it.optLong("seq") } ?: 0)
     }
-    private fun connect() {
-        if (stopped || terminal) return
+    private suspend fun readPage(current: Int) {
+        val initial = snapshot == null
+        do {
+            val path = if (initial) "/api/rooms/$roomId" else "/api/rooms/$roomId/events?after=$cursor"
+            val page = api.request(path)
+            if (current != generation || stopped) return
+            accept(page.obj("snapshot"), page.arr("events").objects())
+            if (initial) hasEarlier = page.optBoolean("hasMore")
+        } while (!initial && page.optBoolean("hasMore") && !terminal)
+    }
+    private fun connect(refresh: Boolean = false) {
+        if (stopped || terminal || (archived && !refresh)) return
         val current = ++generation
         status = "正在连接"
         requestJob = scope.launch {
             try {
-                if (snapshot == null) {
-                    val page = api.request("/api/rooms/$roomId")
-                    if (current != generation || stopped) return@launch
-                    accept(page.obj("snapshot"), page.arr("events").objects()); hasEarlier = page.optBoolean("hasMore")
-                }
-                if (terminal) return@launch
+                if (refresh || snapshot == null) readPage(current)
+                if (current != generation || stopped || terminal) return@launch
                 if (snapshot?.arr("members")?.objects()?.firstOrNull { it.str("uid") == owner }?.str("seat") == "removed") {
-                    terminal = true; status = "已被移出同桌"; return@launch
+                    archive(); terminal = true; status = "已被移出同桌"; return@launch
                 }
+                if (snapshot?.optBoolean("readOnly") == true) { archive(); return@launch }
+                archived = false
                 val ticket = api.request("/api/rooms/$roomId/ticket", "POST", JSONObject()).str("ticket")
                 if (current != generation || stopped) return@launch
                 require(ticket.matches(Regex("^[a-f0-9]{64}$")) && runCatching { UUID.fromString(roomId) }.isSuccess)
@@ -119,6 +141,11 @@ class TableStore(context: Context, val owner: String, val roomId: String, privat
                                 when (message.str("type")) {
                                     "snapshot", "update" -> {
                                         accept(message.obj("snapshot"), message.arr("events").objects())
+                                        if (terminal) return@launch
+                                        if (snapshot?.optBoolean("readOnly") == true) {
+                                            if (!message.optBoolean("hasMore")) archive()
+                                            return@launch
+                                        }
                                         if (!terminal && !online) {
                                             online = true; status = "实时连接"; attempt = 0; error = ""
                                             for (item in pending) if (!ws.send(item.obj("command").toString())) { retryLater(); break }
@@ -151,14 +178,27 @@ class TableStore(context: Context, val owner: String, val roomId: String, privat
                 })
             } catch (_: CancellationException) { }
             catch (e: ApiException) { if (current == generation) {
+                if (e.status == 403) {
+                    try {
+                        readPage(current)
+                        if (current != generation || stopped || terminal) return@launch
+                        if (snapshot?.optBoolean("readOnly") == true) { archive(); return@launch }
+                    } catch (cancel: CancellationException) { throw cancel }
+                    catch (auth: ApiException) { if (auth.status == 401) { end("auth", auth.message.orEmpty()); return@launch } }
+                    catch (_: Exception) { }
+                }
                 if (e.status in listOf(401, 403, 404)) end(if(e.status == 401) "auth" else "removed", e.message)
+                else if (refresh && archived) { status = "只读案卷"; error = "记录暂时无法刷新，请稍后重试" }
                 else retryLater()
             } }
-            catch (_: Exception) { if (current == generation) retryLater() }
+            catch (_: Exception) { if (current == generation) {
+                if (refresh && archived) { status = "只读案卷"; error = "记录暂时无法刷新，请稍后重试" }
+                else retryLater()
+            } }
         }
     }
     private fun retryLater() {
-        if (stopped || terminal) return
+        if (stopped || terminal || archived) return
         generation++; online = false; status = "正在重连，记录会自动补齐"
         socket?.cancel(); socket = null; retryJob?.cancel()
         val wait = minOf(30_000L, 3000L shl minOf(attempt++, 4))
@@ -175,7 +215,7 @@ class TableStore(context: Context, val owner: String, val roomId: String, privat
         }
     }
     fun send(command: JSONObject): Boolean {
-        if (!online || stopped || terminal || socket == null) { error = "连接恢复后再发送，内容可以先留在输入框"; return false }
+        if (!online || stopped || terminal || socket == null || snapshot?.optBoolean("readOnly") != false) { error = "连接恢复后再发送，内容可以先留在输入框"; return false }
         if (pending.size >= 12) { error = "请等前面的操作确认后再试"; return false }
         pending = pending + JSONObject().put("at", System.currentTimeMillis()).put("command", command)
         try { persist() } catch (e: Exception) { pending = pending.dropLast(1); error = e.message.orEmpty(); return false }

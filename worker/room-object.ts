@@ -303,14 +303,13 @@ export class SoupRoom extends DurableObject<RoomEnv> {
   }
   async ticket(uid: string, sessionToken: string) {
     return this.result(async () => {
-      this.limit(uid, 'ticket', 6, 60_000)
       this.housekeeping()
-      const member = memberOf(this.state(), uid)
-      if (!member || member.seat === 'removed') throw new ApiError(403, '不能连接这一桌')
+      this.liveState(uid)
+      this.limit(uid, 'ticket', 6, 60_000)
       const ticket = `${crypto.randomUUID()}${crypto.randomUUID()}`.replaceAll('-', '')
       const [hash, sessionHash] = await Promise.all([roomHash(ticket), roomHash(sessionToken)])
-      // Recheck after crypto yielded: the member could have been kicked in between.
-      if (memberOf(this.state(), uid)?.seat === 'removed') throw new ApiError(403, '不能连接这一桌')
+      // The member may leave, be kicked, or the room may finish while crypto yields.
+      this.liveState(uid)
       const expiresAt = Date.now() + 30_000
       this.ctx.storage.sql.exec('DELETE FROM tickets WHERE expires<=?', Date.now())
       this.ctx.storage.sql.exec(
@@ -322,6 +321,15 @@ export class SoupRoom extends DurableObject<RoomEnv> {
       )
       return { ticket, expiresAt }
     })
+  }
+
+  private liveState(uid: string): RoomState {
+    const s = this.state()
+    const member = memberOf(s, uid)
+    if (!member || member.seat === 'removed') throw new ApiError(403, '不能连接这一桌')
+    if (isRoomFinished(s) || member.seat !== 'seated')
+      throw new ApiError(403, '当前为只读案卷，可刷新记录或返回我的同桌')
+    return s
   }
 
   private async authenticated(attachment: Attachment): Promise<boolean> {
@@ -360,9 +368,7 @@ export class SoupRoom extends DurableObject<RoomEnv> {
       // Consume synchronously before accepting: simultaneous handshakes cannot reuse it.
       this.ctx.storage.sql.exec('DELETE FROM tickets WHERE hash=?', hash)
       this.housekeeping()
-      const s = this.state()
-      const member = memberOf(s, uid)
-      if (!member || member.seat === 'removed') throw new ApiError(403, '不能连接这一桌')
+      const s = this.liveState(uid)
       if (
         this.ctx.getWebSockets(uid).filter((ws) => ws.readyState === WebSocket.OPEN).length >= 3 ||
         this.ctx.getWebSockets().length >= 24
@@ -377,16 +383,24 @@ export class SoupRoom extends DurableObject<RoomEnv> {
         s.eventSeq,
       )
       server.serializeAttachment(attachment)
-      this.save(roomPresence(s, uid, true, Date.now()))
-      const page = this.events(uid, attachment.lastSeq)
-      const message: RoomServerMessage = {
-        type: 'snapshot',
-        snapshot: roomSnapshot(this.state(), uid),
-        ...page,
-      }
-      server.send(JSON.stringify(message))
-      attachment.lastSeq = page.events.at(-1)?.seq ?? attachment.lastSeq
-      server.serializeAttachment(attachment)
+      if (memberOf(s, uid)?.disconnectedAt !== null)
+        this.save(roomPresence(s, uid, true, Date.now()))
+      // A second device may not change presence, so catch up independently of broadcasts.
+      let first = true
+      let more: boolean
+      do {
+        const page = this.events(uid, attachment.lastSeq)
+        const message: RoomServerMessage = {
+          type: first ? 'snapshot' : 'update',
+          snapshot: roomSnapshot(this.state(), uid),
+          ...page,
+        }
+        server.send(JSON.stringify(message))
+        attachment.lastSeq = page.events.at(-1)?.seq ?? attachment.lastSeq
+        server.serializeAttachment(attachment)
+        first = false
+        more = page.hasMore
+      } while (more)
       void this.drive().catch(() => console.error('[room] scheduling question failed'))
       return new Response(null, {
         status: 101,
@@ -436,12 +450,15 @@ export class SoupRoom extends DurableObject<RoomEnv> {
                 type: 'update',
                 snapshot: roomSnapshot(this.state(), a.uid),
                 events: page.events,
+                hasMore: page.hasMore,
               }
               ws.send(JSON.stringify(message))
               a.lastSeq = page.events.at(-1)?.seq ?? a.lastSeq
               ws.serializeAttachment(a)
               more = page.hasMore
             }
+            // Deliver every missing event, including the final report, before closing.
+            if (roomSnapshot(this.state(), a.uid).readOnly) ws.close(1000, '共同案卷已保存')
           } catch {
             ws.close(1011, '连接暂时中断，请重连')
           }
@@ -603,7 +620,10 @@ export class SoupRoom extends DurableObject<RoomEnv> {
         .some((other) => other !== ws && other.readyState === WebSocket.OPEN)
     )
       return
-    this.save(roomPresence(this.state(), a.uid, false, Date.now()))
+    const s = this.state()
+    const member = memberOf(s, a.uid)
+    if (!isRoomFinished(s) && member?.seat === 'seated' && member.disconnectedAt === null)
+      this.save(roomPresence(s, a.uid, false, Date.now()))
   }
   async alarm() {
     this.housekeeping()

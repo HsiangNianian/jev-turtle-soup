@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.38.1 - 2026-09-28
+
+### Fixes and resource usage
+
+- Add a visible Leave action on Web, iOS and Android tables. Leaving releases the seat and disconnects the account's devices while keeping the shared case file.
+- Read completed or left-seat archives over HTTP without WebSocket tickets, heartbeats or automatic reconnects. Refresh an ongoing archive on demand and restore a live connection only after rejoining.
+- Send every final event page before closing room sockets, discard obsolete pending commands, and handle rooms that finish during reconnection without a retry loop.
+- Reject real-time connections for read-only archives and skip unchanged presence writes and D1 projections. Preserve full history catch-up on additional devices without requiring a presence change.
+- Keep the existing two-minute reconnect grace period, 24-hour idle timeout and persistent shared archives.
+
+### Validation
+
+- Pass 213 tests, lint and production build checks, including multi-device leave, paginated catch-up, completed-room reconnection races and failed manual refreshes.
+- Verify leave, HTTP archive refresh, explicit rejoin and shared reports with browser, native iOS and Android clients against an isolated local Worker.
+
+### Native apps
+
+- Update iOS to 0.6.1 (build 12) and Android to 0.3.1 (build 6).
+- The iOS attachment is an unsigned Simulator app for arm64 and x86_64, not an iPhone IPA. Physical iPhones use the Personal Team setup in `ios/README.md`. The Android APK is a debug-signed test build.
+- No database migration is required.
+
 ## 0.38.0 - 2026-09-28
 
 ### Improvements

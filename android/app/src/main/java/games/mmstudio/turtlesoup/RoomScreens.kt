@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -111,6 +112,8 @@ import java.util.UUID
 }
 @Composable private fun ConnectedTableScreen(state: AppState, roomId: String, owner: String) {
     val context = LocalContext.current
+    val marks = rememberQuestionMarks(owner, "room", roomId)
+    var verdict by remember { mutableStateOf<TableVerdict?>(null) }
     val table = remember { TableStore(context.applicationContext, owner, roomId, state.api) }
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current
@@ -122,6 +125,13 @@ import java.util.UUID
     var ledgerOpen by remember { mutableStateOf(false) }
     var loadingLedger by remember { mutableStateOf(false) }
     val ledger = remember(table.events) { tableLedger(table.events) }
+    val entries = remember(table.events) { tableTranscript(table.events) }
+    val numbers = table.events.filter { it.str("type") == "question" }.mapIndexed { index, e -> e.str("id") to index + 1 }.toMap()
+    val visible = entries.filter { entry ->
+        val e = entry.event
+        marks.includes(if(e.str("type") in listOf("question", "answer")) e.str("questionId") else null) &&
+            (verdict == null || tableVerdict((if(e.str("type") == "answer") e else entry.answers.lastOrNull())?.optJSONObject("turn")) == verdict)
+    }
     var members by remember { mutableStateOf(false) }
     var reportOpen by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
@@ -178,8 +188,12 @@ import java.util.UUID
         }
         if(ledger.isEmpty()) Prose("向砚提问后，判断会自动记在这里。", size = 14, color = mutedColor())
         if(table.error.isNotBlank()) Prose(table.error, size = 12, color = redColor())
-        ledger.forEach { item ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ledger.filter { marks.includes(it.id) }.forEach { item ->
+            Row(Modifier.fillMaxWidth().clickable {
+                marks.filter = "all"; verdict = null; ledgerOpen = false
+                val index = entries.indexOfFirst { it.event.str("questionId") == item.id }
+                if(index >= 0) scope.launch { list.scrollToItem(index + if(table.hasEarlier) 1 else 0) }
+            }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TableVerdictStamp(item.verdict)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Mono(roster.firstOrNull { it.str("uid") == item.actorId }?.str("name") ?: "汤友")
@@ -209,7 +223,8 @@ import java.util.UUID
         }
     Column(Modifier.fillMaxSize().imePadding()) {
         if(s != null) {
-            Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = state::back) { Icon(Icons.Outlined.ArrowBack, "返回", Modifier.size(19.dp), tint = inkColor()) }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(s.obj("puzzle").str("title"), fontFamily = Ink.serif, fontSize = 18.sp, color = inkColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Mono("${tablePhaseLabel(s.str("phase"))} · ${s.optInt("turns")} 轮")
@@ -239,53 +254,51 @@ import java.util.UUID
                 TextButton(enabled = available && owner !in vote.arr("agreed").strings(), onClick = { table.send(tableCommand("vote", "voteId" to vote.str("id"), "agree" to true)) }) { Prose(if(owner in vote.arr("agreed").strings()) "已同意" else "同意揭晓", size = 13) } }
         }
         Rule()
-        LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)) {
-            if(s?.str("phase") == "waiting") item { TableWaiting(s, owner, available, ::invite) { table.send(tableCommand("start")) } }
+        QuestionFilterBar(marks, ledger.map { it.verdict }, verdict) { verdict = it }
+        LazyColumn(Modifier.weight(1f), state = list) {
+            if(s?.str("phase") == "waiting" && marks.filter == "all" && verdict == null) item { Box(Modifier.padding(16.dp)) { TableWaiting(s, owner, available, ::invite) { table.send(tableCommand("start")) } } }
             if(table.hasEarlier) item { TextButton(onClick = { scope.launch { table.earlier() } }, modifier = Modifier.fillMaxWidth()) { Mono("查看更早的记录 ↑") } }
-            items(table.events, key = { it.str("id") }) { e ->
-                if(e.str("type") == "system") Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) { Mono(e.str("text")) }
-                else Row(Modifier.fillMaxWidth().padding(start = if(e.str("type") == "answer") 12.dp else 0.dp).padding(bottom = 18.dp).height(IntrinsicSize.Min).background(if(e.str("type") == "answer") sheetColor() else paperColor())) {
-                    Box(Modifier.width(2.dp).fillMaxHeight().background(if(e.str("type") == "question") redColor() else lineColor()))
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = if(e.str("type") == "answer") 10.dp else 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row { Mono(if(e.str("type") == "answer") "砚" else (roster.firstOrNull { it.str("uid") == e.str("actorId") }?.str("name") ?: "汤友") + if(e.str("actorId") == owner && e.str("type") != "answer") " · 你" else "", color = if(e.str("type") == "answer") redColor() else mutedColor())
-                        Spacer(Modifier.width(6.dp)); Mono(if(e.str("type") == "question") "问砚" else if(e.str("type") == "discussion") "桌内讨论" else "主持人", size = 9)
-                        Spacer(Modifier.weight(1f)); Mono(java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(e.optLong("at")))) }
-                    if(e.str("referenceId").isNotBlank()) Mono("↳ ${table.events.firstOrNull { it.str("type") == "question" && it.str("questionId") == e.str("referenceId") }?.str("text") ?: "接着前面的问题"}")
-                    if(e.str("type") == "answer") tableVerdict(e.optJSONObject("turn"))?.let { TableVerdictStamp(it) }
-                    SelectionContainer { Prose(e.str("text"), size = 15) }
-                    if(e.str("type") == "question" && available) TextButton(onClick = { reference = e; tab = "ask" }) { Mono("引用提问 ↳") }
+            if(visible.isEmpty() && (marks.filter != "all" || verdict != null)) item { TextButton(onClick = { marks.filter = "all"; verdict = null }, modifier = Modifier.fillMaxWidth()) { Mono("查看全部记录") } }
+            items(visible, key = { it.event.str("id") }) { entry ->
+                val e = entry.event
+                val type = e.str("type")
+                val name = if(e.str("actorId") == owner) "你" else roster.firstOrNull { it.str("uid") == e.str("actorId") }?.str("name") ?: "汤友"
+                if(type == "question") {
+                    val id = e.str("questionId").ifBlank { e.str("id") }
+                    PlayQuestionPair(id, if(table.hasEarlier) null else numbers[e.str("id")], name, e.str("text"),
+                        entry.answers.map { PlayAnswer(it.str("text"), tableVerdict(it.optJSONObject("turn"))) }, marks,
+                        reference = e.str("referenceId").takeIf { it.isNotBlank() }?.let { ref -> table.events.firstOrNull { it.str("type") == "question" && it.str("questionId") == ref }?.str("text") ?: "接着前面的问题" },
+                        pending = if(entry.answers.isEmpty()) (if(failed?.str("id") == id) "这次回答未能完成" else "等待回答") else null,
+                        quote = if(available) { { reference = e; tab = "ask" } } else null)
+                } else if(type == "system") Mono(e.str("text"), Modifier.fillMaxWidth().padding(12.dp))
+                else {
+                    Column(Modifier.fillMaxWidth().background(inkColor().copy(alpha = .025f)).padding(start = 43.dp, end = 16.dp, top = 10.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Mono(if(type == "answer") "砚" else "$name · 桌聊", size = 9)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if(type == "answer") tableVerdict(e.optJSONObject("turn"))?.let { TableVerdictStamp(it) }
+                            Box(Modifier.weight(1f)) { SelectionContainer { Prose(e.str("text"), size = 14, lineHeight = 24) } }
+                            if(type == "answer" && e.str("questionId").isNotBlank()) QuestionMarkControls(marks, e.str("questionId"))
+                        }
                     }
+                    Rule()
                 }
             }
-            s?.optJSONObject("report")?.let { report -> item { TableReport(report, roster) } }
+            s?.optJSONObject("report")?.takeIf { marks.filter == "all" && verdict == null }?.let { report -> item { Box(Modifier.padding(20.dp)) { TableReport(report, roster) } } }
         }
         if(table.error.isNotBlank()) Row(Modifier.fillMaxWidth().background(sheetColor()).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Prose(table.error, Modifier.weight(1f), size = 12, color = redColor()); TextButton(onClick = { table.error = "" }) { Mono("关闭") }
         }
         if(s != null && !s.optBoolean("readOnly")) Column(Modifier.padding(horizontal = 14.dp).padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Rule()
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                listOf("ask" to "问砚", "discuss" to "和大家聊").forEach { (value, label) ->
-                    Column(Modifier.semantics { selected = tab == value }.testTag("tableMode.$value").clickable { tab = value }) {
-                        Box(Modifier.heightIn(min = 38.dp), contentAlignment = Alignment.Center) { Mono(label, size = 11, color = if(tab == value) redColor() else mutedColor()) }
-                        Box(Modifier.width(48.dp).height(2.dp).background(if(tab == value) redColor() else paperColor()))
-                    }
-                }
-            }
             if(active != null) Mono("砚正在回答 · ${roster.firstOrNull { it.str("uid") == active.str("uid") }?.str("name") ?: "汤友"}")
             if(mine != null) Row(verticalAlignment = Alignment.CenterVertically) { Mono("你的问题正在排队"); TextButton(onClick = { table.send(tableCommand("cancel", "questionId" to mine.str("id"))) }) { Mono("撤回") } }
             if(failed != null) Row(verticalAlignment = Alignment.CenterVertically) { Mono(failed.str("error"), Modifier.weight(1f)); TextButton(onClick = { table.send(tableCommand("retry", "questionId" to failed.str("id"))) }) { Mono("重试问题", color = redColor()) } }
             if(reference != null && tab == "ask") TextButton(onClick = { reference = null }) { Mono("↳ ${reference!!.str("text")}  ×") }
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(draft, { if(tab == "ask") question = it.take(600) else discussion = it.take(600) }, Modifier.weight(1f), shape = RectangleShape, maxLines = 4,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = inkColor(), unfocusedBorderColor = lineColor(), cursorColor = redColor()),
-                    placeholder = { Prose(if(tab == "ask") "把你的问题交给砚……" else "和同桌说说你的猜想……", size = 14, color = mutedColor()) }, textStyle = TextStyle(fontFamily = Ink.serif, fontSize = 16.sp))
-                IconButton(enabled = available && draft.isNotBlank() && (tab != "ask" || canAsk), onClick = {
-                    val command = tableCommand(if(tab == "ask") "ask" else "discuss", "text" to draft.trim())
-                    if(tab == "ask") { command.put("locale", "zh-CN"); reference?.let { command.put("referenceId", it.str("questionId")) } }
-                    if(table.send(command)) { if(tab == "ask") { question = ""; reference = null } else discussion = "" }
-                }, modifier = Modifier.background(inkColor().copy(alpha = if(available && draft.isNotBlank() && (tab != "ask" || canAsk)) 1f else 0.3f))) { Icon(Icons.Outlined.ArrowUpward, "发送", tint = paperColor()) }
-            }
+            PlayComposer(draft, { if(tab == "ask") question = it else discussion = it }, {
+                val command = tableCommand(if(tab == "ask") "ask" else "discuss", "text" to draft.trim())
+                if(tab == "ask") { command.put("locale", "zh-CN"); reference?.let { command.put("referenceId", it.str("questionId")) } }
+                if(table.send(command)) { marks.filter = "all"; verdict = null; if(tab == "ask") { question = ""; reference = null } else discussion = "" }
+            }, enabled = available && (tab != "ask" || canAsk), mode = tab, changeMode = { tab = it })
             Row(verticalAlignment = Alignment.CenterVertically) { Mono(if(table.pendingCount > 0) "等待服务器确认" else if(tab == "ask") "正式提问按顺序回答" else "讨论仅在这一桌可见", Modifier.weight(1f))
                 if(s.str("phase") == "playing") TextButton(enabled = available && vote == null && !s.optBoolean("revealPending") && s.obj("puzzle").str("dailyDate") != java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(), onClick = { table.send(tableCommand("reveal")) }) { Mono("提议揭晓") } }
         } else if(s != null && roster.firstOrNull { it.str("uid") == owner }?.str("seat") == "left" && s.str("inviteCode").isNotBlank() && s.str("phase") in listOf("waiting", "playing")) {
@@ -295,7 +308,7 @@ import java.util.UUID
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun TableSheet(title: String, close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+@Composable fun TableSheet(title: String, close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     ModalBottomSheet(onDismissRequest = close, containerColor = paperColor(), contentColor = inkColor(), shape = RectangleShape) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Mono(title, Modifier.weight(1f), size = 12)
@@ -330,7 +343,7 @@ import java.util.UUID
     }
 }
 
-@Composable private fun TableVerdictStamp(verdict: TableVerdict) {
+@Composable fun TableVerdictStamp(verdict: TableVerdict) {
     val dark = isSystemInDarkTheme()
     val color = when(verdict) {
         TableVerdict.YES, TableVerdict.SOLVED -> androidx.compose.ui.graphics.Color(if(dark) 0xFF94B8A3 else 0xFF366451)
@@ -338,7 +351,7 @@ import java.util.UUID
         TableVerdict.PARTLY -> androidx.compose.ui.graphics.Color(if(dark) 0xFFD1B67D else 0xFF8A651E)
         TableVerdict.IRRELEVANT -> mutedColor()
     }
-    Box(Modifier.size(26.dp).border(1.dp, color.copy(alpha = 0.65f)).semantics { contentDescription = verdict.label }, contentAlignment = Alignment.Center) {
+    Box(Modifier.size(24.dp).border(1.dp, color.copy(alpha = 0.65f)).semantics { contentDescription = verdict.label }, contentAlignment = Alignment.Center) {
         Mono(verdict.glyph, size = 11, color = color)
     }
 }

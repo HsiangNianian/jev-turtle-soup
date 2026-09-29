@@ -3,6 +3,15 @@ package games.mmstudio.turtlesoup
 import android.content.Context
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.ListAlt
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -18,59 +27,87 @@ import org.json.JSONObject
 
 @Composable fun InvestigationScreen(state: AppState, id: String) {
     val game = state.game(id)
+    val marks = rememberQuestionMarks(state.user?.uid, "solo", id)
+    var verdict by remember(id) { mutableStateOf<TableVerdict?>(null) }
     var question by remember(id) { mutableStateOf("") }
     var confirmReveal by remember { mutableStateOf(false) }
-    if (game == null) {
-        PageScroll { Prose("这份案卷暂时没找到。", color = mutedColor()) }
-        return
-    }
-    if (confirmReveal) {
-        AlertDialog(onDismissRequest = { confirmReveal = false }, title = { Prose("现在看汤底？", size = 20) },
-            text = { Prose("这会结束这次推理。作者能看到主动揭晓的人数。", size = 14) },
-            confirmButton = { TextButton(onClick = { confirmReveal = false; state.reveal(id) }) { Prose("揭晓", size = 14) } },
-            dismissButton = { TextButton(onClick = { confirmReveal = false }) { Mono("继续推理") } })
-    }
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())
-            .padding(horizontal = 22.dp, vertical = 22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Heading(if (game.source == "daily") "每日官汤" else "汤友原创", game.title,
-                "${game.difficulty}  ·  已问 ${game.turnCount} 轮")
-            Surface(game.surface)
-            SectionTitle("调查记录", when (game.status) { "solved" -> "已破案"; "revealed" -> "已揭晓"; else -> "调查中" })
-            game.messages.forEach { message ->
-                Column(Modifier.fillMaxWidth().background(if (message.role == "player") sheetColor() else paperColor())
-                    .padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Mono(if (message.role == "player") "你问" else "砚答", color = if (message.role == "player") redColor() else mutedColor())
-                    if (message.verdict.isNotBlank()) Mono(when (message.verdict) {
-                        "yes" -> "是"; "no" -> "不是"; "partly" -> "部分正确"; "irrelevant" -> "无关"; else -> message.verdict
-                    }, color = redColor())
-                    Prose(message.text, size = 15, color = if (message.error) redColor() else inkColor())
-                }
-                Rule()
+    var surface by remember { mutableStateOf(false) }
+    var ledger by remember { mutableStateOf(false) }
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    if (game == null) { PageScroll { Prose("这份案卷暂时没找到。", color = mutedColor()) }; return }
+    val entries = remember(game.messages) { soloTranscript(game.messages) }
+    val visible = entries.filter { marks.includes(if(it.message.role == "player") it.message.id else null) && (verdict == null || soloVerdict(it.answer) == verdict) }
+    if (confirmReveal) AlertDialog(onDismissRequest = { confirmReveal = false }, title = { Prose("现在看汤底？", size = 20) },
+        text = { Prose("这会结束这次推理。作者能看到主动揭晓的人数。", size = 14) },
+        confirmButton = { TextButton(onClick = { confirmReveal = false; state.reveal(id) }) { Prose("揭晓", size = 14) } },
+        dismissButton = { TextButton(onClick = { confirmReveal = false }) { Mono("继续推理") } })
+    if(surface) TableSheet("汤面", { surface = false }) { Prose(game.title, size = 23); Spacer(Modifier.height(18.dp)); Prose(game.surface, size = 16, lineHeight = 29) }
+    if(ledger) TableSheet("问答记录", { ledger = false }) {
+        entries.filter { it.number != null && it.answer != null }.forEach { entry ->
+            Row(Modifier.fillMaxWidth().clickable {
+                marks.filter = "all"; verdict = null; ledger = false
+                scope.launch { list.scrollToItem(entries.indexOf(entry)) }
+            }.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                soloVerdict(entry.answer)?.let { TableVerdictStamp(it) }
+                Prose(entry.message.text, Modifier.weight(1f), size = 14)
             }
-            if (game.messages.lastOrNull()?.error == true && game.messages.dropLast(1).lastOrNull()?.role == "player") {
+            Rule()
+        }
+    }
+    LaunchedEffect(game.messages.lastOrNull()?.id) {
+        if(marks.filter == "all" && verdict == null && visible.isNotEmpty()) list.animateScrollToItem(visible.lastIndex)
+    }
+    Column(Modifier.fillMaxSize().imePadding()) {
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = state::back) { Icon(Icons.Outlined.ArrowBack, "返回", Modifier.size(19.dp), tint = inkColor()) }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(game.title, fontFamily = Ink.serif, fontSize = 18.sp, color = inkColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Mono("${game.difficulty} · 已问 ${game.turnCount} 轮", size = 10)
+            }
+            IconButton(onClick = { ledger = true }) { Icon(Icons.Outlined.ListAlt, "问答记录", Modifier.size(18.dp), tint = mutedColor()) }
+        }
+        Rule()
+        Row(Modifier.fillMaxWidth().clickable { surface = true }.heightIn(min = 44.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Mono("汤面", color = redColor())
+            Text(game.surface, Modifier.weight(1f), fontSize = 11.sp, color = mutedColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Outlined.ChevronRight, "查看汤面", Modifier.size(14.dp), tint = mutedColor())
+        }
+        Rule()
+        QuestionFilterBar(marks, game.messages.mapNotNull(::soloVerdict), verdict) { verdict = it }
+        LazyColumn(Modifier.weight(1f), state = list) {
+            if(visible.isEmpty() && (marks.filter != "all" || verdict != null)) item { TextButton(onClick = { marks.filter = "all"; verdict = null }, modifier = Modifier.fillMaxWidth()) { Mono("查看全部记录") } }
+            items(visible, key = { it.message.id }) { entry ->
+                if(entry.message.role == "player") PlayQuestionPair(entry.message.id, entry.number, "你", entry.message.text,
+                    entry.answer?.let { listOf(PlayAnswer(it.text, soloVerdict(it), it.error)) }.orEmpty(), marks,
+                    pending = if(entry.answer == null && state.busy) "砚正在核对线索…" else null)
+                else Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { Mono("砚", color = redColor()); Prose(entry.message.text, size = 14, color = mutedColor()) }
+            }
+            if (game.messages.lastOrNull()?.error == true && game.messages.dropLast(1).lastOrNull()?.role == "player") item {
                 TextButton(onClick = { state.retry(id) }, enabled = !state.busy) { Prose("重试刚才的问题 →", size = 14) }
             }
-            if (state.busy) Mono("砚正在想这条线索…", color = redColor())
-            if (game.status != "active") {
-                SectionTitle("汤底")
-                if (game.truth.isNotBlank()) Prose(game.truth, size = 15)
-                else TextButton(onClick = { state.reveal(id) }) { Prose("调取汤底 →", size = 14) }
-                if (game.hint.isNotBlank()) Prose("提示：${game.hint}", size = 14, color = mutedColor())
-            } else if (!game.locked) {
-                TextButton(onClick = { confirmReveal = true }) { Mono("主动看答案 →", color = mutedColor()) }
-            } else Mono("今日官汤明日解锁答案")
+            if(game.status != "active" && marks.filter == "all" && verdict == null) item {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    SectionTitle("汤底")
+                    if(game.truth.isNotBlank()) Prose(game.truth, size = 15)
+                    else TextButton(onClick = { state.reveal(id) }) { Prose("调取汤底 →", size = 14) }
+                    if(game.hint.isNotBlank()) Prose("提示：${game.hint}", size = 14, color = mutedColor())
+                }
+            }
         }
-        if (game.status == "active") {
+        if(game.status == "active") {
             Rule()
-            Row(Modifier.fillMaxWidth().background(sheetColor()).padding(10.dp).imePadding(),
-                verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(question, { question = it.take(600) }, Modifier.weight(1f),
-                    placeholder = { Mono("问砚一个问题…") }, maxLines = 4, shape = RectangleShape)
-                InkButton("发送", {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                PlayComposer(question, { question = it }, {
                     val sent = question.trim()
-                    if (sent.isNotEmpty()) { question = ""; state.ask(id, sent) }
-                }, enabled = question.trim().isNotBlank() && !state.busy)
+                    if(sent.isNotEmpty()) { question = ""; marks.filter = "all"; verdict = null; state.ask(id, sent) }
+                }, enabled = !state.busy)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { marks.filter = "all"; verdict = null; state.ask(id, "请给我一点提示") }, enabled = !state.busy, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 32.dp)) { Mono("求提示") }
+                    Spacer(Modifier.weight(1f))
+                    if(!game.locked) TextButton(onClick = { confirmReveal = true }, enabled = !state.busy, contentPadding = PaddingValues(0.dp), modifier = Modifier.heightIn(min = 32.dp)) { Mono("揭晓") }
+                    else Mono("今日汤底明日解锁", size = 9)
+                }
             }
         }
     }

@@ -72,7 +72,7 @@ const args = [
   `.build/rooms/native-ui-${Date.now()}.xcresult`,
   '-parallel-testing-enabled',
   'NO',
-  '-only-testing:TurtleSoupUITests/NativeFlowTests/testRoomsOnLocalRuntime',
+  '-only-testing:TurtleSoupUITests/NativeFlowTests/testCompactPlayOnLocalRuntime',
   'CODE_SIGNING_ALLOWED=NO',
 ]
 try {

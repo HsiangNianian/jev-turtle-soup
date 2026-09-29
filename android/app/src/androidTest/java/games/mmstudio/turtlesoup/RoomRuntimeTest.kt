@@ -17,11 +17,27 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class RoomRuntimeTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    @Test fun nativeTableUsesAuthenticatedSocketsAndSharedArchive() = runBlocking {
+    @Test fun nativeTableUsesAuthenticatedSocketsAndSharedArchive(): Unit = runBlocking {
         val args = InstrumentationRegistry.getArguments()
         val alice = args.getString("alice").orEmpty(); val bob = args.getString("bob").orEmpty()
         assumeTrue("Start the isolated rooms preview and pass fixture sessions", alice.isNotBlank() && bob.isNotBlank())
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val markCase = java.util.UUID.randomUUID().toString()
+        withContext(Dispatchers.Main) {
+            val marks = LocalQuestionMarks(context, "alice", "solo", markCase)
+            marks.toggle("q1", "useful")
+            val restored = LocalQuestionMarks(context, "alice", "solo", markCase)
+            assertEquals("useful", restored.values["q1"])
+            for ((owner, kind, id) in listOf(Triple("bob", "solo", markCase), Triple(null, "solo", markCase), Triple("alice", "room", markCase), Triple("alice", "solo", "other-$markCase"))) {
+                assertTrue(LocalQuestionMarks(context, owner, kind, id).values.isEmpty())
+            }
+            restored.toggle("q2", "not-useful")
+            marks.toggle("q1", "useful")
+            assertEquals(mapOf("q2" to "not-useful"), marks.values)
+            marks.filter = "not-useful"
+            assertTrue(marks.includes("q2")); assertFalse(marks.includes("q1")); assertFalse(marks.includes(null))
+            marks.toggle("q2", "not-useful")
+        }
         val a = SoupApi(context,"http://127.0.0.1:8799","ts_session=$alice")
         val b = SoupApi(context,"http://127.0.0.1:8799","ts_session=$bob")
         assertEquals("ABCDEFGH2345",tableInvitationCode("abcd efgh-2345"))
@@ -40,6 +56,7 @@ class RoomRuntimeTest {
             until {guest.snapshot?.str("phase")=="playing"}
             compose.onNodeWithTag("tableSurface").performClick()
             compose.onNodeWithText("完成").performClick()
+            compose.onNodeWithTag("tableRecipient").performClick()
             compose.onNodeWithTag("tableMode.ask").performClick()
             compose.onNode(hasSetTextAction()).performTextInput("A neighbor leaves the elevator?")
             compose.onNodeWithContentDescription("发送").performClick()
@@ -56,11 +73,13 @@ class RoomRuntimeTest {
             assertEquals("A neighbor leaves the elevator?", recorded.single().question)
             assertEquals(TableVerdict.YES, recorded.single().verdict)
 
+            compose.onNodeWithTag("tableRecipient").performClick()
             compose.onNodeWithTag("tableMode.discuss").performClick()
             compose.onNodeWithText("是。").assertExists()
             compose.onNode(hasSetTextAction()).performTextInput("A shared clue from Android")
             compose.onNodeWithContentDescription("发送").performClick()
             until {guest.events.any {it.str("text")=="A shared clue from Android"}}
+            compose.onNodeWithTag("tableRecipient").performClick()
             compose.onNodeWithTag("tableMode.ask").performClick()
             compose.onNodeWithText("A shared clue from Android").assertExists()
             InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().also { image ->
@@ -72,6 +91,7 @@ class RoomRuntimeTest {
             withContext(Dispatchers.Main) { guest.send(tableCommand("leave")) }
             until { guest.archived && !guest.online && guest.pendingCount == 0 }
             withContext(Dispatchers.Main) { guest.resume() }
+            compose.onNodeWithTag("tableRecipient").performClick()
             compose.onNodeWithTag("tableMode.discuss").performClick()
             compose.onNode(hasSetTextAction()).performTextInput("Android archive refresh")
             compose.onNodeWithContentDescription("发送").performClick()
@@ -82,6 +102,7 @@ class RoomRuntimeTest {
             b.request("/api/rooms/join", "POST", JSONObject().put("code", room.str("inviteCode")))
             withContext(Dispatchers.Main) { guest.refresh() }
             until { guest.online && !guest.archived }
+            compose.onNodeWithTag("tableRecipient").performClick()
             compose.onNodeWithTag("tableMode.ask").performClick()
             compose.onNodeWithText("提议揭晓").performClick()
             until {guest.snapshot?.optJSONObject("vote") != null}
@@ -92,6 +113,24 @@ class RoomRuntimeTest {
             val archive = withContext(Dispatchers.Main) { TableStore(context, "bob", id, b).also { it.start() } }
             try { until { archive.archived && !archive.online && archive.snapshot!!.obj("report").str("truth").isNotBlank() } }
             finally { withContext(Dispatchers.Main) { archive.stop() } }
+
+            // The same paired UI is used for solo play, with an independent local mark scope.
+            val puzzle = Puzzle.from(a.request("/api/library/puzzles/room-preview-puzzle"))
+            withContext(Dispatchers.Main) { state.start(puzzle) }
+            compose.onNode(hasSetTextAction()).performTextInput("Someone left the elevator for her?")
+            compose.onNodeWithContentDescription("发送问题").performClick()
+            until { state.game((state.stack.last() as Page.Investigation).id)?.turnCount == 1 }
+            compose.onNodeWithContentDescription("有用").performClick()
+            compose.onNodeWithContentDescription("有用").assertIsSelected()
+            compose.onNodeWithContentDescription("筛选我的标记").performClick()
+            compose.onNodeWithText("只看有用").performClick()
+            compose.onNodeWithText("Someone left the elevator for her?").assertExists()
+            compose.onNodeWithContentDescription("有用").performClick()
+            compose.onNodeWithText("查看全部记录").performClick()
+            compose.onNodeWithText("Someone left the elevator for her?").assertExists()
+            InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().also { image ->
+                File(context.getExternalFilesDir(null),"play-solo.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+            }
         } finally {withContext(Dispatchers.Main){guest.stop()}}
     }
 }

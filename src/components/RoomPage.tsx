@@ -1,3 +1,4 @@
+import { jumpToQuestion, useQuestionJump } from '@/lib/play-navigation'
 import { usePersonalMarks } from '@/lib/personal-marks-context'
 import './RoomPage.css'
 import {
@@ -25,6 +26,8 @@ import { Button, Empty, Notice, PageShell, inputClass } from './Bits'
 import { Link } from './Link'
 import { RoomEntry } from './RoomEntry'
 import { VerdictToken } from './VerdictToken'
+import { PlayPair, PlayTranscriptBar } from './PlayPair'
+import { roomTranscript } from '@/lib/play-transcript'
 import {
   PersonalMarkActions,
   PersonalMarkEmpty,
@@ -270,17 +273,16 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   const [now, setNow] = useState(() => Date.now())
   const [surfaceOpen, setSurfaceOpen] = useState(false)
   const [ledgerOpen, setLedgerOpen] = useState(false)
+  const [verdictFilter, setVerdictFilter] = useState<string | null>(null)
+  useQuestionJump(() => {
+    marks.setFilter('all')
+    setVerdictFilter(null)
+    setLedgerOpen(false)
+  })
+  const groups = useMemo(() => roomTranscript(state.events), [state.events])
+  const questions = state.events.filter((e) => e.type === 'question')
   const ledger = useMemo(() => buildRoomLedger(state.events), [state.events])
   const visibleLedger = ledger.filter((item) => marks.includes(item.id))
-  const visibleEvents = state.events.filter((event) =>
-    marks.includes(
-      event.type === 'question' || event.type === 'answer' ? event.questionId : undefined,
-    ),
-  )
-  const answeredQuestions = useMemo(
-    () => new Set(state.events.filter((e) => e.type === 'answer').map((e) => e.questionId)),
-    [state.events],
-  )
   const discussionScroller = useRef<HTMLDivElement>(null)
   const discussionNearBottom = useRef(true)
   const scroller = useRef<HTMLDivElement>(null)
@@ -294,22 +296,6 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   const failed = s?.failed.find((q) => q.uid === owner)
   const available = state.status === 'online' && !s?.readOnly
   const chatTotal = state.events.filter((e) => e.type === 'discussion').length
-  useEffect(() => {
-    // Safari resizes the visual viewport, rather than dvh, when the keyboard opens.
-    const viewport = window.visualViewport
-    const root = document.documentElement
-    const resize = () => {
-      if (!desktop && viewport?.scale === 1)
-        root.style.setProperty('--room-viewport-height', `${viewport.height}px`)
-      else root.style.removeProperty('--room-viewport-height')
-    }
-    resize()
-    viewport?.addEventListener('resize', resize)
-    return () => {
-      viewport?.removeEventListener('resize', resize)
-      root.style.removeProperty('--room-viewport-height')
-    }
-  }, [desktop])
   useEffect(() => {
     try {
       localStorage.setItem(draftKey, JSON.stringify(drafts))
@@ -393,7 +379,10 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
         : { type: 'discuss', text },
     )
     if (ok) {
-      if (mode === 'ask' || !desktop) marks.setFilter('all')
+      if (mode === 'ask' || !desktop) {
+        marks.setFilter('all')
+        setVerdictFilter(null)
+      }
       setDrafts((prev) => ({ ...prev, [mode]: '' }))
       if (mode === 'ask') setReference(null)
       if (mode === 'discuss' && desktop) discussionNearBottom.current = true
@@ -411,103 +400,134 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
     error: '暂时无法连接',
   }[state.status]
 
-  const renderEvents = (channel: 'all' | 'ask' | 'discuss') => (
-    <>
-      {(channel === 'discuss' ? state.events : visibleEvents)
-        .filter(
-          (e) =>
-            channel === 'all' ||
-            (channel === 'ask' ? e.type !== 'discussion' : e.type === 'discussion'),
-        )
-        .map((e) =>
-          e.type === 'system' ? (
-            <p
-              key={e.id}
-              data-event-type={e.type}
-              className="my-4 text-center font-mono text-[10px] leading-5 text-muted-foreground"
-            >
-              {e.text}
-            </p>
-          ) : (
+  const renderEvents = (channel: 'all' | 'ask' | 'discuss') => {
+    const entries = groups.filter(({ event: e, answers }) => {
+      if (channel === 'discuss') return e.type === 'discussion'
+      if (channel === 'ask' && e.type === 'discussion') return false
+      if (!marks.includes(e.type === 'question' || e.type === 'answer' ? e.questionId : undefined))
+        return false
+      return (
+        !verdictFilter ||
+        roomVerdict((e.type === 'answer' ? e : answers.at(-1))?.turn) === verdictFilter
+      )
+    })
+    return (
+      <>
+        {!entries.length && channel !== 'discuss' && (marks.filter !== 'all' || verdictFilter) ? (
+          <PersonalMarkEmpty onReset={() => setVerdictFilter(null)} />
+        ) : null}
+        {entries.map(({ event: e, answers }) => {
+          if (e.type === 'system')
+            return (
+              <p key={e.id} data-event-type="system" className="room-system-note">
+                {e.text}
+              </p>
+            )
+          const speaker =
+            e.actorId === owner
+              ? t('你')
+              : (s?.members.find((m) => m.uid === e.actorId)?.name ?? t('汤友'))
+          if (e.type === 'question')
+            return (
+              <PlayPair
+                key={e.id}
+                id={e.questionId ?? e.id}
+                number={
+                  state.hasEarlier ? undefined : questions.findIndex((q) => q.id === e.id) + 1
+                }
+                speaker={speaker}
+                question={
+                  <div data-event-type="question">
+                    {e.referenceId ? (
+                      <p className="room-question-reference">
+                        ↳{' '}
+                        {state.events.find(
+                          (q) => q.questionId === e.referenceId && q.type === 'question',
+                        )?.text ?? t('查看更早的记录')}
+                      </p>
+                    ) : null}
+                    <p className="whitespace-pre-wrap break-words">{e.text}</p>
+                  </div>
+                }
+                actions={
+                  available ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.currentTarget.closest('dialog')?.close()
+                        setReference({ id: e.questionId!, text: e.text })
+                        setTab('ask')
+                      }}
+                    >
+                      {t('引用提问')} ↳
+                    </button>
+                  ) : null
+                }
+              >
+                {answers.map((answer) => (
+                  <div key={answer.id} data-event-type="answer" className="play-answer">
+                    <div className="play-answer-line">
+                      {roomVerdict(answer.turn) ? (
+                        <VerdictToken verdict={roomVerdict(answer.turn)!} />
+                      ) : null}
+                      <p className="whitespace-pre-wrap break-words">{answer.text}</p>
+                    </div>
+                  </div>
+                ))}
+                {!answers.length ? (
+                  <p className="play-thinking">
+                    {t(
+                      s?.failed.some((q) => q.id === e.questionId)
+                        ? '这次回答未能完成'
+                        : '等待回答',
+                    )}
+                  </p>
+                ) : null}
+              </PlayPair>
+            )
+          return (
             <article
               key={e.id}
               data-event-type={e.type}
               className={cn('room-event', `room-event-${e.type}`)}
             >
-              <div className="mb-1.5 flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
-                <span className={e.type === 'answer' ? 'text-stamp' : ''}>
-                  {e.type === 'answer'
-                    ? t('砚')
-                    : (s?.members.find((m) => m.uid === e.actorId)?.name ?? t('汤友'))}
-                </span>
-                {e.type !== 'answer' && e.actorId === owner ? <span>· {t('你')}</span> : null}
-                <span className="room-event-kind">
-                  {t(
-                    e.type === 'question'
-                      ? '问砚'
-                      : e.type === 'discussion'
-                        ? '桌内讨论'
-                        : '主持人',
-                  )}
-                </span>
-                <time className="ml-auto tabular-nums">
-                  {new Date(e.at).toLocaleTimeString(locale, {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </time>
-              </div>
-              {e.referenceId ? (
-                <p className="mb-2 border-l border-foreground/30 pl-2 font-mono text-[10px] text-muted-foreground">
-                  {t('接着这个问题')} ·{' '}
-                  {state.events.find((q) => q.questionId === e.referenceId && q.type === 'question')
-                    ?.text ?? t('查看更早的记录')}
-                </p>
-              ) : null}
-              {e.type === 'answer' && roomVerdict(e.turn) ? (
-                <div className="mb-2">
-                  <VerdictToken verdict={roomVerdict(e.turn)!} />
+              <span className="room-speaker-avatar" aria-hidden>
+                {e.type === 'answer' ? t('砚') : speaker.slice(0, 1)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="room-discussion-meta">
+                  <span>{e.type === 'answer' ? t('砚') : speaker}</span>
+                  <span>{t(e.type === 'discussion' ? '桌内讨论' : '主持人')}</span>
+                  <time>
+                    {new Date(e.at).toLocaleTimeString(locale, {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </time>
                 </div>
-              ) : null}
-              <p
-                className={cn(
-                  'whitespace-pre-wrap break-words font-serif text-[15px] leading-7 sm:text-base',
-                  e.type === 'answer' && e.turn?.verdict === 'no' && 'text-stamp',
-                )}
-              >
-                {e.text}
-              </p>
-              {e.questionId &&
-              (e.type === 'answer' ||
-                (e.type === 'question' && !answeredQuestions.has(e.questionId))) ? (
-                <PersonalMarkActions questionId={e.questionId} />
-              ) : null}
-              {e.type === 'question' && available ? (
-                <button
-                  className="mt-2 min-h-8 font-mono text-[10px] text-muted-foreground"
-                  onClick={() => {
-                    setReference({ id: e.questionId!, text: e.text })
-                    setTab('ask')
-                  }}
-                >
-                  {t('引用提问')} ↳
-                </button>
+                {e.type === 'answer' && roomVerdict(e.turn) ? (
+                  <VerdictToken verdict={roomVerdict(e.turn)!} />
+                ) : null}
+                <p className="whitespace-pre-wrap break-words font-serif text-sm leading-6">
+                  {e.text}
+                </p>
+              </div>
+              {e.type === 'answer' && e.questionId ? (
+                <PersonalMarkActions compact questionId={e.questionId} />
               ) : null}
             </article>
-          ),
-        )}
-
-      {channel === 'discuss' && chatTotal === 0 ? (
-        <div className="py-10 text-center text-muted-foreground">
-          <MessageSquare className="mx-auto mb-3 size-5" />
-          <p className="font-serif text-sm">{t('把你的猜想说给同桌听。')}</p>
-          <p className="mt-2 font-mono text-[10px]">
+          )
+        })}
+        {channel === 'discuss' && chatTotal === 0 ? (
+          <p className="room-empty-discussion">
+            {t('把你的猜想说给同桌听。')}
+            <br />
             {t('讨论不计轮数，砚也不会把它当成正式提问。')}
           </p>
-        </div>
-      ) : null}
-    </>
-  )
+        ) : null}
+      </>
+    )
+  }
   const renderEarlier = () => (
     <>
       {state.hasEarlier ? (
@@ -533,43 +553,39 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
     <section
       data-room-ledger
       aria-label={t('问答记录')}
-      className={showHeading ? 'mt-6 border-t border-foreground/25 pt-4' : ''}
+      className={showHeading ? 'mt-5 border-t border-foreground/25 pt-4' : ''}
     >
-      {showHeading ? (
-        <div className="mb-3 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
-          <h3>{t('问答记录')}</h3>
-          <span>
-            {visibleLedger.length !== ledger.length ? `${visibleLedger.length} / ` : ''}
-            {String(ledger.length).padStart(2, '0')}
-          </span>
-        </div>
-      ) : null}
-      <PersonalMarkFilter compact hasEarlier={state.hasEarlier} />
+      <div className="mb-2 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
+        <h3>{t('问答记录')}</h3>
+        <span>
+          {visibleLedger.length !== ledger.length ? `${visibleLedger.length} / ` : ''}
+          {ledger.length}
+        </span>
+      </div>
+      {!showHeading ? <PersonalMarkFilter compact hasEarlier={state.hasEarlier} /> : null}
       {state.hasEarlier ? (
         <p className="mb-2 font-mono text-[10px] leading-5 text-muted-foreground">
           {t('当前为已加载的问答，可加载更早的记录。')}
         </p>
       ) : null}
       {renderEarlier()}
-      {error || state.error ? (
-        <p role="alert" className="mb-3 font-mono text-xs text-stamp">
-          {t(error || state.error!)}
-        </p>
-      ) : null}
       {visibleLedger.length ? (
-        <ul>
+        <ul className={showHeading ? 'play-ledger-grid' : 'play-ledger-list'}>
           {visibleLedger.map((item) => (
-            <li key={item.id} className="rule-dashed flex items-start gap-3 py-3 last:border-b-0">
-              <VerdictToken verdict={item.verdict} />
-              <div className="min-w-0">
-                <p className="mb-1 font-mono text-[10px] text-muted-foreground">
-                  {s?.members.find((m) => m.uid === item.actorId)?.name ?? t('汤友')}
-                </p>
-                <p className="whitespace-pre-wrap break-words font-serif text-sm leading-6">
-                  {item.question}
-                </p>
-                <PersonalMarkActions questionId={item.id} />
-              </div>
+            <li key={item.id}>
+              <button
+                type="button"
+                title={item.question}
+                aria-label={item.question}
+                onClick={() => jumpToQuestion(item.id)}
+              >
+                {!state.hasEarlier ? (
+                  <span>{String(ledger.indexOf(item) + 1).padStart(2, '0')}</span>
+                ) : null}
+                <VerdictToken verdict={item.verdict} />
+                {!showHeading ? <p>{item.question}</p> : null}
+                {marks.marks[item.id] === 'useful' ? <i aria-hidden /> : null}
+              </button>
             </li>
           ))}
         </ul>
@@ -580,27 +596,25 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           {t('向砚提问后，判断会自动记在这里。')}
         </p>
       )}
+      {showHeading && ledger.some((item) => marks.marks[item.id] === 'useful') ? (
+        <section className="play-pinned-clues">
+          <h3>{t('我的标记')}</h3>
+          {ledger
+            .filter((item) => marks.marks[item.id] === 'useful')
+            .map((item) => (
+              <button key={item.id} type="button" onClick={() => jumpToQuestion(item.id)}>
+                <p>{item.question}</p>
+              </button>
+            ))}
+        </section>
+      ) : null}
     </section>
   )
   const renderComposer = (mode: 'ask' | 'discuss') => (
     <>
       {s && !s.readOnly ? (
-        <footer className="room-composer shrink-0 border-t border-foreground/25 bg-background px-4 pt-2 pb-[max(.5rem,env(safe-area-inset-bottom))]">
+        <footer className="room-composer shrink-0 border-t border-foreground/25 bg-background">
           <div className="mx-auto max-w-3xl">
-            {!desktop ? (
-              <div className="room-send-mode" role="group" aria-label={t('发送给')}>
-                {(['ask', 'discuss'] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={mode === value}
-                    onClick={() => setTab(value)}
-                  >
-                    {t(value === 'ask' ? '问砚' : '和大家聊')}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             {(!desktop || mode === 'ask') && (s.processing || mine || failed || s.revealPending) ? (
               <div
                 aria-live="polite"
@@ -659,8 +673,21 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
                 e.preventDefault()
                 submit(mode)
               }}
-              className="flex items-end gap-2 border border-foreground/45 bg-card p-2 focus-within:border-foreground"
+              className="play-input"
             >
+              {!desktop ? (
+                <label className="room-recipient">
+                  <span className="sr-only">{t('发送给')}</span>
+                  <select
+                    value={mode}
+                    onChange={(e) => setTab(e.target.value as 'ask' | 'discuss')}
+                    aria-label={t('发送给')}
+                  >
+                    <option value="ask">{t('问砚')}</option>
+                    <option value="discuss">{t('和大家聊')}</option>
+                  </select>
+                </label>
+              ) : null}
               <textarea
                 value={drafts[mode]}
                 onChange={(e) => setDrafts((prev) => ({ ...prev, [mode]: e.target.value }))}
@@ -677,7 +704,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
                 placeholder={t(mode === 'ask' ? '把你的问题交给砚……' : '和同桌说说你的猜想……')}
                 className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-2 py-1 font-serif text-base leading-6 outline-none placeholder:text-muted-foreground/60"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault()
                     submit(mode)
                   }
@@ -697,7 +724,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
                       s.revealPending ||
                       seats.length < 2))
                 }
-                className="flex size-10 shrink-0 items-center justify-center bg-foreground text-background disabled:opacity-25"
+                className="play-send-button"
               >
                 <ArrowUp className="size-5" />
               </button>
@@ -983,40 +1010,6 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
             >
               {t('查看汤面')} ↗
             </button>
-            <div className="mt-6 flex items-center justify-between border-t border-foreground/25 pt-4">
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {t('在座成员')} · {seats.length}/6
-              </span>
-              <button
-                className="min-h-10 font-mono text-[10px]"
-                onClick={() => setMembersOpen(true)}
-              >
-                {t('管理')}
-              </button>
-            </div>
-            {seats.map((m) => (
-              <div key={m.uid} className="flex items-center gap-2 py-2">
-                <span className="flex size-7 items-center justify-center bg-foreground/5 font-serif text-sm">
-                  {m.name.slice(0, 1)}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-xs">{m.name}</span>
-                <span
-                  className={cn(
-                    'size-1.5 rounded-full',
-                    m.disconnectedAt === null ? 'bg-[var(--v-yes)]' : 'bg-muted-foreground/40',
-                  )}
-                />
-              </div>
-            ))}
-            {s.inviteCode ? (
-              <button
-                className="mt-4 flex min-h-11 items-center gap-2 font-mono text-xs"
-                onClick={() => void copyInvite()}
-              >
-                <Copy className="size-3.5" />
-                {t(copied ? '已复制' : '复制邀请')}
-              </button>
-            ) : null}
             {renderLedger()}
           </aside>
         ) : null}
@@ -1027,7 +1020,16 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
               <span>{t('正式提问按顺序回答')}</span>
             </div>
           ) : null}
-          <PersonalMarkFilter hasEarlier={state.hasEarlier} />
+          <PlayTranscriptBar
+            verdicts={ledger.map((item) => item.verdict)}
+            selected={verdictFilter}
+            onSelect={(v) => {
+              setVerdictFilter(v)
+              nearBottom.current = false
+              if (scroller.current) scroller.current.scrollTop = 0
+            }}
+            hasEarlier={state.hasEarlier}
+          />
           <div
             ref={scroller}
             onScroll={() => {
@@ -1038,7 +1040,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
             data-testid="room-timeline"
           >
             <div className="mx-auto w-full max-w-3xl">
-              {s?.phase === 'waiting' && marks.filter === 'all' ? (
+              {s?.phase === 'waiting' && marks.filter === 'all' && !verdictFilter ? (
                 <div className="room-waiting mb-4 border border-foreground/25 bg-card p-4">
                   <p className="font-mono text-[10px] tracking-[.2em] text-stamp">
                     {t('入座后就开汤')}
@@ -1094,9 +1096,10 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
               ) : null}
 
               {renderEarlier()}
-              {!visibleEvents.length && marks.filter !== 'all' ? <PersonalMarkEmpty /> : null}
               {renderEvents(desktop ? 'ask' : 'all')}
-              {s?.report && marks.filter === 'all' ? <RoomReportView snapshot={s} /> : null}
+              {s?.report && marks.filter === 'all' && !verdictFilter ? (
+                <RoomReportView snapshot={s} />
+              ) : null}
             </div>
           </div>
           {error || state.error ? (

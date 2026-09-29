@@ -1,3 +1,4 @@
+import { usePlayViewport } from '@/lib/play-navigation'
 import {
   Suspense,
   lazy,
@@ -264,6 +265,8 @@ function GameApp({
 }) {
   const { t, locale } = useI18n()
   const path = usePath()
+  const playing = path === '/play' || /^\/rooms\/(?!new$|join$)/.test(path)
+  usePlayViewport(playing)
   const owner = user?.uid ?? null
   const [initialGames] = useState(() => loadGames(owner))
   const [bootGame] = useState(() =>
@@ -843,8 +846,8 @@ function GameApp({
           kind="solo"
           id={session.sessionId}
         >
-          <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
-            <section className="chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:w-[42%] lg:border-r lg:border-foreground/25">
+          <main className="play-layout flex min-h-0 flex-1 flex-col lg:flex-row">
+            <section className="play-case-rail chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:border-r lg:border-foreground/25">
               {renderCase()}
             </section>
             <section className="flex min-h-0 flex-1 flex-col">
@@ -1032,11 +1035,7 @@ function GameApp({
   return (
     <div
       className="flex h-dvh flex-col overflow-hidden"
-      style={
-        /^\/rooms\/(?!new$|join$)/.test(path)
-          ? { height: 'var(--room-viewport-height, 100dvh)' }
-          : undefined
-      }
+      style={playing ? { height: 'var(--play-viewport-height, 100dvh)' } : undefined}
     >
       <header className="z-20 shrink-0 bg-bar text-bar-foreground">
         <div className="mx-auto flex h-12 w-full min-w-0 items-center gap-2 px-4 sm:gap-4 sm:px-6">

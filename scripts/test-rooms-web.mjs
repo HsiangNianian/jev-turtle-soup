@@ -56,7 +56,7 @@ try {
   await b.getByRole('button', { name: '入座', exact: true }).click()
   await b.getByRole('heading', { name: '空着的座位，留给朋友' }).waitFor()
   await a.getByRole('button', { name: '开始同桌' }).click()
-  await a.getByRole('button', { name: '问砚', exact: true }).click()
+  await a.getByRole('combobox', { name: '发送给' }).selectOption('ask')
   await a.getByRole('textbox', { name: '向砚提问' }).fill('有人特意把电梯留在这一层吗？')
   await a.getByRole('button', { name: '发送', exact: true }).click()
   await a.getByText('是。', { exact: true }).waitFor()
@@ -85,7 +85,7 @@ try {
     'Questions, answers and discussion share the mobile timeline',
   )
   await a.getByRole('textbox', { name: '向砚提问' }).fill('留下这条提问草稿')
-  await a.getByRole('button', { name: '和大家聊', exact: true }).click()
+  await a.getByRole('combobox', { name: '发送给' }).selectOption('discuss')
   await a.getByRole('textbox', { name: '桌内讨论' }).fill('先聊两句，问题草稿稍后再发')
   assert.equal(
     await a.getByText('是。', { exact: true }).count(),
@@ -95,7 +95,7 @@ try {
   await a.getByRole('button', { name: '发送', exact: true }).click()
   await b.getByText('先聊两句，问题草稿稍后再发', { exact: true }).waitFor()
   await a.screenshot({ path: '.build/rooms/discussion-mobile.png' })
-  await a.getByRole('button', { name: '问砚', exact: true }).click()
+  await a.getByRole('combobox', { name: '发送给' }).selectOption('ask')
   assert.equal(await a.getByRole('textbox', { name: '向砚提问' }).inputValue(), '留下这条提问草稿')
   await a.getByRole('textbox', { name: '向砚提问' }).fill('')
   await a.screenshot({ path: '.build/rooms/playing-mobile.png' })
@@ -103,7 +103,7 @@ try {
   // Resizing preserves drafts and changes layout without opening another socket.
   await b.getByRole('textbox', { name: '桌内讨论' }).fill('桌边的草稿')
   await b.setViewportSize({ width: 390, height: 844 })
-  await b.getByRole('button', { name: '和大家聊', exact: true }).click()
+  await b.getByRole('combobox', { name: '发送给' }).selectOption('discuss')
   assert.equal(await b.getByRole('textbox', { name: '桌内讨论' }).inputValue(), '桌边的草稿')
   await b.setViewportSize({ width: 1365, height: 844 })
   assert.equal(await b.getByRole('textbox', { name: '桌内讨论' }).inputValue(), '桌边的草稿')
@@ -111,7 +111,7 @@ try {
   await b.getByRole('button', { name: '离开同桌', exact: true }).click()
   await b.getByText('已离开同桌', { exact: true }).waitFor()
   const beforeRefresh = connections.get(b).total
-  await a.getByRole('button', { name: '和大家聊', exact: true }).click()
+  await a.getByRole('combobox', { name: '发送给' }).selectOption('discuss')
   await a.getByRole('textbox', { name: '桌内讨论' }).fill('离座后按需刷新这条记录')
   await a.getByRole('button', { name: '发送', exact: true }).click()
   await a.getByText('离座后按需刷新这条记录', { exact: true }).waitFor()
@@ -127,7 +127,7 @@ try {
   await b.screenshot({ path: '.build/rooms/left-desktop.png' })
   await b.getByRole('button', { name: '再次入座', exact: true }).click()
   await b.getByRole('button', { name: '离开同桌', exact: true }).waitFor()
-  await a.getByRole('button', { name: '问砚', exact: true }).click()
+  await a.getByRole('combobox', { name: '发送给' }).selectOption('ask')
   await a.getByRole('button', { name: '提议揭晓', exact: true }).click()
   await b.getByRole('button', { name: '同意揭晓', exact: true }).waitFor()
   await a.screenshot({ path: '.build/rooms/vote-mobile.png' })

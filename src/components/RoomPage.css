@@ -204,3 +204,110 @@
     min-height: 30px;
   }
 }
+
+/* A: paired answers in a flat notebook; discussion keeps its own desktop column. */
+.room-timeline {
+  padding: 0;
+}
+.room-column-title {
+  min-height: 40px;
+  padding: 10px 20px;
+}
+.room-event {
+  display: flex;
+  gap: 10px;
+  border: 0;
+  margin: 0;
+  padding: 12px 20px;
+}
+.room-event-answer {
+  margin-left: 0;
+  background: transparent;
+}
+.room-main-column .room-event-discussion {
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
+  padding-left: 44px;
+  border-bottom: 1px solid var(--border);
+}
+.room-speaker-avatar {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font: 11px var(--font-serif);
+}
+.room-discussion-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font: 10px var(--font-mono);
+  margin-bottom: 4px;
+  color: var(--muted-foreground);
+}
+.room-discussion-meta time {
+  margin-left: auto;
+  font-size: 9px;
+}
+.room-system-note {
+  padding: 10px 20px;
+  text-align: center;
+  font: 10px/1.8 var(--font-mono);
+  color: var(--muted-foreground);
+}
+.room-question-reference {
+  font: 10px/1.8 var(--font-mono);
+  color: var(--muted-foreground);
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
+  margin-bottom: 6px;
+}
+.room-empty-discussion {
+  padding: 30px 20px;
+  text-align: center;
+  font: 12px/2 var(--font-serif);
+  color: var(--muted-foreground);
+}
+.room-waiting {
+  margin: 12px 16px;
+}
+.room-composer {
+  padding: 10px 14px max(4px, env(safe-area-inset-bottom));
+}
+.room-recipient {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.room-recipient select {
+  background: transparent;
+  color: var(--stamp);
+  min-height: 44px;
+  max-width: 82px;
+  font: 10px var(--font-mono);
+}
+@media (min-width: 1024px) {
+  .room-workspace {
+    grid-template-columns: clamp(200px, 19vw, 250px) minmax(0, 1fr) clamp(240px, 23vw, 300px);
+  }
+  .room-main-column .room-timeline {
+    padding: 0;
+  }
+  .room-case-rail {
+    padding: 20px 18px;
+  }
+  .room-discussion-column .room-event {
+    padding: 14px 16px;
+  }
+  .room-discussion-column .room-event p {
+    font-size: 14px;
+  }
+  .room-composer .play-input textarea {
+    font-size: 14px;
+  }
+}

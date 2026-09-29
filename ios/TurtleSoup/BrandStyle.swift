@@ -247,3 +247,60 @@ struct ErrorNote: View {
     }
   }
 }
+
+struct QuestionMarkControls: View {
+  @ObservedObject var marks: LocalQuestionMarks
+  let id: String
+  var quote: (() -> Void)? = nil
+  var body: some View {
+    VStack(spacing: 0) {
+      Button { marks.toggle(id, value: "useful") } label: {
+        Image(systemName: marks.values[id] == "not-useful" ? "minus" : marks.values[id] == "useful" ? "bookmark.fill" : "bookmark")
+          .font(.system(size: 12)).frame(width: 36, height: 44)
+      }.accessibilityLabel("有用").accessibilityValue(marks.values[id] == "useful" ? "已标记" : "未标记")
+      Menu {
+        Button(marks.values[id] == "useful" ? "取消有用标记" : "有用", systemImage: "bookmark") { marks.toggle(id, value: "useful") }
+        Button(marks.values[id] == "not-useful" ? "取消暂时无用标记" : "暂时无用", systemImage: "minus") { marks.toggle(id, value: "not-useful") }
+        if let quote { Button("引用提问", systemImage: "arrowshape.turn.up.left", action: quote) }
+        Text("标记仅保存在本机，自己可见。")
+      } label: {
+        Image(systemName: "ellipsis").font(.system(size: 12)).frame(width: 36, height: 28)
+      }.accessibilityLabel("这组问答的更多操作")
+    }.foregroundStyle(marks.values[id] == nil ? SoupTheme.muted : SoupTheme.red)
+  }
+}
+
+struct QuestionFilterBar: View {
+  @ObservedObject var marks: LocalQuestionMarks
+  let verdicts: [TableVerdict]
+  @Binding var selected: TableVerdict?
+  var body: some View {
+    HStack(spacing: 2) {
+      ForEach([TableVerdict.yes, .no, .partly, .irrelevant, .solved], id: \.rawValue) { verdict in
+        let count = verdicts.filter { $0 == verdict }.count
+        if verdict != .solved || count > 0 {
+          Button { selected = selected == verdict ? nil : verdict } label: {
+            HStack(spacing: 3) {
+              Text(verdict.glyph).font(SoupFont.serif(12)).foregroundStyle(verdict == .yes || verdict == .solved ? SoupTheme.green : verdict == .no ? SoupTheme.red : SoupTheme.muted)
+              Text("\(count)").font(SoupFont.mono(9)).foregroundStyle(SoupTheme.muted)
+            }.frame(minWidth: 32, minHeight: 44).overlay(alignment: .bottom) {
+              Rectangle().fill(selected == verdict ? SoupTheme.red : Color.clear).frame(height: 2)
+            }
+          }.accessibilityLabel("\(verdict.label)，\(count) 条").accessibilityAddTraits(selected == verdict ? .isSelected : [])
+        }
+      }
+      Spacer(minLength: 4)
+      Menu {
+        Picker("筛选我的标记", selection: $marks.filter) {
+          ForEach(QuestionMarkFilter.allCases, id: \.rawValue) { Text($0.label).tag($0) }
+        }
+      } label: {
+        HStack(spacing: 5) {
+          Image(systemName: "bookmark").font(.system(size: 10))
+          Text(marks.filter.label).font(SoupFont.mono(10))
+          Image(systemName: "chevron.down").font(.system(size: 8))
+        }.foregroundStyle(marks.filter == .all ? SoupTheme.muted : SoupTheme.red).frame(minHeight: 44)
+      }.accessibilityLabel("筛选我的标记")
+    }.padding(.horizontal, 16).background(SoupTheme.paper).overlay(alignment: .bottom) { PaperRule() }
+  }
+}

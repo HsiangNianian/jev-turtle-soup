@@ -27,3 +27,14 @@ fun tableLedger(events: List<JSONObject>): List<TableLedgerItem> {
         answers[id]?.let { TableLedgerItem(id, question.str("text"), question.str("actorId"), it) }
     }
 }
+
+data class TableTranscriptEntry(val event: JSONObject, val answers: List<JSONObject>)
+fun tableTranscript(events: List<JSONObject>): List<TableTranscriptEntry> {
+    val ordered = events.sortedBy { it.optLong("seq") }
+    val questions = ordered.filter { it.str("type") == "question" }.map { it.str("questionId") }.filter { it.isNotBlank() }.toSet()
+    val answers = ordered.filter { it.str("type") == "answer" && it.str("questionId").isNotBlank() }.groupBy { it.str("questionId") }
+    return ordered.mapNotNull { event ->
+        if(event.str("type") == "answer" && event.str("questionId") in questions) null
+        else TableTranscriptEntry(event, if(event.str("type") == "question") answers[event.str("questionId")].orEmpty() else emptyList())
+    }
+}

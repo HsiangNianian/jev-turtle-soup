@@ -2,10 +2,17 @@ import SwiftUI
 
 struct InvestigationScreen: View {
   let caseID: String
+  @StateObject private var marks: LocalQuestionMarks
+  @State private var verdictFilter: TableVerdict?
+  @State private var jumpID: String?
+  init(caseID: String, owner: String?) {
+    self.caseID = caseID
+    _marks = StateObject(wrappedValue: LocalQuestionMarks(owner: owner, kind: "solo", id: caseID))
+  }
   @EnvironmentObject private var store: SoupStore
   @Environment(\.dismiss) private var dismiss
   @State private var draft = ""
-  @State private var showSurface = true
+  @State private var showSurface = false
   @State private var showLedger = false
   @State private var showDiscussion = false
   @State private var confirmReveal = false
@@ -24,74 +31,63 @@ struct InvestigationScreen: View {
   var body: some View {
     Group {
       if let game {
-        ScrollViewReader { reader in
-          ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24) {
-              VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                  Text("案号 \(String(game.id.prefix(8)).uppercased())").font(
-                    SoupFont.mono(10)
-                  ).foregroundStyle(SoupTheme.muted)
-                  Spacer()
-                  Stamp(text: game.statusLabel)
+        let entries = soloTranscript(game.messages)
+        let visible = entries.filter { entry in
+          marks.includes(entry.message.role == "player" ? entry.id : nil) &&
+            (verdictFilter == nil || soloVerdict(entry.answer) == verdictFilter)
+        }
+        VStack(spacing: 0) {
+          HStack(spacing: 8) {
+            Button { showSurface = true } label: {
+              HStack(spacing: 10) {
+                Text("汤面").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.red)
+                Text(game.surface).font(SoupFont.mono(11)).lineLimit(1).foregroundStyle(SoupTheme.muted)
+                Image(systemName: "chevron.right").font(.system(size: 10))
+              }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }.accessibilityLabel("查看汤面")
+            Button { showLedger = true } label: { Image(systemName: "list.bullet.clipboard").frame(width: 36, height: 44) }.accessibilityLabel("问答记录")
+          }.padding(.horizontal, 16)
+          PaperRule()
+          QuestionFilterBar(marks: marks, verdicts: game.messages.compactMap(soloVerdict), selected: $verdictFilter)
+          ScrollViewReader { reader in
+            ScrollView {
+              LazyVStack(alignment: .leading, spacing: 0) {
+                if visible.isEmpty && (marks.filter != .all || verdictFilter != nil) {
+                  Button("查看全部记录") { marks.filter = .all; verdictFilter = nil }
+                    .font(SoupFont.mono(12)).frame(maxWidth: .infinity, minHeight: 60)
                 }
-                PaperRule(strong: true)
-                Text(game.title).font(SoupFont.serif(26, weight: .semibold, relativeTo: .title))
-                DisclosureGroup("汤面", isExpanded: $showSurface) {
-                  Text(game.surface).font(SoupFont.prose).lineSpacing(9)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12)
-                    .textSelection(.enabled)
-                }.font(SoupFont.mono(11))
-                HStack {
-                  Text("已问 \(game.turnCount) 轮")
-                  Spacer()
-                  if let score = game.closeness { Text("接近真相 \(Int(score))%") }
-                }.font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
-                if let score = game.closeness {
-                  ProgressView(value: min(max(score, 0), 100), total: 100).tint(SoupTheme.red)
+                ForEach(visible) { entry in
+                  if entry.message.role == "player" {
+                    SoloQuestionRow(entry: entry, marks: marks, asking: asking && entry.answer == nil).id(entry.id)
+                  } else { MessageRow(message: entry.message).padding(.horizontal, 12).padding(.vertical, 8) }
                 }
-              }
-              .padding(.bottom, 4)
-
-              SectionCaption(title: "问询笔录", detail: "主持人 · 砚")
-
-              ForEach(game.messages) { message in
-                MessageRow(message: message)
-              }
-              if asking {
-                HStack(spacing: 10) {
-                  ProgressView()
-                  Text("砚正在核对线索…").font(SoupFont.mono(11)).foregroundStyle(SoupTheme.muted)
+                if game.messages.last?.tone == "error", !asking,
+                  let last = game.messages.dropLast().last, last.role == "player" {
+                  Button { Task { await store.ask(caseID: caseID, text: last.text, retry: true) } } label: {
+                    Label("重新发送刚才的问题", systemImage: "arrow.clockwise")
+                  }.font(SoupFont.prose).padding(16)
                 }
-                .padding(.vertical, 8).accessibilityIdentifier("hostThinking")
+                if game.isFinished && marks.filter == .all && verdictFilter == nil {
+                  report(game).padding(16)
+                  if discussionTarget != nil {
+                    InkButton(title: "和汤友聊聊", icon: "text.bubble") { showDiscussion = true }.padding(16)
+                  }
+                }
+                Color.clear.frame(height: 1).id("bottom")
               }
-              if game.messages.last?.tone == "error", !asking,
-                let last = game.messages.dropLast().last, last.role == "player"
-              {
-                Button {
-                  Task { await store.ask(caseID: caseID, text: last.text, retry: true) }
-                } label: {
-                  Label("重新发送刚才的问题", systemImage: "arrow.clockwise")
-                }.font(SoupFont.prose)
-              }
-              if game.isFinished {
-                report(game)
-                if discussionTarget != nil {
-                  InkButton(title: "和汤友聊聊", icon: "text.bubble") { showDiscussion = true }
+            }.scrollDismissesKeyboard(.interactively)
+              .onChange(of: game.messages.count) { _, _ in
+                if marks.filter == .all && verdictFilter == nil {
+                  withAnimation(.easeOut(duration: 0.2)) { reader.scrollTo("bottom", anchor: .bottom) }
                 }
               }
-              Color.clear.frame(height: 1).id("bottom")
-            }.padding(.horizontal, 20).padding(.vertical, 20)
-          }
-          .scrollDismissesKeyboard(.interactively)
-          .onChange(of: game.messages.count) { _, _ in
-            withAnimation(.easeOut(duration: 0.2)) { reader.scrollTo("bottom", anchor: .bottom) }
-          }
-          .onChange(of: asking) { _, _ in
-            withAnimation(.easeOut(duration: 0.2)) { reader.scrollTo("bottom", anchor: .bottom) }
-          }
-          .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !game.isFinished { composer }
+              .onChange(of: asking) { _, _ in
+                if marks.filter == .all && verdictFilter == nil { reader.scrollTo("bottom", anchor: .bottom) }
+              }
+              .onChange(of: jumpID) { _, id in
+                if let id { reader.scrollTo(id, anchor: .center); jumpID = nil }
+              }
+              .safeAreaInset(edge: .bottom, spacing: 0) { if !game.isFinished { composer } }
           }
         }
       } else {
@@ -100,8 +96,14 @@ struct InvestigationScreen: View {
     }
     .background { PaperBackground() }.foregroundStyle(SoupTheme.ink)
     .navigationBarTitleDisplayMode(.inline)
-    .navigationTitle("与砚推理")
+    .navigationTitle(game?.title ?? "与砚推理")
     .toolbar {
+      ToolbarItem(placement: .principal) {
+        VStack(spacing: 3) {
+          Text(game?.title ?? "与砚推理").font(SoupFont.serif(17)).lineLimit(1)
+          Text("已问 \(game?.turnCount ?? 0) 轮 · 砚主持").font(SoupFont.mono(9)).foregroundStyle(SoupTheme.muted)
+        }
+      }
       ToolbarItem(placement: .topBarLeading) {
         Button {
           dismiss()
@@ -122,6 +124,8 @@ struct InvestigationScreen: View {
             }
             if !game.isFinished {
               Button("请求提示", systemImage: "lightbulb") {
+                marks.filter = .all
+                verdictFilter = nil
                 Task { await store.ask(caseID: caseID, text: "请给我一点提示") }
               }.disabled(asking)
               Button(game.isLocked ? "今日汤底尚未解锁" : "揭晓汤底", systemImage: "lock.open") {
@@ -150,6 +154,18 @@ struct InvestigationScreen: View {
     } message: {
       Text(error ?? "")
     }
+    .sheet(isPresented: $showSurface) {
+      NavigationStack {
+        PaperPage {
+          if let game {
+            Text(game.title).font(SoupFont.title)
+            Text(game.surface).font(SoupFont.body).lineSpacing(7).textSelection(.enabled)
+            Text("\(game.difficulty) · 已问 \(game.turnCount) 轮").font(SoupFont.mono(11)).foregroundStyle(SoupTheme.muted)
+          }
+        }.navigationTitle("汤面").navigationBarTitleDisplayMode(.inline)
+          .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showSurface = false } } }
+      }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+    }
     .sheet(isPresented: $showLedger) { NavigationStack { ledger }.tint(SoupTheme.ink) }
     .sheet(isPresented: $showDiscussion) {
       NavigationStack {
@@ -173,16 +189,18 @@ struct InvestigationScreen: View {
           prompt: Text("试着问一个是非问题…").foregroundStyle(SoupTheme.muted), axis: .vertical
         )
         .lineLimit(1...5).focused($composing).font(SoupFont.prose)
-        .padding(.horizontal, 12).padding(.vertical, 14)
+        .padding(.horizontal, 12).padding(.vertical, 10)
         .accessibilityIdentifier("questionInput")
         Button {
           let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
           draft = ""
+          marks.filter = .all
+          verdictFilter = nil
           composing = false
           Task { await store.ask(caseID: caseID, text: text) }
         } label: {
           Image(systemName: "arrow.up").font(.system(size: 19, weight: .regular))
-            .frame(width: 48, height: 50).foregroundStyle(SoupTheme.paper)
+            .frame(width: 44, height: 44).foregroundStyle(SoupTheme.paper)
             .background(SoupTheme.ink)
         }
         .disabled(
@@ -197,7 +215,7 @@ struct InvestigationScreen: View {
           draft.utf16.count > 600 ? SoupTheme.red : SoupTheme.muted)
       }
     }
-    .padding(.horizontal, 16).padding(.vertical, 12)
+    .padding(.horizontal, 12).padding(.vertical, 8)
     .background(SoupTheme.paper).overlay(alignment: .top) {
       Rectangle().fill(SoupTheme.line).frame(height: 0.5)
     }
@@ -226,21 +244,18 @@ struct InvestigationScreen: View {
 
   private var ledger: some View {
     PaperPage {
-      Text("把确定的，留在纸上。").font(SoupFont.serif(24, relativeTo: .title2))
-      if let messages = game?.messages {
-        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
-          if let label = message.verdictLabel, index > 0, messages[index - 1].role == "player" {
-            VStack(alignment: .leading, spacing: 12) {
-              Stamp(text: label)
-              Text(messages[index - 1].text).font(SoupFont.body)
-              Divider()
-            }
+      if let game {
+        ForEach(soloTranscript(game.messages).filter { $0.answer != nil && $0.number != nil }) { entry in
+          Button {
+            marks.filter = .all; verdictFilter = nil; showLedger = false; jumpID = entry.id
+          } label: {
+            HStack(alignment: .top, spacing: 12) {
+              if let verdict = soloVerdict(entry.answer) { TableVerdictStamp(verdict: verdict) }
+              Text(entry.message.text).font(SoupFont.prose).frame(maxWidth: .infinity, alignment: .leading)
+              if marks.values[entry.id] == "useful" { Image(systemName: "bookmark.fill").font(.system(size: 11)).foregroundStyle(SoupTheme.red) }
+            }.padding(.vertical, 5)
           }
-        }
-        if !messages.contains(where: { $0.verdictLabel != nil }) {
-          ContentUnavailableView(
-            "还没有已确认的线索", systemImage: "pencil.and.list.clipboard",
-            description: Text("向砚提问后，关键判断会自动记在这里。"))
+          PaperRule()
         }
       }
     }.navigationTitle("线索笔记").toolbar {
@@ -253,32 +268,43 @@ struct InvestigationScreen: View {
   }
 }
 
+private struct SoloQuestionRow: View {
+  let entry: SoloTranscriptEntry
+  @ObservedObject var marks: LocalQuestionMarks
+  let asking: Bool
+  var body: some View {
+    HStack(alignment: .top, spacing: 9) {
+      VStack(spacing: 6) {
+        Text(String(format: "%02d", entry.number ?? 0))
+        Text("你")
+      }.font(SoupFont.mono(9)).foregroundStyle(SoupTheme.muted).frame(width: 23).padding(.top, 5)
+      VStack(alignment: .leading, spacing: 7) {
+        Text(entry.message.text).font(SoupFont.prose).lineSpacing(4).textSelection(.enabled)
+        if let answer = entry.answer {
+          HStack(alignment: .firstTextBaseline, spacing: 8) {
+            if let verdict = soloVerdict(answer) { TableVerdictStamp(verdict: verdict) }
+            Text(answer.text).font(SoupFont.serif(14)).foregroundStyle(answer.tone == "error" ? SoupTheme.red : SoupTheme.muted).lineSpacing(4).textSelection(.enabled)
+          }
+        } else if asking {
+          HStack(spacing: 8) { ProgressView().controlSize(.mini); Text("砚正在核对线索…").font(SoupFont.mono(10)) }
+            .foregroundStyle(SoupTheme.muted).accessibilityIdentifier("hostThinking")
+        }
+      }.frame(maxWidth: .infinity, alignment: .leading)
+      QuestionMarkControls(marks: marks, id: entry.id).padding(.top, -5)
+    }.padding(.leading, 15).padding(.trailing, 10).padding(.vertical, 10)
+      .overlay(alignment: .bottom) { PaperRule() }
+      .overlay(alignment: .leading) { if marks.values[entry.id] == "useful" { Rectangle().fill(SoupTheme.red).frame(width: 2) } }
+  }
+}
+
 private struct MessageRow: View {
   let message: SoupMessage
-  private var verdictColor: Color {
-    switch message.verdict {
-    case "yes": SoupTheme.green
-    case "partly": SoupTheme.amber
-    case "irrelevant": SoupTheme.muted
-    default: SoupTheme.red
-    }
-  }
   var body: some View {
-    VStack(alignment: .leading, spacing: 14) {
-      HStack(spacing: 8) {
-        Text(message.role == "player" ? "你 · 提问" : "砚 · ELLIS").tracking(2)
-          .foregroundStyle(message.role == "player" ? SoupTheme.muted : SoupTheme.red)
-        Spacer()
-        if let verdict = message.verdictLabel {
-          Stamp(text: verdict, color: verdictColor)
-        } else if message.tone == "celebrate" {
-          Stamp(text: "破案", tilted: true, color: SoupTheme.green)
-        }
-      }.font(SoupFont.mono(10))
-      Text(message.text).font(SoupFont.prose)
-        .foregroundStyle(message.tone == "error" ? SoupTheme.red : SoupTheme.ink.opacity(0.86))
-        .lineSpacing(8).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-      PaperRule(dashed: true).padding(.top, 4)
+    HStack(alignment: .firstTextBaseline, spacing: 10) {
+      Text("砚").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.red)
+      Text(message.text).font(SoupFont.serif(14)).lineSpacing(4).textSelection(.enabled)
+        .foregroundStyle(message.tone == "error" ? SoupTheme.red : SoupTheme.muted)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 }

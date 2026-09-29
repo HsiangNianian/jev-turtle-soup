@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import Combine
 
 struct CaseEnvelope: Codable {
   var games: [CaseFile] = []
@@ -34,5 +35,38 @@ struct CaseArchive {
       options.insert(.completeFileProtectionUntilFirstUserAuthentication)
     #endif
     try data.write(to: fileURL(owner: owner), options: options)
+  }
+}
+
+enum QuestionMarkFilter: String, CaseIterable {
+  case all, marked, useful, notUseful = "not-useful"
+  var label: String {
+    switch self { case .all: "全部记录"; case .marked: "我的标记"; case .useful: "只看有用"; case .notUseful: "暂时无用" }
+  }
+}
+
+/// Private, account/case-scoped annotations. Deliberately excluded from CaseFile and room commands.
+@MainActor final class LocalQuestionMarks: ObservableObject {
+  @Published private(set) var values: [String: String]
+  @Published var filter: QuestionMarkFilter = .all
+  private let key: String
+  private let defaults: UserDefaults
+  init(owner: String?, kind: String, id: String, defaults: UserDefaults = .standard) {
+    self.defaults = defaults
+    let scope = try! JSONEncoder().encode([owner, kind, id])
+    key = "soup.question-marks.v1." + scope.base64EncodedString()
+    values = (defaults.dictionary(forKey: key) as? [String: String] ?? [:]).filter { $0.value == "useful" || $0.value == "not-useful" }
+  }
+  func toggle(_ id: String, value: String) {
+    guard value == "useful" || value == "not-useful" else { return }
+    var next = (defaults.dictionary(forKey: key) as? [String: String] ?? [:]).filter { $0.value == "useful" || $0.value == "not-useful" }
+    if next[id] == value { next.removeValue(forKey: id) } else { next[id] = value }
+    if next.isEmpty { defaults.removeObject(forKey: key) } else { defaults.set(next, forKey: key) }
+    values = next
+  }
+  func includes(_ id: String?) -> Bool {
+    if filter == .all { return true }
+    guard let id, let mark = values[id] else { return false }
+    return filter == .marked || mark == filter.rawValue
   }
 }

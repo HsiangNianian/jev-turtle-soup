@@ -174,3 +174,18 @@ func tableInvitationCode(_ input: String) -> String? {
     .uppercased()
   return code.range(of: "^[A-HJ-NP-Z2-9]{12}$", options: .regularExpression) != nil ? code : nil
 }
+
+struct TableTranscriptEntry: Identifiable {
+  let event: TableEvent
+  let answers: [TableEvent]
+  var id: String { event.id }
+}
+func tableTranscript(_ events: [TableEvent]) -> [TableTranscriptEntry] {
+  let ordered = events.sorted { $0.seq < $1.seq }
+  let questions = Set(ordered.filter { $0.type == "question" }.compactMap { $0.questionId })
+  let answers = Dictionary(grouping: ordered.filter { $0.type == "answer" && $0.questionId != nil }, by: { $0.questionId! })
+  return ordered.compactMap { event in
+    if event.type == "answer", let id = event.questionId, questions.contains(id) { return nil }
+    return TableTranscriptEntry(event: event, answers: event.type == "question" ? answers[event.questionId ?? ""] ?? [] : [])
+  }
+}

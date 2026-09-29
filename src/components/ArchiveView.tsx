@@ -1,10 +1,12 @@
+import { useQuestionJump } from '@/lib/play-navigation'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 
 import { CaseDrawer } from '@/components/CaseDrawer'
 import { Transcript } from '@/components/ChatPanel'
 import { PuzzlePanel } from '@/components/PuzzlePanel'
-import { PersonalMarkFilter } from './PersonalMarks'
+import { PlayTranscriptBar } from './PlayPair'
+import { messageVerdict } from '@/lib/play-transcript'
 import { usePersonalMarks } from '@/lib/personal-marks-context'
 import {
   STATUS_LABEL,
@@ -30,6 +32,11 @@ export function ArchiveView({
   const { t } = useI18n()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const marks = usePersonalMarks()
+  const [verdictFilter, setVerdictFilter] = useState<string | null>(null)
+  useQuestionJump(() => {
+    marks?.setFilter('all')
+    setVerdictFilter(null)
+  })
   const transcript = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (transcript.current) transcript.current.scrollTop = 0
@@ -60,8 +67,8 @@ export function ArchiveView({
   )
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <section className="chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:w-[42%] lg:border-r lg:border-foreground/25">
+    <main className="play-layout flex min-h-0 flex-1 flex-col lg:flex-row">
+      <section className="play-case-rail chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:border-r lg:border-foreground/25">
         {caseFile}
       </section>
 
@@ -76,7 +83,7 @@ export function ArchiveView({
           {caseFile}
         </CaseDrawer>
 
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
+        <div className="play-transcript-title">
           <span className="font-mono text-[10px] font-bold tracking-[0.2em] sm:text-[11px] sm:tracking-[0.22em]">
             {t('讯问记录')}
           </span>
@@ -85,9 +92,20 @@ export function ArchiveView({
           </span>
         </div>
 
-        <PersonalMarkFilter />
+        <PlayTranscriptBar
+          verdicts={game.messages.flatMap((m) => (messageVerdict(m) ? [messageVerdict(m)!] : []))}
+          selected={verdictFilter}
+          onSelect={(v) => {
+            setVerdictFilter(v)
+            if (transcript.current) transcript.current.scrollTop = 0
+          }}
+        />
         <div ref={transcript} className="chat-scroll min-h-0 flex-1 overflow-y-auto">
-          <Transcript messages={game.messages} />
+          <Transcript
+            messages={game.messages}
+            verdictFilter={verdictFilter}
+            onClear={() => setVerdictFilter(null)}
+          />
         </div>
 
         {game.status === 'active' ? (

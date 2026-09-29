@@ -1,10 +1,11 @@
+import { jumpToQuestion } from '@/lib/play-navigation'
 import { usePersonalMarks } from '@/lib/personal-marks-context'
 import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
 import type { GameSession } from '@/lib/api'
 import { Link } from '@/components/Link'
 import { VerdictToken } from './VerdictToken'
-import { PersonalMarkActions, PersonalMarkEmpty, PersonalMarkFilter } from './PersonalMarks'
+import { PersonalMarkEmpty } from './PersonalMarks'
 import { useI18n } from '@/lib/i18n'
 import type { StoryRecovery } from '@/lib/use-report-story'
 
@@ -66,7 +67,7 @@ export function PuzzlePanel({
   const progress = typeof closeness === 'number' ? Math.round(closeness * 100) : null
 
   return (
-    <div className="flex min-h-full flex-col px-6 py-7 lg:px-8">
+    <div className="play-case-file flex min-h-full flex-col px-5 py-5">
       <div className="flex items-start justify-between gap-4">
         <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
           {t('案卷 NO.{no}', { no: caseNo })}
@@ -80,22 +81,19 @@ export function PuzzlePanel({
               {t('已结案')}
             </span>
           ) : null}
-          <span className="stamp animate-pop px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.2em]">
-            {t('机密')}
-          </span>
         </div>
       </div>
 
-      <h2 className="mt-4 font-serif text-3xl leading-tight font-semibold">{session.title}</h2>
+      <h2 className="mt-3 font-serif text-xl leading-relaxed font-semibold">{session.title}</h2>
 
-      <div className="mt-6 h-px w-full bg-foreground/25" />
+      <div className="mt-4 h-px w-full bg-foreground/25" />
 
-      <div className="mt-6 font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
+      <div className="mt-4 font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
         {t('汤面')}
       </div>
-      <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{session.surface}</p>
+      <p className="mt-3 font-serif text-[15px] leading-7 text-foreground/90">{session.surface}</p>
 
-      <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 border-t border-dashed border-foreground/25 pt-4">
+      <div className="mt-5 flex flex-wrap gap-x-3 gap-y-2 border-t border-dashed border-foreground/25 pt-4">
         <Field label={t('等级')} value={t(session.difficulty)} />
         <Field
           label={t('来源')}
@@ -134,7 +132,7 @@ export function PuzzlePanel({
          * 无论是看完整度还是看解释力都不稳，最后退回了原来的判准。
          * 摆出来让人自己看，比给一个不准的分数诚实。
          */
-        <div className="animate-pop mt-8 border-t-2 border-foreground pt-5">
+        <div className="animate-pop mt-5 border-t-2 border-foreground pt-5">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
               {t('结案报告')}
@@ -158,15 +156,15 @@ export function PuzzlePanel({
           <div className="mt-5 flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
             <Unlock className="size-3.5" /> {t('汤底')}
           </div>
-          <p className="mt-3 font-serif text-[15px] leading-8 text-foreground/90">{truth}</p>
+          <p className="mt-3 font-serif text-[15px] leading-7 text-foreground/90">{truth}</p>
 
           {story || storyRecovery?.loading || storyRecovery?.error ? (
-            <section className="mt-7 border-t border-dashed border-foreground/25 pt-5">
+            <section className="mt-5 border-t border-dashed border-foreground/25 pt-5">
               <h3 className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
                 {t('完整故事')}
               </h3>
               {story ? (
-                <p className="surface-prose mt-3 font-serif text-[15px] leading-8 break-words text-foreground/90">
+                <p className="surface-prose mt-3 font-serif text-[15px] leading-7 break-words text-foreground/90">
                   {story}
                 </p>
               ) : storyRecovery?.error ? (
@@ -198,7 +196,7 @@ export function PuzzlePanel({
           {session.libraryId ? (
             <Link
               to={`/library/${session.libraryId}?discussion=1`}
-              className="mt-6 inline-flex items-center gap-2 border border-foreground bg-foreground px-4 py-2.5 font-mono text-[11px] tracking-[0.16em] text-background hover:opacity-85"
+              className="mt-4 inline-flex items-center gap-2 border border-foreground bg-foreground px-4 py-2.5 font-mono text-[11px] tracking-[0.16em] text-background hover:opacity-85"
             >
               {t('和汤友聊聊')} <ArrowRight className="size-3.5" />
             </Link>
@@ -208,7 +206,7 @@ export function PuzzlePanel({
             解完 / 揭晓之后是最想「我也来一个」的时刻 —— 趁热把话筒递过去。
             只在这一刻出现，不打扰还在推理的人。
           */}
-          <div className="mt-7 border-t border-dashed border-foreground/25 pt-5">
+          <div className="mt-5 border-t border-dashed border-foreground/25 pt-5">
             <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
               {t('你也来出一碗？')}
             </div>
@@ -233,7 +231,7 @@ export function PuzzlePanel({
         </div>
       ) : null}
 
-      <div className="mt-8 flex flex-wrap items-center gap-3">
+      <div className="mt-5 flex flex-wrap items-center gap-3">
         {!revealed && !readOnly && !locked ? (
           <button
             type="button"
@@ -271,7 +269,7 @@ export function PuzzlePanel({
       </div>
 
       {ledger.length ? (
-        <div className="mt-9">
+        <div className="mt-5">
           <div className="flex items-baseline justify-between">
             <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
               {t('问答记录')}
@@ -281,24 +279,36 @@ export function PuzzlePanel({
               {String(ledger.length).padStart(2, '0')}
             </span>
           </div>
-          <PersonalMarkFilter compact />
           {!visibleLedger.length ? <PersonalMarkEmpty /> : null}
-          <ul className="mt-3">
-            {visibleLedger.map((item) => {
-              return (
-                <li
-                  key={item.id}
-                  className="rule-dashed flex items-center gap-3 py-2 last:border-b-0"
+          <ul className="play-ledger-grid" data-play-ledger>
+            {visibleLedger.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  title={item.question}
+                  aria-label={item.question}
+                  onClick={() => jumpToQuestion(item.id)}
                 >
+                  <span>{String(ledger.indexOf(item) + 1).padStart(2, '0')}</span>
                   <VerdictToken verdict={item.verdict} />
-                  <span className="min-w-0 flex-1 truncate font-serif text-[13px] text-foreground/75">
-                    {item.question}
-                  </span>
-                  <PersonalMarkActions questionId={item.id} compact />
-                </li>
-              )
-            })}
+                  {marks?.marks[item.id] === 'useful' ? <i aria-hidden /> : null}
+                </button>
+              </li>
+            ))}
           </ul>
+          {ledger.some((item) => marks?.marks[item.id] === 'useful') ? (
+            <section className="play-pinned-clues">
+              <h3>{t('我的标记')}</h3>
+              {ledger
+                .filter((item) => marks?.marks[item.id] === 'useful')
+                .map((item) => (
+                  <button key={item.id} type="button" onClick={() => jumpToQuestion(item.id)}>
+                    <span>{String(ledger.indexOf(item) + 1).padStart(2, '0')}</span>
+                    <p>{item.question}</p>
+                  </button>
+                ))}
+            </section>
+          ) : null}
         </div>
       ) : null}
     </div>

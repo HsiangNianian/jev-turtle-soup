@@ -17,6 +17,11 @@ interface CaseDrawerProps {
 export function CaseDrawer({ title, meta, open, onOpenChange, share, children }: CaseDrawerProps) {
   const { t } = useI18n()
   useEffect(() => {
+    const close = () => onOpenChange(false)
+    window.addEventListener('soup:jump-question', close)
+    return () => window.removeEventListener('soup:jump-question', close)
+  }, [onOpenChange])
+  useEffect(() => {
     if (!open || typeof window === 'undefined') return
     // 只有移动端才真的铺满整屏，桌面端不要锁滚动
     if (!window.matchMedia('(max-width: 1023px)').matches) return
@@ -34,7 +39,7 @@ export function CaseDrawer({ title, meta, open, onOpenChange, share, children }:
 
   return (
     <>
-      <div className="flex w-full shrink-0 items-center gap-3 border-b border-foreground px-4 py-3">
+      <div className="flex w-full shrink-0 items-center gap-3 border-b border-foreground/25 px-4 py-2 lg:hidden">
         <button
           type="button"
           onClick={() => onOpenChange(true)}
@@ -75,12 +80,7 @@ export function CaseDrawer({ title, meta, open, onOpenChange, share, children }:
               </span>
               <span className="min-w-0 flex-1 truncate font-serif text-[15px]">{title}</span>
               {share ? (
-                <ShareButton
-                  iconOnly
-                  path={share.path}
-                  title={share.title}
-                  className="shrink-0"
-                />
+                <ShareButton iconOnly path={share.path} title={share.title} className="shrink-0" />
               ) : null}
               <button
                 type="button"

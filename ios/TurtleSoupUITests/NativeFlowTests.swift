@@ -2,7 +2,7 @@ import XCTest
 
 @MainActor
 final class NativeFlowTests: XCTestCase {
-  func testRoomsOnLocalRuntime() throws {
+  func testCompactPlayOnLocalRuntime() throws {
     guard let id = ProcessInfo.processInfo.environment["NATIVE_ROOMS_ID"],
       let cookie = ProcessInfo.processInfo.environment["NATIVE_ROOMS_COOKIE"]
     else { throw XCTSkip("Run the isolated rooms preview first") }
@@ -32,15 +32,43 @@ final class NativeFlowTests: XCTestCase {
     XCTAssertTrue(app.staticTexts["是"].exists)
     capture("rooms-native-ledger")
     app.buttons["完成"].tap()
-    app.buttons["tableMode.discuss"].tap()
+    app.descendants(matching: .any).matching(identifier: "tableRecipient").firstMatch.tap()
+    app.descendants(matching: .any).matching(identifier: "tableMode.discuss").firstMatch.tap()
     XCTAssertTrue(app.staticTexts["是。"].exists, "Send mode must not filter the conversation")
     question.tap()
     question.typeText("Let us compare our clues.")
     app.buttons["tableSend"].tap()
     XCTAssertTrue(app.staticTexts["Let us compare our clues."].waitForExistence(timeout: 10))
-    app.buttons["tableMode.ask"].tap()
+    app.descendants(matching: .any).matching(identifier: "tableRecipient").firstMatch.tap()
+    app.descendants(matching: .any).matching(identifier: "tableMode.ask").firstMatch.tap()
     XCTAssertTrue(app.staticTexts["Let us compare our clues."].exists)
     capture("rooms-native-answer")
+    app.buttons["有用"].tap()
+    XCTAssertEqual(app.buttons["有用"].value as? String, "已标记")
+    app.descendants(matching: .any).matching(identifier: "筛选我的标记").firstMatch.tap()
+    app.descendants(matching: .any).matching(identifier: "只看有用").firstMatch.tap()
+    XCTAssertTrue(app.staticTexts["Did a neighbor leave the lift here?"].exists)
+    app.buttons["有用"].tap()
+    app.buttons["查看全部记录"].tap()
+    XCTAssertTrue(app.staticTexts["Let us compare our clues."].exists)
+    app.buttons["回到案卷"].tap()
+    app.tabBars.buttons["广场"].tap()
+    let puzzle = app.buttons["puzzleRow.room-preview-puzzle"]
+    XCTAssertTrue(puzzle.waitForExistence(timeout: 15))
+    puzzle.tap()
+    app.buttons["startLibrary"].tap()
+    let soloInput = app.descendants(matching: .any).matching(identifier: "questionInput").firstMatch
+    XCTAssertTrue(soloInput.waitForExistence(timeout: 10))
+    soloInput.tap()
+    soloInput.typeText("Did someone leave the lift for her?")
+    app.buttons["sendQuestion"].tap()
+    XCTAssertTrue(app.buttons["有用"].waitForExistence(timeout: 15))
+    app.buttons["有用"].tap()
+    XCTAssertEqual(app.buttons["有用"].value as? String, "已标记")
+    app.descendants(matching: .any).matching(identifier: "筛选我的标记").firstMatch.tap()
+    app.descendants(matching: .any).matching(identifier: "只看有用").firstMatch.tap()
+    XCTAssertTrue(app.staticTexts["Did someone leave the lift for her?"].exists)
+    capture("play-solo-marked")
   }
 
   func testDPublicSolveRecordsWithoutNetwork() throws {

@@ -8,8 +8,22 @@ const browser = await chromium.launch({ headless: true })
 const errors = []
 const markKey = (owner, kind, id) => `turtle-soup.marks.v1:${JSON.stringify([owner, kind, id])}`
 const filter = (root) => root.getByRole('combobox', { name: '筛选我的标记' })
-const action = (root, id, name = '有用') =>
-  root.locator(`[data-personal-mark="${id}"]`).getByRole('button', { name, exact: true })
+const action = (root, id, name = '有用') => {
+  const group = root.locator(`[data-personal-mark="${id}"]`)
+  return {
+    click: async () => {
+      if (name === '有用') return group.getByRole('button', { name, exact: true }).click()
+      await group.getByRole('button', { name: '更多操作', exact: true }).click()
+      await group.getByRole('dialog').getByRole('button', { name, exact: true }).click()
+    },
+    getAttribute: async (attribute) =>
+      attribute === 'aria-pressed'
+        ? String(
+            (await group.getAttribute('data-mark')) === (name === '有用' ? 'useful' : 'not-useful'),
+          )
+        : group.getAttribute(attribute),
+  }
+}
 const until = async (read, expected) => {
   for (let i = 0; i < 100; i++) {
     if ((await read()) === expected) return
@@ -54,7 +68,14 @@ try {
     messages: [
       { id: 'g', role: 'host', text: '可以提问了。' },
       { id: 'q1', role: 'player', text: '是邻居把电梯留给她的吗？' },
-      { id: 'a1', role: 'host', text: '是。', tone: 'verdict', verdict: 'yes' },
+      {
+        id: 'a1',
+        role: 'host',
+        text: '是。',
+        tone: 'verdict',
+        verdict: 'yes',
+        debug: { intent: { choice: 'yes_no_question', confidence: 1 }, verdict: { choice: 'yes' } },
+      },
       { id: 'q2', role: 'player', text: '她认识这位邻居吗？' },
       { id: 'a2', role: 'host', text: '不是。', tone: 'verdict', verdict: 'no' },
       { id: 'q3', role: 'player', text: '邻居想帮她省下等电梯的时间吗？' },
@@ -73,12 +94,21 @@ try {
   }, game)
   await solo.goto(f.url + '/play')
   const soloMain = solo.locator('main > section').last()
+  await soloMain
+    .locator('[data-personal-mark="q1"]')
+    .getByRole('button', { name: '更多操作' })
+    .click()
+  const actions = soloMain.getByRole('dialog')
+  await actions.locator('summary').click()
+  assert.ok(await actions.isVisible(), 'Expanding judge details keeps the action sheet open')
+  assert.equal(await actions.locator('details').getAttribute('open'), '')
+  await actions.getByRole('button', { name: '关闭' }).click()
   await action(soloMain, 'q1').click()
   await action(soloMain, 'q2', '暂时无用').click()
   await filter(soloMain).selectOption('useful')
   await soloMain.getByText(game.messages[1].text, { exact: true }).waitFor()
   assert.equal(await soloMain.locator('[data-personal-mark]').count(), 1)
-  assert.equal(await soloMain.getByText('是', { exact: true }).count(), 1)
+  assert.equal(await soloMain.locator('.play-pair [data-verdict="yes"]').count(), 1)
   assert.equal(await soloMain.getByText(game.messages[3].text, { exact: true }).count(), 0)
   assert.equal(
     await solo.locator('main > section').first().locator('li').count(),
@@ -156,12 +186,20 @@ try {
     )
   }
   const ids = await timeline
-    .locator('[data-event-type="answer"] [data-personal-mark]')
+    .locator('.play-pair [data-personal-mark]')
     .evaluateAll((els) => els.map((el) => el.dataset.personalMark))
   const requests = []
   a.on('request', (req) => {
     if (req.method() !== 'GET') requests.push(req.url())
   })
+  await timeline
+    .locator(`[data-personal-mark="${ids[0]}"]`)
+    .getByRole('button', { name: '更多操作' })
+    .click()
+  await timeline.getByRole('dialog').getByRole('button', { name: '引用提问', exact: false }).click()
+  assert.equal(await timeline.getByRole('dialog').count(), 0, 'Quote closes its action sheet')
+  assert.equal(await main.getByRole('button', { name: '取消引用' }).count(), 1)
+  await main.getByRole('button', { name: '取消引用' }).click()
   await action(timeline, ids[0]).click()
   await action(timeline, ids[1], '暂时无用').click()
   await filter(main).selectOption('useful')
@@ -173,7 +211,7 @@ try {
     'false',
     'Other players do not see my marks',
   )
-  await b.getByRole('button', { name: '和大家聊', exact: true }).click()
+  await b.getByRole('combobox', { name: '发送给' }).selectOption('discuss')
   await b.getByRole('textbox', { name: '桌内讨论' }).fill('这条讨论不受问答筛选影响')
   await b.getByRole('button', { name: '发送', exact: true }).click()
   await a

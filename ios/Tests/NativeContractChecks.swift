@@ -134,6 +134,26 @@ struct NativeContractChecks {
     let suite = "native-contracts-\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
+    let marks = LocalQuestionMarks(owner: "alice", kind: "solo", id: "same-case", defaults: defaults)
+    marks.toggle("q1", value: "useful")
+    let restoredMarks = LocalQuestionMarks(owner: "alice", kind: "solo", id: "same-case", defaults: defaults)
+    try check(restoredMarks.values["q1"] == "useful", "Private marks survive reopening the same account and case")
+    for scope: (String?, String, String) in [("bob", "solo", "same-case"), (nil, "solo", "same-case"), ("alice", "room", "same-case"), ("alice", "solo", "other-case")] {
+      try check(LocalQuestionMarks(owner: scope.0, kind: scope.1, id: scope.2, defaults: defaults).values.isEmpty, "Private marks cannot cross account, game kind or case boundaries")
+    }
+    restoredMarks.toggle("q2", value: "not-useful")
+    marks.toggle("q1", value: "useful")
+    try check(marks.values == ["q2": "not-useful"], "Toggling merges newer local marks and a second tap removes the original mark")
+    marks.filter = .notUseful
+    try check(marks.includes("q2") && !marks.includes("q1") && !marks.includes(nil), "Private filtering includes only matching question groups")
+    let soloMessages = [SoupMessage(role: "host", text: "Greeting"), SoupMessage(role: "player", text: "First?"), SoupMessage(role: "host", text: "Retry", tone: "error"), SoupMessage(role: "player", text: "Pending?")]
+    let soloGroups = soloTranscript(soloMessages)
+    try check(soloGroups.count == 3 && soloGroups[1].answer?.tone == "error" && soloGroups[2].answer == nil && soloGroups[2].number == 2, "Solo groups retain greetings, retry errors and unanswered questions")
+    let tableGroups = tableTranscript(ledgerEvents)
+    try check(tableGroups.flatMap { [$0.event.id] + $0.answers.map(\.id) }.sorted() == ledgerEvents.map(\.id).sorted(), "Grouping retains every room event exactly once across discussion")
+    try check(tableGroups.allSatisfy { row in row.answers.allSatisfy { $0.questionId == row.event.questionId } }, "Room answers attach only to their own question")
+    let orphanAnswers = ledgerEvents.filter { $0.type == "answer" }
+    try check(tableTranscript(orphanAnswers).count == orphanAnswers.count, "Paginated answers remain visible before their questions load")
     let store = SoupStore(api: api, archive: archive, defaults: defaults)
     StubProtocol.response = { _ in (200, "{\"today\":\(english),\"history\":[]}") }
     await store.refreshHome()

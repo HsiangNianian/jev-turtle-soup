@@ -238,3 +238,35 @@ func genreText(_ score: Double?) -> String? {
   guard let score else { return nil }
   return score >= 50 ? "变格度 \(Int(score))" : "本格度 \(100 - Int(score))"
 }
+
+// Display groups never alter the conversation used for requests or cloud saves.
+struct SoloTranscriptEntry: Identifiable {
+  let message: SoupMessage
+  let answer: SoupMessage?
+  let number: Int?
+  var id: String { message.id }
+}
+func soloTranscript(_ messages: [SoupMessage]) -> [SoloTranscriptEntry] {
+  var result: [SoloTranscriptEntry] = []
+  var index = 0
+  var number = 0
+  while index < messages.count {
+    let message = messages[index]
+    var answer: SoupMessage?
+    if message.role == "player" {
+      number += 1
+      if index + 1 < messages.count, messages[index + 1].role == "host" {
+        index += 1
+        answer = messages[index]
+      }
+    }
+    result.append(SoloTranscriptEntry(message: message, answer: answer, number: message.role == "player" ? number : nil))
+    index += 1
+  }
+  return result
+}
+func soloVerdict(_ message: SoupMessage?) -> TableVerdict? {
+  if message?.tone == "celebrate" { return .solved }
+  guard let verdict = message?.verdict else { return nil }
+  return TableVerdict(rawValue: verdict)
+}

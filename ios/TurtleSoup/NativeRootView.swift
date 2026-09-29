@@ -29,7 +29,7 @@ struct NativeRootView: View {
     .environmentObject(store)
     .environmentObject(community)
     .fullScreenCover(item: $store.activeCase) { route in
-      NavigationStack { InvestigationScreen(caseID: route.id) }
+      NavigationStack { InvestigationScreen(caseID: route.id, owner: store.user?.uid).id(store.user?.uid ?? "guest") }
         .environmentObject(store).environmentObject(community).tint(SoupTheme.ink)
     }
     .fullScreenCover(item: $store.activeTable) { route in

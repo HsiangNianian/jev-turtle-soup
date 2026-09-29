@@ -1,11 +1,14 @@
+import { useQuestionJump } from '@/lib/play-navigation'
 import { usePersonalMarks } from '@/lib/personal-marks-context'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Eye, Flag, Lightbulb, Lock, Wand2 } from 'lucide-react'
+import { ArrowUp, Eye, Flag, Lightbulb, Lock, Wand2 } from 'lucide-react'
 
 import { ExternalLink } from '@/components/Link'
 import { TurnDebug } from '@/components/TurnDebug'
-import { PersonalMarkActions, PersonalMarkEmpty, PersonalMarkFilter } from './PersonalMarks'
-import { soloQuestionGroups } from '@/lib/personal-marks'
+import { PersonalMarkEmpty } from './PersonalMarks'
+import { soloTranscript, messageVerdict } from '@/lib/play-transcript'
+import { PlayPair, PlayTranscriptBar } from './PlayPair'
+import { VerdictToken } from './VerdictToken'
 import { QQ_GROUP, showsGroupInvite } from '@/lib/community'
 import type { ChatMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -64,134 +67,91 @@ const VERDICT_TEXT: Record<string, string> = {
   irrelevant: '无关',
 }
 
-function Row({
-  index,
-  speaker,
-  tint,
-  children,
-  debug,
-}: {
-  index: number
-  speaker: string
-  tint?: 'player' | 'host'
-  children: React.ReactNode
-  debug?: React.ReactNode
-}) {
+function HostAnswer({ message }: { message: ChatMessage }) {
+  const { t, locale } = useI18n()
+  const verdict = messageVerdict(message)
+  const word = verdict && VERDICT_TEXT[verdict]
+  const bare =
+    word &&
+    message.text.replace(/[。.!！\s]/g, '') ===
+      translateFor(message.replyLocale ?? locale, word).replace(/[。.!！\s]/g, '')
   return (
-    <div className="rule-dashed grid grid-cols-[1.75rem_2.5rem_1fr] items-baseline gap-x-2.5 px-4 py-3.5 last:border-b-0 sm:grid-cols-[2.25rem_3rem_1fr] sm:gap-x-3 sm:px-6 sm:py-4 lg:px-8">
-      <span className="font-mono text-[11px] text-muted-foreground">
-        {String(index).padStart(2, '0')}
-      </span>
-      <span
-        className={cn(
-          'font-mono text-[11px] font-bold tracking-[0.12em]',
-          tint === 'player' ? 'text-foreground/60' : 'text-stamp',
-        )}
-      >
-        {speaker}
-      </span>
-      <div className="min-w-0">
-        {children}
-        {debug}
+    <div className="play-answer">
+      <div className="play-answer-line">
+        {verdict ? <VerdictToken verdict={verdict} /> : null}
+        {!bare ? (
+          <p
+            className={cn(
+              'whitespace-pre-wrap break-words',
+              message.tone === 'error' && 'text-stamp',
+            )}
+          >
+            {message.text}
+          </p>
+        ) : null}
       </div>
+      {message.verdict === 'contact' ? (
+        <p className="mt-2 font-mono text-[10px]">
+          {t('编辑部群')} ·{' '}
+          <ExternalLink href={QQ_GROUP.href} className="underline underline-offset-4">
+            {QQ_GROUP.number}
+          </ExternalLink>
+        </p>
+      ) : null}
     </div>
   )
 }
 
-export function Transcript({ messages, asking }: { messages: ChatMessage[]; asking?: boolean }) {
-  const { t, locale } = useI18n()
+export function Transcript({
+  messages,
+  asking,
+  verdictFilter = null,
+  onClear,
+}: {
+  messages: ChatMessage[]
+  asking?: boolean
+  verdictFilter?: string | null
+  onClear?: () => void
+}) {
+  const { t } = useI18n()
   const marks = usePersonalMarks()
-  const groups = useMemo(() => soloQuestionGroups(messages), [messages])
-  const visible = messages.filter((message) => !marks || marks.includes(groups.get(message.id)))
+  const groups = useMemo(() => soloTranscript(messages), [messages])
+  const visible = groups.filter(
+    ({ message, answer }) =>
+      (!marks || marks.includes(message.role === 'player' ? message.id : undefined)) &&
+      (!verdictFilter || messageVerdict(answer) === verdictFilter),
+  )
   return (
     <>
-      {!visible.length && marks && marks.filter !== 'all' ? <PersonalMarkEmpty /> : null}
-      {messages.map((message, messageIndex) => {
-        const questionId = groups.get(message.id)
-        if (marks && !marks.includes(questionId)) return null
-        const isPlayer = message.role === 'player'
-        const verdictWord =
-          message.tone === 'verdict' && message.verdict ? VERDICT_TEXT[message.verdict] : null
-        // 玩家用日文问、界面是中文时，徽章也要跟回复语言一致
-        const verdictText = verdictWord
-          ? translateFor(message.replyLocale ?? locale, verdictWord)
-          : null
-
-        return (
-          <Row
+      {!visible.length && (marks?.filter !== 'all' || verdictFilter) ? (
+        <PersonalMarkEmpty onReset={onClear} />
+      ) : null}
+      {visible.map(({ message, answer, number }) =>
+        message.role === 'player' ? (
+          <PlayPair
             key={message.id}
-            index={messageIndex + 1}
-            speaker={isPlayer ? t('你') : t('砚')}
-            tint={isPlayer ? 'player' : 'host'}
-            debug={message.debug ? <TurnDebug debug={message.debug} /> : null}
+            id={message.id}
+            number={number}
+            speaker={t('你')}
+            question={<p className="whitespace-pre-wrap">{message.text}</p>}
+            actions={answer?.debug ? <TurnDebug debug={answer.debug} /> : null}
           >
-            <div className="animate-rise-in">
-              {verdictText ? (
-                <span
-                  className={cn(
-                    'verdict-token inline-flex items-center border px-2.5 py-0.5 font-mono text-[13px] font-bold tracking-[0.16em]',
-                    message.verdict === 'yes' && 'verdict-yes',
-                    message.verdict === 'no' && 'verdict-no',
-                    message.verdict === 'partly' && 'verdict-partly',
-                    message.verdict === 'irrelevant' && 'verdict-irrelevant',
-                  )}
-                >
-                  {verdictText}
-                </span>
-              ) : message.tone === 'celebrate' ? (
-                <span className="inline-flex border-2 border-[var(--v-yes)] px-3 py-1.5 font-serif text-[14px] text-[var(--v-yes)]">
-                  {message.text}
-                </span>
-              ) : message.tone === 'error' ? (
-                <span className="font-mono text-[12px] leading-6 text-stamp">{message.text}</span>
-              ) : (
-                <span
-                  className={cn(
-                    'font-serif text-[14px] leading-7',
-                    isPlayer ? 'text-foreground/70' : 'text-foreground/90',
-                  )}
-                >
-                  {message.text}
-                </span>
-              )}
-            </div>
-            {/*
-              砚把群报出来的时候，顺手给一个真能点的链接。
-              回复文本里只有群名和群号（纯文本，粘不动），链接由客户端拼 —— 群数据
-              和链接样式都只有一处定义，而且走离站页（那儿有专门的客气文案）。
-            */}
-            {!isPlayer && message.verdict === 'contact' ? (
-              <p className="mt-2 flex flex-wrap items-center gap-x-3 font-mono text-[10px] tracking-[0.14em]">
-                <span className="text-muted-foreground">{t('编辑部群')}</span>
-                <ExternalLink
-                  href={QQ_GROUP.href}
-                  className="text-muted-foreground underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-                >
-                  {QQ_GROUP.number}
-                </ExternalLink>
-                <span className="text-muted-foreground/50">{QQ_GROUP.name}</span>
+            {answer ? (
+              <HostAnswer message={answer} />
+            ) : asking ? (
+              <p role="status" className="play-thinking">
+                {t('砚正在核对线索…')}
               </p>
             ) : null}
-            {questionId && (!isPlayer || messages[messageIndex + 1]?.role !== 'host') ? (
-              <PersonalMarkActions questionId={questionId} />
-            ) : null}
-          </Row>
-        )
-      })}
-
-      {asking && (!marks || marks.includes(groups.get(messages.at(-1)?.id ?? ''))) ? (
-        <Row index={messages.length + 1} speaker={t('砚')} tint="host">
-          <span className="flex items-center gap-1.5 py-1">
-            {[0, 1, 2].map((dot) => (
-              <span
-                key={dot}
-                className="size-1.5 animate-bounce rounded-full bg-stamp"
-                style={{ animationDelay: `${dot * 130}ms` }}
-              />
-            ))}
-          </span>
-        </Row>
-      ) : null}
+          </PlayPair>
+        ) : (
+          <div key={message.id} className="play-host-note">
+            <span className="font-mono text-[10px] text-stamp">{t('砚')}</span>
+            <HostAnswer message={message} />
+            {message.debug ? <TurnDebug debug={message.debug} /> : null}
+          </div>
+        ),
+      )}
     </>
   )
 }
@@ -208,6 +168,12 @@ export function ChatPanel({
   const { t, locale } = useI18n()
   const marks = usePersonalMarks()
   const [input, setInput] = useState('')
+  const [verdictFilter, setVerdictFilter] = useState<string | null>(null)
+  useQuestionJump(() => {
+    marks?.setFilter('all')
+    setVerdictFilter(null)
+  })
+  const verdicts = messages.flatMap((m) => (messageVerdict(m) ? [messageVerdict(m)!] : []))
   const [reporting, setReporting] = useState(false)
   const [note, setNote] = useState('')
   const [reportState, setReportState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
@@ -226,6 +192,13 @@ export function ChatPanel({
       setReportError(error instanceof Error ? error.message : t('提交失败'))
     }
   }
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${Math.min(104, input.scrollHeight)}px`
+  }, [input])
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastFilter = useRef(marks?.filter)
 
@@ -247,74 +220,35 @@ export function ChatPanel({
     if (!text || asking || disabled) return
     setInput('')
     marks?.setFilter('all')
+    setVerdictFilter(null)
     onSend(text)
   }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground px-4 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
-        <span className="font-mono text-[10px] font-bold tracking-[0.2em] sm:text-[11px] sm:tracking-[0.22em]">
-          {t('讯问记录')}
-        </span>
-        <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
-          <span className="animate-soft-pulse size-1.5 rounded-full bg-[var(--v-yes)]" />
-          {t('砚')}
-        </span>
+      <div className="play-transcript-title">
+        <span>{t('讯问记录')}</span>
+        <span>{t('砚')}</span>
       </div>
-
-      <PersonalMarkFilter />
+      <PlayTranscriptBar
+        verdicts={verdicts}
+        selected={verdictFilter}
+        onSelect={(v) => {
+          setVerdictFilter(v)
+          if (scrollRef.current) scrollRef.current.scrollTop = 0
+        }}
+      />
 
       <div ref={scrollRef} className="chat-scroll min-h-0 flex-1 overflow-y-auto">
-        <Transcript messages={messages} asking={asking} />
+        <Transcript
+          messages={messages}
+          asking={asking}
+          verdictFilter={verdictFilter}
+          onClear={() => setVerdictFilter(null)}
+        />
       </div>
 
-      <div className="shrink-0 border-t border-foreground px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4 lg:px-8">
-        <div className="flex items-center gap-5 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-          <QuickAction
-            icon={<Lightbulb />}
-            label={t('求提示')}
-            disabled={asking || disabled}
-            onClick={() => {
-              marks?.setFilter('all')
-              onQuick('hint')
-            }}
-          />
-          <QuickAction
-            icon={<Wand2 />}
-            label={t('玩法')}
-            disabled={asking || disabled}
-            onClick={() => {
-              marks?.setFilter('all')
-              onQuick('how_to_play')
-            }}
-          />
-          <QuickAction
-            icon={<Flag />}
-            label={t('反馈')}
-            active={reporting}
-            onClick={() => {
-              setReporting((value) => !value)
-              setReportState('idle')
-            }}
-          />
-          {locked ? (
-            <span className="ml-auto flex items-center gap-1.5 text-muted-foreground/70">
-              <Lock className="size-3" />
-              {t('官方每日汤 · 明日解锁')}
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onQuick('reveal')}
-              disabled={asking || disabled}
-              className="ml-auto flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
-            >
-              <Eye className="size-3" />
-              {t('揭晓')}
-            </button>
-          )}
-        </div>
-
+      <div className="play-solo-composer shrink-0">
         {reporting ? (
           <div className="mt-3 border border-foreground/30 bg-card p-3">
             <textarea
@@ -366,19 +300,21 @@ export function ChatPanel({
           </p>
         ) : null}
 
-        <div className="mt-3 flex items-center gap-3 border border-foreground bg-card px-4 py-2.5">
+        <div className="play-input">
           <span aria-hidden className="shrink-0 font-mono text-sm leading-6 font-bold text-stamp">
             &gt;
           </span>
           <textarea
+            ref={inputRef}
+            aria-label={t('向砚提问')}
             value={input}
             disabled={disabled}
             rows={1}
             placeholder={disabled ? t('本案已结案 · 回到档案室可再立案') : t('提出你的问题……')}
-            className="chat-scroll h-6 flex-1 resize-none bg-transparent font-serif text-sm leading-6 outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
+            className="chat-scroll min-w-0 flex-1 resize-none bg-transparent font-serif text-base leading-6 outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
                 submit()
               }
@@ -389,12 +325,60 @@ export function ChatPanel({
             onClick={submit}
             disabled={asking || disabled || !input.trim()}
             aria-label={t('发送')}
-            className="flex size-8 shrink-0 items-center justify-center bg-foreground text-background transition-opacity hover:opacity-85 disabled:opacity-25"
+            className="play-send-button"
           >
-            <ArrowRight className="size-4" />
+            <ArrowUp className="size-4" />
           </button>
         </div>
-        <p className="mt-2 hidden font-mono text-[10px] tracking-[0.16em] text-muted-foreground/70 sm:block">
+        <div className="play-quick-actions">
+          <QuickAction
+            icon={<Lightbulb />}
+            label={t('求提示')}
+            disabled={asking || disabled}
+            onClick={() => {
+              marks?.setFilter('all')
+              setVerdictFilter(null)
+              onQuick('hint')
+            }}
+          />
+          <QuickAction
+            icon={<Wand2 />}
+            label={t('玩法')}
+            disabled={asking || disabled}
+            onClick={() => {
+              marks?.setFilter('all')
+              setVerdictFilter(null)
+              onQuick('how_to_play')
+            }}
+          />
+          <QuickAction
+            icon={<Flag />}
+            label={t('反馈')}
+            active={reporting}
+            onClick={() => {
+              setReporting((value) => !value)
+              setReportState('idle')
+            }}
+          />
+          {locked ? (
+            <span className="ml-auto flex items-center gap-1.5 text-muted-foreground/70">
+              <Lock className="size-3" />
+              {t('官方每日汤 · 明日解锁')}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onQuick('reveal')}
+              disabled={asking || disabled}
+              className="ml-auto flex items-center gap-1.5 transition-colors hover:text-foreground disabled:opacity-40"
+            >
+              <Eye className="size-3" />
+              {t('揭晓')}
+            </button>
+          )}
+        </div>
+
+        <p className="mt-1 hidden font-mono text-[10px] tracking-[0.16em] text-muted-foreground/70 sm:block">
           {t('回车提交 · Shift + 回车换行')}
         </p>
       </div>

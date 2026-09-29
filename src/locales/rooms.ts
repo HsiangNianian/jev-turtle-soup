@@ -1,4 +1,8 @@
 const phrases: [string, string, string][] = [
+  ['更多操作', 'More actions', 'その他の操作'],
+  ['等待回答', 'Awaiting an answer', '回答待ち'],
+  ['这次回答未能完成', 'This answer could not be completed', '回答を完了できませんでした'],
+  ['砚正在核对线索…', 'Yan is checking the clues…', '硯が手がかりを確認しています…'],
   ['部分正确', 'Partly correct', '一部正しい'],
   ['已破案', 'Solved', '解決済み'],
   [

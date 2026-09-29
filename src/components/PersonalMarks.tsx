@@ -1,6 +1,14 @@
 import { MarksContext, usePersonalMarks } from '@/lib/personal-marks-context'
-import { useEffect, useId, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { Bookmark, ChevronDown, Minus } from 'lucide-react'
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
+import { Bookmark, ChevronDown, Minus, MoreHorizontal, X } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import {
@@ -52,47 +60,78 @@ export function PersonalMarksProvider({
 export function PersonalMarkActions({
   questionId,
   compact = false,
+  children,
 }: {
   questionId: string
   compact?: boolean
+  children?: ReactNode
 }) {
   const marks = usePersonalMarks()
   const { t } = useI18n()
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
   if (!marks) return null
   const current = markFor(marks.marks, questionId)
   return (
     <div
       data-personal-mark={questionId}
+      data-mark={current ?? ''}
       role="group"
       aria-label={t('这组问答对我')}
-      className={cn('flex shrink-0 items-center gap-1 font-mono text-[10px]', !compact && 'mt-1')}
+      className={cn('play-mark-actions', compact && 'is-compact')}
     >
-      {(['useful', 'not-useful'] as const).map((value) => {
-        const active = current === value
-        const label = t(value === 'useful' ? '有用' : '暂时无用')
-        const Icon = value === 'useful' ? Bookmark : Minus
-        return (
-          <button
-            key={value}
-            type="button"
-            aria-label={label}
-            aria-pressed={active}
-            title={`${label} · ${t('仅保存在当前浏览器，再次点击可取消')}`}
-            onClick={() => marks.toggle(questionId, value)}
-            className={cn(
-              'inline-flex min-h-9 min-w-9 items-center justify-center gap-1.5 px-1.5 transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-current',
-              active ? 'text-stamp' : 'text-muted-foreground',
-              active && 'bg-foreground/5',
-            )}
-          >
-            <Icon
-              aria-hidden
-              className={cn('size-3', active && value === 'useful' && 'fill-current/20')}
-            />
-            {!compact && label}
+      <button
+        type="button"
+        aria-label={t('有用')}
+        aria-pressed={current === 'useful'}
+        title={t('有用')}
+        className={cn('play-mark-button', current && 'is-marked')}
+        onClick={() => marks.toggle(questionId, 'useful')}
+      >
+        {current === 'not-useful' ? (
+          <Minus aria-hidden />
+        ) : (
+          <Bookmark aria-hidden className={current === 'useful' ? 'fill-current/20' : ''} />
+        )}
+      </button>
+      <button
+        type="button"
+        className="play-more-button"
+        aria-label={t('更多操作')}
+        aria-haspopup="dialog"
+        onClick={() => dialog.current?.showModal()}
+      >
+        <MoreHorizontal aria-hidden />
+      </button>
+      <dialog ref={dialog} className="play-actions-dialog" aria-labelledby={titleId}>
+        <div className="play-actions-heading">
+          <h2 id={titleId}>{t('这组问答对我')}</h2>
+          <button type="button" aria-label={t('关闭')} onClick={() => dialog.current?.close()}>
+            <X />
           </button>
-        )
-      })}
+        </div>
+        <div className="play-actions-options">
+          {(['useful', 'not-useful'] as const).map((value) => {
+            const Icon = value === 'useful' ? Bookmark : Minus
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={current === value}
+                onClick={() => {
+                  dialog.current?.close()
+                  marks.toggle(questionId, value)
+                }}
+              >
+                <Icon aria-hidden />
+                {t(value === 'useful' ? '有用' : '暂时无用')}
+              </button>
+            )
+          })}
+        </div>
+        <p className="play-private-note">{t('仅保存在当前浏览器，再次点击可取消')}</p>
+        {children ? <div className="play-actions-extra">{children}</div> : null}
+      </dialog>
     </div>
   )
 }
@@ -112,16 +151,17 @@ export function PersonalMarkFilter({
     <div
       className={cn(
         'shrink-0 font-mono text-[10px] text-muted-foreground',
-        compact ? 'mb-2' : 'border-b border-foreground/15 px-4 sm:px-6 lg:px-8',
+        compact ? 'play-mark-filter' : 'border-b border-foreground/15 px-4 sm:px-6',
       )}
     >
-      <div className="flex min-h-10 flex-wrap items-center justify-between gap-x-3">
+      <div className="flex min-h-10 items-center justify-between gap-x-1">
         <label
           htmlFor={id}
           title={t('仅保存在当前浏览器，再次点击可取消')}
           className="flex items-center gap-1.5"
         >
-          <Bookmark aria-hidden className="size-3" /> {t('我的标记')}
+          <Bookmark aria-hidden className="size-3" />
+          <span className={compact ? 'sr-only' : ''}>{t('我的标记')}</span>
         </label>
         <div className="relative">
           <select
@@ -130,7 +170,7 @@ export function PersonalMarkFilter({
             value={marks.filter}
             onChange={(e) => marks.setFilter(e.target.value as MarkFilter)}
             className={cn(
-              'min-h-10 max-w-full appearance-none bg-background pr-5 pl-2 outline-offset-2',
+              'min-h-10 max-w-full appearance-none bg-transparent pr-4 pl-1 outline-offset-2',
               marks.filter !== 'all' && 'text-stamp',
             )}
           >
@@ -145,7 +185,7 @@ export function PersonalMarkFilter({
           />
         </div>
       </div>
-      {marks.filter !== 'all' ? (
+      {marks.filter !== 'all' && (!compact || hasEarlier) ? (
         <p className="pb-2 leading-5">
           {t(
             hasEarlier
@@ -163,7 +203,7 @@ export function PersonalMarkFilter({
   )
 }
 
-export function PersonalMarkEmpty() {
+export function PersonalMarkEmpty({ onReset }: { onReset?: () => void } = {}) {
   const { t } = useI18n()
   const marks = usePersonalMarks()
   return (
@@ -171,7 +211,10 @@ export function PersonalMarkEmpty() {
       <p>{t('当前记录中没有符合筛选的问答。')}</p>
       <button
         type="button"
-        onClick={() => marks?.setFilter('all')}
+        onClick={() => {
+          marks?.setFilter('all')
+          onReset?.()
+        }}
         className="mt-1 min-h-9 underline underline-offset-4"
       >
         {t('查看全部记录')}

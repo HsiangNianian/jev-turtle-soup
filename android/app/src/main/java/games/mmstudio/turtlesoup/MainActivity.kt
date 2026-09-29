@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
     }
     Scaffold(
         containerColor = paperColor(),
-        topBar = { AppTopBar(state, page) },
+        topBar = { if(page !is Page.Investigation && page !is Page.Table) AppTopBar(state, page) },
         bottomBar = { if (page == null) AppTabs(state) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).background(paperColor())) {

@@ -3,6 +3,24 @@
  * here falls back to Chinese instead of showing a raw key.
  */
 export const en: Record<string, string> = {
+  '这组问答对我': 'This question and answer is',
+  有用: 'Useful',
+  暂时无用: 'Set aside',
+  '仅保存在当前浏览器，再次点击可取消': 'Saved only in this browser; click again to clear',
+  我的标记: 'My marks',
+  筛选我的标记: 'Filter my marks',
+  全部记录: 'All entries',
+  只看已标记: 'Marked only',
+  只看有用: 'Useful only',
+  只看暂时无用: 'Set aside only',
+  '仅筛选已加载的问答，可加载更早的记录。':
+    'Filters loaded questions and answers. Load earlier entries to see more.',
+  '提问与回答一起显示 · 仅保存在当前浏览器':
+    'Questions stay with their answers · saved only in this browser',
+  '标记未能读取或保存，请检查浏览器本地存储后重试。':
+    'Could not read or save marks. Check browser storage and try again.',
+  '当前记录中没有符合筛选的问答。': 'No loaded questions and answers match this filter.',
+  查看全部记录: 'Show all entries',
   '显示标签，3 秒后自动隐藏': 'Reveal tags; hide again after 3 seconds',
   '标签：{tag}，点击延长显示': 'Tags: {tag}; activate to keep them visible longer',
   '点击或悬停，短暂显示标签': 'Tap or hover to briefly reveal the tags',

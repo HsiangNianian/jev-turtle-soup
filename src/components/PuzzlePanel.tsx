@@ -1,8 +1,10 @@
+import { usePersonalMarks } from '@/lib/personal-marks-context'
 import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
 import type { GameSession } from '@/lib/api'
 import { Link } from '@/components/Link'
 import { VerdictToken } from './VerdictToken'
+import { PersonalMarkActions, PersonalMarkEmpty, PersonalMarkFilter } from './PersonalMarks'
 import { useI18n } from '@/lib/i18n'
 import type { StoryRecovery } from '@/lib/use-report-story'
 
@@ -58,6 +60,8 @@ export function PuzzlePanel({
   readOnly = false,
 }: PuzzlePanelProps) {
   const { t } = useI18n()
+  const marks = usePersonalMarks()
+  const visibleLedger = ledger.filter((item) => !marks || marks.includes(item.id))
   const caseNo = (session.sessionId.replace(/\D/g, '').slice(-3) || '000').padStart(3, '0')
   const progress = typeof closeness === 'number' ? Math.round(closeness * 100) : null
 
@@ -273,20 +277,24 @@ export function PuzzlePanel({
               {t('问答记录')}
             </div>
             <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground/70">
+              {visibleLedger.length !== ledger.length ? `${visibleLedger.length} / ` : ''}
               {String(ledger.length).padStart(2, '0')}
             </span>
           </div>
+          <PersonalMarkFilter compact />
+          {!visibleLedger.length ? <PersonalMarkEmpty /> : null}
           <ul className="mt-3">
-            {ledger.map((item) => {
+            {visibleLedger.map((item) => {
               return (
                 <li
                   key={item.id}
                   className="rule-dashed flex items-center gap-3 py-2 last:border-b-0"
                 >
                   <VerdictToken verdict={item.verdict} />
-                  <span className="truncate font-serif text-[13px] text-foreground/75">
+                  <span className="min-w-0 flex-1 truncate font-serif text-[13px] text-foreground/75">
                     {item.question}
                   </span>
+                  <PersonalMarkActions questionId={item.id} compact />
                 </li>
               )
             })}

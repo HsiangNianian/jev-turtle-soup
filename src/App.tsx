@@ -15,6 +15,7 @@ import { LocaleMenu, ThemeToggle } from '@/components/Controls'
 import { Footer } from '@/components/Footer'
 import { Landing } from '@/components/Landing'
 import { SyncNotice } from '@/components/SyncNotice'
+import { PersonalMarksProvider } from '@/components/PersonalMarks'
 
 /**
  * 首屏只留「打开首页真正需要的东西」：外壳、首页、页脚。
@@ -817,12 +818,13 @@ function GameApp({
         )
       }
       return (
-        <ArchiveView
-          key={game.id}
-          game={game}
-          onContinue={() => handleContinue(game.id)}
-          onStoryLoaded={acceptReportStory}
-        />
+        <PersonalMarksProvider key={game.id} owner={owner} kind="solo" id={game.id}>
+          <ArchiveView
+            game={game}
+            onContinue={() => handleContinue(game.id)}
+            onStoryLoaded={acceptReportStory}
+          />
+        </PersonalMarksProvider>
       )
     }
 
@@ -835,34 +837,41 @@ function GameApp({
         )
       }
       return (
-        <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <section className="chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:w-[42%] lg:border-r lg:border-foreground/25">
-            {renderCase()}
-          </section>
-          <section className="flex min-h-0 flex-1 flex-col">
-            <CaseDrawer
-              title={session.title}
-              meta={t('等级 {level} · 已问 {turns} 轮', {
-                level: t(session.difficulty),
-                turns: turnCount,
-              })}
-              open={drawerOpen}
-              onOpenChange={setDrawerOpen}
-              share={share}
-            >
-              {renderCase(() => setDrawerOpen(false))}
-            </CaseDrawer>
-            <ChatPanel
-              messages={messages}
-              asking={asking}
-              disabled={gameOver}
-              locked={lockedDaily}
-              onSend={handleSend}
-              onQuick={handleQuick}
-              onReport={handleReport}
-            />
-          </section>
-        </main>
+        <PersonalMarksProvider
+          key={session.sessionId}
+          owner={owner}
+          kind="solo"
+          id={session.sessionId}
+        >
+          <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            <section className="chat-scroll hidden min-h-0 overflow-y-auto lg:block lg:h-full lg:w-[42%] lg:border-r lg:border-foreground/25">
+              {renderCase()}
+            </section>
+            <section className="flex min-h-0 flex-1 flex-col">
+              <CaseDrawer
+                title={session.title}
+                meta={t('等级 {level} · 已问 {turns} 轮', {
+                  level: t(session.difficulty),
+                  turns: turnCount,
+                })}
+                open={drawerOpen}
+                onOpenChange={setDrawerOpen}
+                share={share}
+              >
+                {renderCase(() => setDrawerOpen(false))}
+              </CaseDrawer>
+              <ChatPanel
+                messages={messages}
+                asking={asking}
+                disabled={gameOver}
+                locked={lockedDaily}
+                onSend={handleSend}
+                onQuick={handleQuick}
+                onReport={handleReport}
+              />
+            </section>
+          </main>
+        </PersonalMarksProvider>
       )
     }
 

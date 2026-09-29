@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Add personal useful / set-aside marks to solo and multiplayer Web/PWA questions and answers, including archived games and question ledgers. Click an active mark again to clear it; filter all, marked, useful or set-aside entries while keeping each question with its answer.
+- Save marks only in the current browser, separated by account and game/room. Keep tabs in sync, report local storage failures, and preserve marks through room replay and history pagination without API writes or model calls.
+
 ## 0.39.1 - 2026-09-29
 
 ### Fixes

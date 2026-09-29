@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { usePersonalMarks } from '@/lib/personal-marks-context'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Eye, Flag, Lightbulb, Lock, Wand2 } from 'lucide-react'
 
 import { ExternalLink } from '@/components/Link'
 import { TurnDebug } from '@/components/TurnDebug'
+import { PersonalMarkActions, PersonalMarkEmpty, PersonalMarkFilter } from './PersonalMarks'
+import { soloQuestionGroups } from '@/lib/personal-marks'
 import { QQ_GROUP, showsGroupInvite } from '@/lib/community'
 import type { ChatMessage } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -97,9 +100,15 @@ function Row({
 
 export function Transcript({ messages, asking }: { messages: ChatMessage[]; asking?: boolean }) {
   const { t, locale } = useI18n()
+  const marks = usePersonalMarks()
+  const groups = useMemo(() => soloQuestionGroups(messages), [messages])
+  const visible = messages.filter((message) => !marks || marks.includes(groups.get(message.id)))
   return (
     <>
+      {!visible.length && marks && marks.filter !== 'all' ? <PersonalMarkEmpty /> : null}
       {messages.map((message, messageIndex) => {
+        const questionId = groups.get(message.id)
+        if (marks && !marks.includes(questionId)) return null
         const isPlayer = message.role === 'player'
         const verdictWord =
           message.tone === 'verdict' && message.verdict ? VERDICT_TEXT[message.verdict] : null
@@ -163,11 +172,14 @@ export function Transcript({ messages, asking }: { messages: ChatMessage[]; aski
                 <span className="text-muted-foreground/50">{QQ_GROUP.name}</span>
               </p>
             ) : null}
+            {questionId && (!isPlayer || messages[messageIndex + 1]?.role !== 'host') ? (
+              <PersonalMarkActions questionId={questionId} />
+            ) : null}
           </Row>
         )
       })}
 
-      {asking ? (
+      {asking && (!marks || marks.includes(groups.get(messages.at(-1)?.id ?? ''))) ? (
         <Row index={messages.length + 1} speaker={t('砚')} tint="host">
           <span className="flex items-center gap-1.5 py-1">
             {[0, 1, 2].map((dot) => (
@@ -194,6 +206,7 @@ export function ChatPanel({
   onReport,
 }: ChatPanelProps) {
   const { t, locale } = useI18n()
+  const marks = usePersonalMarks()
   const [input, setInput] = useState('')
   const [reporting, setReporting] = useState(false)
   const [note, setNote] = useState('')
@@ -214,16 +227,26 @@ export function ChatPanel({
     }
   }
   const scrollRef = useRef<HTMLDivElement>(null)
+  const lastFilter = useRef(marks?.filter)
 
   useEffect(() => {
     const node = scrollRef.current
     if (node) node.scrollTop = node.scrollHeight
   }, [messages, asking])
 
+  useEffect(() => {
+    const node = scrollRef.current
+    if (node && marks?.filter !== lastFilter.current) {
+      node.scrollTop = marks?.filter === 'all' ? node.scrollHeight : 0
+      lastFilter.current = marks?.filter
+    }
+  }, [marks?.filter])
+
   function submit() {
     const text = input.trim()
     if (!text || asking || disabled) return
     setInput('')
+    marks?.setFilter('all')
     onSend(text)
   }
 
@@ -239,6 +262,8 @@ export function ChatPanel({
         </span>
       </div>
 
+      <PersonalMarkFilter />
+
       <div ref={scrollRef} className="chat-scroll min-h-0 flex-1 overflow-y-auto">
         <Transcript messages={messages} asking={asking} />
       </div>
@@ -249,13 +274,19 @@ export function ChatPanel({
             icon={<Lightbulb />}
             label={t('求提示')}
             disabled={asking || disabled}
-            onClick={() => onQuick('hint')}
+            onClick={() => {
+              marks?.setFilter('all')
+              onQuick('hint')
+            }}
           />
           <QuickAction
             icon={<Wand2 />}
             label={t('玩法')}
             disabled={asking || disabled}
-            onClick={() => onQuick('how_to_play')}
+            onClick={() => {
+              marks?.setFilter('all')
+              onQuick('how_to_play')
+            }}
           />
           <QuickAction
             icon={<Flag />}

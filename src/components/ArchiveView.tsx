@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 
 import { CaseDrawer } from '@/components/CaseDrawer'
 import { Transcript } from '@/components/ChatPanel'
 import { PuzzlePanel } from '@/components/PuzzlePanel'
+import { PersonalMarkFilter } from './PersonalMarks'
+import { usePersonalMarks } from '@/lib/personal-marks-context'
 import {
   STATUS_LABEL,
   buildLedger,
@@ -27,6 +29,11 @@ export function ArchiveView({
 }) {
   const { t } = useI18n()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const marks = usePersonalMarks()
+  const transcript = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (transcript.current) transcript.current.scrollTop = 0
+  }, [marks?.filter])
   const session = toSession(game)
   const storyRecovery = useReportStory(
     session,
@@ -78,7 +85,8 @@ export function ArchiveView({
           </span>
         </div>
 
-        <div className="chat-scroll min-h-0 flex-1 overflow-y-auto">
+        <PersonalMarkFilter />
+        <div ref={transcript} className="chat-scroll min-h-0 flex-1 overflow-y-auto">
           <Transcript messages={game.messages} />
         </div>
 

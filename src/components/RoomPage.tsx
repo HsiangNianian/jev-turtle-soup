@@ -1,3 +1,4 @@
+import { usePersonalMarks } from '@/lib/personal-marks-context'
 import './RoomPage.css'
 import {
   type ReactNode,
@@ -24,6 +25,12 @@ import { Button, Empty, Notice, PageShell, inputClass } from './Bits'
 import { Link } from './Link'
 import { RoomEntry } from './RoomEntry'
 import { VerdictToken } from './VerdictToken'
+import {
+  PersonalMarkActions,
+  PersonalMarkEmpty,
+  PersonalMarkFilter,
+  PersonalMarksProvider,
+} from './PersonalMarks'
 import { buildRoomLedger, roomVerdict } from '../../shared/room-ledger'
 import { RoomConnection, roomAPI, roomRequest, type RoomAction } from '@/lib/room-client'
 import { useI18n } from '@/lib/i18n'
@@ -220,10 +227,15 @@ export function RoomPage({ id, owner }: { id: string; owner: string | null }) {
         <LoginGate />
       </main>
     )
-  return <ConnectedRoom key={`${owner}:${id}`} id={id} owner={owner} />
+  return (
+    <PersonalMarksProvider key={`${owner}:${id}`} owner={owner} kind="room" id={id}>
+      <ConnectedRoom id={id} owner={owner} />
+    </PersonalMarksProvider>
+  )
 }
 function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   const { t, locale } = useI18n()
+  const marks = usePersonalMarks()!
   const connection = useMemo(() => new RoomConnection(owner, id), [owner, id])
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot)
   const [chosenMode, setTab] = useState<'ask' | 'discuss' | null>(null)
@@ -259,9 +271,20 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   const [surfaceOpen, setSurfaceOpen] = useState(false)
   const [ledgerOpen, setLedgerOpen] = useState(false)
   const ledger = useMemo(() => buildRoomLedger(state.events), [state.events])
+  const visibleLedger = ledger.filter((item) => marks.includes(item.id))
+  const visibleEvents = state.events.filter((event) =>
+    marks.includes(
+      event.type === 'question' || event.type === 'answer' ? event.questionId : undefined,
+    ),
+  )
+  const answeredQuestions = useMemo(
+    () => new Set(state.events.filter((e) => e.type === 'answer').map((e) => e.questionId)),
+    [state.events],
+  )
   const discussionScroller = useRef<HTMLDivElement>(null)
   const discussionNearBottom = useRef(true)
   const scroller = useRef<HTMLDivElement>(null)
+  const lastFilter = useRef(marks.filter)
   const nearBottom = useRef(true)
   const s = state.snapshot
   const tab = chosenMode ?? (s?.phase === 'waiting' ? 'discuss' : 'ask')
@@ -315,6 +338,13 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
     const discussion = discussionScroller.current
     if (discussion && discussionNearBottom.current) discussion.scrollTop = discussion.scrollHeight
   }, [state.events, desktop, s?.report])
+  useEffect(() => {
+    if (scroller.current && marks.filter !== lastFilter.current) {
+      scroller.current.scrollTop = marks.filter === 'all' ? scroller.current.scrollHeight : 0
+      nearBottom.current = marks.filter === 'all'
+      lastFilter.current = marks.filter
+    }
+  }, [marks.filter])
   const send = (action: RoomAction) => {
     try {
       connection.send(action)
@@ -363,6 +393,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
         : { type: 'discuss', text },
     )
     if (ok) {
+      if (mode === 'ask' || !desktop) marks.setFilter('all')
       setDrafts((prev) => ({ ...prev, [mode]: '' }))
       if (mode === 'ask') setReference(null)
       if (mode === 'discuss' && desktop) discussionNearBottom.current = true
@@ -382,7 +413,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
 
   const renderEvents = (channel: 'all' | 'ask' | 'discuss') => (
     <>
-      {state.events
+      {(channel === 'discuss' ? state.events : visibleEvents)
         .filter(
           (e) =>
             channel === 'all' ||
@@ -446,6 +477,11 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
               >
                 {e.text}
               </p>
+              {e.questionId &&
+              (e.type === 'answer' ||
+                (e.type === 'question' && !answeredQuestions.has(e.questionId))) ? (
+                <PersonalMarkActions questionId={e.questionId} />
+              ) : null}
               {e.type === 'question' && available ? (
                 <button
                   className="mt-2 min-h-8 font-mono text-[10px] text-muted-foreground"
@@ -502,9 +538,13 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
       {showHeading ? (
         <div className="mb-3 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
           <h3>{t('问答记录')}</h3>
-          <span>{String(ledger.length).padStart(2, '0')}</span>
+          <span>
+            {visibleLedger.length !== ledger.length ? `${visibleLedger.length} / ` : ''}
+            {String(ledger.length).padStart(2, '0')}
+          </span>
         </div>
       ) : null}
+      <PersonalMarkFilter compact hasEarlier={state.hasEarlier} />
       {state.hasEarlier ? (
         <p className="mb-2 font-mono text-[10px] leading-5 text-muted-foreground">
           {t('当前为已加载的问答，可加载更早的记录。')}
@@ -516,9 +556,9 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           {t(error || state.error!)}
         </p>
       ) : null}
-      {ledger.length ? (
+      {visibleLedger.length ? (
         <ul>
-          {ledger.map((item) => (
+          {visibleLedger.map((item) => (
             <li key={item.id} className="rule-dashed flex items-start gap-3 py-3 last:border-b-0">
               <VerdictToken verdict={item.verdict} />
               <div className="min-w-0">
@@ -528,10 +568,13 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
                 <p className="whitespace-pre-wrap break-words font-serif text-sm leading-6">
                   {item.question}
                 </p>
+                <PersonalMarkActions questionId={item.id} />
               </div>
             </li>
           ))}
         </ul>
+      ) : marks.filter !== 'all' ? (
+        <PersonalMarkEmpty />
       ) : (
         <p className="font-serif text-sm leading-7 text-muted-foreground">
           {t('向砚提问后，判断会自动记在这里。')}
@@ -984,6 +1027,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
               <span>{t('正式提问按顺序回答')}</span>
             </div>
           ) : null}
+          <PersonalMarkFilter hasEarlier={state.hasEarlier} />
           <div
             ref={scroller}
             onScroll={() => {
@@ -994,7 +1038,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
             data-testid="room-timeline"
           >
             <div className="mx-auto w-full max-w-3xl">
-              {s?.phase === 'waiting' ? (
+              {s?.phase === 'waiting' && marks.filter === 'all' ? (
                 <div className="room-waiting mb-4 border border-foreground/25 bg-card p-4">
                   <p className="font-mono text-[10px] tracking-[.2em] text-stamp">
                     {t('入座后就开汤')}
@@ -1050,8 +1094,9 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
               ) : null}
 
               {renderEarlier()}
+              {!visibleEvents.length && marks.filter !== 'all' ? <PersonalMarkEmpty /> : null}
               {renderEvents(desktop ? 'ask' : 'all')}
-              {s?.report ? <RoomReportView snapshot={s} /> : null}
+              {s?.report && marks.filter === 'all' ? <RoomReportView snapshot={s} /> : null}
             </div>
           </div>
           {error || state.error ? (

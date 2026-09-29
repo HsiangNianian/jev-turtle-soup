@@ -141,6 +141,8 @@ struct TableScreen: View {
   @State private var reference: TableQuestion?
   @State private var showMembers = false
   @State private var showSurface = false
+  @State private var showLedger = false
+  @State private var loadingLedger = false
   @State private var showFeedback = false
   @State private var feedback = ""
   @State private var feedbackSent = false
@@ -172,17 +174,20 @@ struct TableScreen: View {
           }.frame(minWidth: 44, minHeight: 44).accessibilityLabel("同桌成员")
         }.padding(.horizontal, 20).padding(.vertical, 8)
         PaperRule()
-        Button {
-          showSurface = true
-        } label: {
-          HStack(spacing: 12) {
-            Text("汤面").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.red)
-            Text(s.puzzle.surface).font(SoupFont.mono(11)).foregroundStyle(SoupTheme.muted)
-              .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(
-              SoupTheme.muted)
-          }.padding(.horizontal, 20).frame(minHeight: 42)
-        }.accessibilityLabel("查看汤面")
+        HStack(spacing: 0) {
+          Button {
+            showSurface = true
+          } label: {
+            HStack(spacing: 12) {
+              Text("汤面").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.red)
+              Text(s.puzzle.surface).font(SoupFont.mono(11)).foregroundStyle(SoupTheme.muted)
+                .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+              Image(systemName: "chevron.right").font(.system(size: 11)).foregroundStyle(SoupTheme.muted)
+            }.padding(.leading, 20).padding(.trailing, 12).frame(minHeight: 44)
+          }.accessibilityLabel("查看汤面")
+          Button("问答记录") { showLedger = true }
+            .font(SoupFont.mono(11)).fixedSize().padding(.horizontal, 16).frame(minHeight: 44)
+        }
         PaperRule()
         if let vote = s.vote { voteView(vote) }
       }
@@ -275,6 +280,43 @@ struct TableScreen: View {
             ToolbarItem(placement: .confirmationAction) { Button("完成") { showSurface = false } }
           }
         }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+      }
+      .sheet(isPresented: $showLedger) {
+        NavigationStack {
+          ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+              let entries = tableLedger(table.events)
+              SectionCaption(title: "问答记录", detail: "\(entries.count) 条")
+              if table.hasEarlier {
+                Text("当前为已加载的问答，可加载更早的记录。").font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
+                Button(loadingLedger ? "正在加载" : "查看更早的记录 ↑") {
+                  loadingLedger = true
+                  Task { await table.earlier(); loadingLedger = false }
+                }.font(SoupFont.mono(11)).frame(minHeight: 44).disabled(loadingLedger)
+              }
+              if entries.isEmpty {
+                Text("向砚提问后，判断会自动记在这里。").font(SoupFont.prose).foregroundStyle(SoupTheme.muted)
+              }
+              if let error = table.error {
+                Text(error).font(SoupFont.mono(11)).foregroundStyle(SoupTheme.red)
+              }
+              ForEach(entries) { item in
+                HStack(alignment: .top, spacing: 12) {
+                  TableVerdictStamp(verdict: item.verdict)
+                  VStack(alignment: .leading, spacing: 6) {
+                    Text(table.snapshot?.members.first(where: { $0.uid == item.actorId })?.name ?? "汤友")
+                      .font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted)
+                    Text(item.question).font(SoupFont.body).textSelection(.enabled)
+                  }
+                }
+                PaperRule(dashed: true)
+              }
+            }.padding(20)
+          }.background { PaperBackground() }.foregroundStyle(SoupTheme.ink)
+            .navigationTitle("问答记录").navigationBarTitleDisplayMode(.inline).toolbar {
+              ToolbarItem(placement: .confirmationAction) { Button("完成") { showLedger = false } }
+            }
+        }.tint(SoupTheme.ink).presentationDetents([.large]).presentationDragIndicator(.visible)
       }
       .task { table.start() }
       .onChange(of: table.snapshot?.phase) { old, phase in
@@ -406,6 +448,9 @@ struct TableScreen: View {
           Text(
             "↳ \(table.events.first(where:{$0.type=="question" && $0.questionId==id})?.text ?? "接着前面的问题")"
           ).font(SoupFont.mono(10)).foregroundStyle(SoupTheme.muted).lineLimit(2)
+        }
+        if e.type == "answer", let verdict = TableVerdict(turn: e.turn) {
+          TableVerdictStamp(verdict: verdict)
         }
         Text(e.text).font(SoupFont.prose).lineSpacing(7).textSelection(.enabled).frame(
           maxWidth: .infinity, alignment: .leading)
@@ -619,5 +664,22 @@ struct TableScreen: View {
         SoupFont.mono(10)
       ).foregroundStyle(SoupTheme.muted)
     }.padding(.vertical, 24)
+  }
+}
+
+private struct TableVerdictStamp: View {
+  let verdict: TableVerdict
+  private var color: Color {
+    switch verdict {
+    case .yes, .solved: SoupTheme.green
+    case .no: SoupTheme.red
+    case .partly: SoupTheme.amber
+    case .irrelevant: SoupTheme.muted
+    }
+  }
+  var body: some View {
+    Text(verdict.glyph).font(SoupFont.mono(11)).frame(width: 26, height: 26)
+      .foregroundStyle(color).overlay(Rectangle().stroke(color.opacity(0.65)))
+      .accessibilityLabel(verdict.label)
   }
 }

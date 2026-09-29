@@ -23,6 +23,8 @@ import {
 import { Button, Empty, Notice, PageShell, inputClass } from './Bits'
 import { Link } from './Link'
 import { RoomEntry } from './RoomEntry'
+import { VerdictToken } from './VerdictToken'
+import { buildRoomLedger, roomVerdict } from '../../shared/room-ledger'
 import { RoomConnection, roomAPI, roomRequest, type RoomAction } from '@/lib/room-client'
 import { useI18n } from '@/lib/i18n'
 import { navigate } from '@/lib/router'
@@ -255,6 +257,8 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
   const [loadingEarlier, setLoadingEarlier] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const [surfaceOpen, setSurfaceOpen] = useState(false)
+  const [ledgerOpen, setLedgerOpen] = useState(false)
+  const ledger = useMemo(() => buildRoomLedger(state.events), [state.events])
   const discussionScroller = useRef<HTMLDivElement>(null)
   const discussionNearBottom = useRef(true)
   const scroller = useRef<HTMLDivElement>(null)
@@ -429,6 +433,11 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
                     ?.text ?? t('查看更早的记录')}
                 </p>
               ) : null}
+              {e.type === 'answer' && roomVerdict(e.turn) ? (
+                <div className="mb-2">
+                  <VerdictToken verdict={roomVerdict(e.turn)!} />
+                </div>
+              ) : null}
               <p
                 className={cn(
                   'whitespace-pre-wrap break-words font-serif text-[15px] leading-7 sm:text-base',
@@ -483,6 +492,52 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
         </button>
       ) : null}
     </>
+  )
+  const renderLedger = (showHeading = true) => (
+    <section
+      data-room-ledger
+      aria-label={t('问答记录')}
+      className={showHeading ? 'mt-6 border-t border-foreground/25 pt-4' : ''}
+    >
+      {showHeading ? (
+        <div className="mb-3 flex items-center justify-between font-mono text-[10px] text-muted-foreground">
+          <h3>{t('问答记录')}</h3>
+          <span>{String(ledger.length).padStart(2, '0')}</span>
+        </div>
+      ) : null}
+      {state.hasEarlier ? (
+        <p className="mb-2 font-mono text-[10px] leading-5 text-muted-foreground">
+          {t('当前为已加载的问答，可加载更早的记录。')}
+        </p>
+      ) : null}
+      {renderEarlier()}
+      {error || state.error ? (
+        <p role="alert" className="mb-3 font-mono text-xs text-stamp">
+          {t(error || state.error!)}
+        </p>
+      ) : null}
+      {ledger.length ? (
+        <ul>
+          {ledger.map((item) => (
+            <li key={item.id} className="rule-dashed flex items-start gap-3 py-3 last:border-b-0">
+              <VerdictToken verdict={item.verdict} />
+              <div className="min-w-0">
+                <p className="mb-1 font-mono text-[10px] text-muted-foreground">
+                  {s?.members.find((m) => m.uid === item.actorId)?.name ?? t('汤友')}
+                </p>
+                <p className="whitespace-pre-wrap break-words font-serif text-sm leading-6">
+                  {item.question}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="font-serif text-sm leading-7 text-muted-foreground">
+          {t('向砚提问后，判断会自动记在这里。')}
+        </p>
+      )}
+    </section>
   )
   const renderComposer = (mode: 'ask' | 'discuss') => (
     <>
@@ -678,15 +733,28 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
         ) : null}
       </header>
       {!desktop && s ? (
-        <button
-          className="room-surface-peek"
-          onClick={() => setSurfaceOpen(true)}
-          aria-label={t('查看汤面')}
-        >
-          <span className="shrink-0 font-mono text-[10px] text-stamp">{t('汤面')}</span>
-          <span className="truncate text-xs text-muted-foreground">{s.puzzle.surface}</span>
-          <ChevronRight className="size-3.5 shrink-0" />
-        </button>
+        <div className="room-tools">
+          <button
+            className="room-surface-peek min-w-0 flex-1"
+            onClick={() => setSurfaceOpen(true)}
+            aria-label={t('查看汤面')}
+          >
+            <span className="shrink-0 font-mono text-[10px] text-stamp">{t('汤面')}</span>
+            <span className="truncate text-xs text-muted-foreground">{s.puzzle.surface}</span>
+            <ChevronRight className="size-3.5 shrink-0" />
+          </button>
+          <button
+            className="shrink-0 px-4 font-mono text-[11px]"
+            onClick={() => setLedgerOpen(true)}
+          >
+            {t('问答记录')}
+          </button>
+        </div>
+      ) : null}
+      {ledgerOpen ? (
+        <RoomDialog title={t('问答记录')} onClose={() => setLedgerOpen(false)}>
+          {renderLedger(false)}
+        </RoomDialog>
       ) : null}
       {state.status === 'auth' ? (
         <div className="p-5">
@@ -906,6 +974,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
                 {t(copied ? '已复制' : '复制邀请')}
               </button>
             ) : null}
+            {renderLedger()}
           </aside>
         ) : null}
         <section className="room-main-column" aria-label={t(desktop ? '问砚' : '同桌记录')}>

@@ -45,6 +45,17 @@ class RoomRuntimeTest {
             compose.onNodeWithContentDescription("发送").performClick()
             until {guest.snapshot?.optInt("turns")==1}
             compose.onNodeWithText("是。").assertExists()
+            compose.onNodeWithText("问答记录").performClick()
+            compose.onNodeWithText("1 条").assertExists()
+            compose.onNode(hasContentDescription("是") and hasAnyAncestor(hasTestTag("tableSheet.问答记录"))).assertExists()
+            InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().also { image ->
+                File(context.getExternalFilesDir(null),"rooms-native-ledger.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+            }
+            compose.onNodeWithText("完成").performClick()
+            val recorded = withContext(Dispatchers.Main) { tableLedger(guest.events) }
+            assertEquals("A neighbor leaves the elevator?", recorded.single().question)
+            assertEquals(TableVerdict.YES, recorded.single().verdict)
+
             compose.onNodeWithTag("tableMode.discuss").performClick()
             compose.onNodeWithText("是。").assertExists()
             compose.onNode(hasSetTextAction()).performTextInput("A shared clue from Android")

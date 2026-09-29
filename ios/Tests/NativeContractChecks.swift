@@ -38,6 +38,12 @@ struct NativeContractChecks {
     try check(Set(encoded.keys)==["commandId","type","text","locale"] && UUID(uuidString:command.commandId) != nil, "Native room commands match the strict server schema")
     let feedback=try decoder.decode(TableFeedbackReply.self,from:Data(#"{"id":"report-1"}"#.utf8))
     try check(feedback.id=="report-1", "Room feedback decodes the server acknowledgement")
+    let ledgerEvents = try decoder.decode([TableEvent].self, from: Data(contentsOf: URL(fileURLWithPath: "tests/fixtures/room-ledger.json")))
+    let ledger = tableLedger(ledgerEvents.reversed() + ledgerEvents)
+    try check(ledger.map { $0.id } == ["q1", "q2", "q3", "q4", "q7"], "Room ledger pairs by question ID across discussion and deduplicates replay")
+    try check(ledger.map { $0.verdict.glyph } == ["是", "否", "半", "—", "中"], "Room ledger uses all five verdict stamps and prioritizes solved")
+    try check(ledger[1].actorId == "bob" && ledger[1].question == "是陌生人吗？", "Room ledger preserves the question author")
+    try check(tableLedger(ledgerEvents.filter { $0.type != "question" }).isEmpty, "Paged answers never pair with an unrelated loaded question")
     let english =
       #"{"date":"2026-09-23","title":"Signed Rose","difficulty":"中等","tags":[],"locale":"en","genreScore":10,"plays":5,"solves":1}"#
     let daily = try decoder.decode(DailyPuzzle.self, from: Data(english.utf8))

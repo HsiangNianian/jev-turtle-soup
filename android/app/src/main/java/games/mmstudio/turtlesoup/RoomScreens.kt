@@ -119,6 +119,9 @@ import java.util.UUID
     var discussion by rememberSaveable { mutableStateOf("") }
     var reference by remember { mutableStateOf<JSONObject?>(null) }
     var surface by remember { mutableStateOf(false) }
+    var ledgerOpen by remember { mutableStateOf(false) }
+    var loadingLedger by remember { mutableStateOf(false) }
+    val ledger = remember(table.events) { tableLedger(table.events) }
     var members by remember { mutableStateOf(false) }
     var reportOpen by remember { mutableStateOf(false) }
     var feedback by remember { mutableStateOf("") }
@@ -164,6 +167,28 @@ import java.util.UUID
             state.api.request("/api/rooms/$roomId/report", "POST", JSONObject().put("note", feedback)); reportOpen = false; feedback = ""; table.error = "反馈已收到，谢谢。"
         } catch(e: CancellationException) { throw e } catch(e: Exception) { table.error = e.message.orEmpty() } } }) { Prose("提交反馈", size = 14) } },
         dismissButton = { TextButton(onClick = { reportOpen = false }) { Prose("取消", size = 14) } })
+    if(ledgerOpen) TableSheet("问答记录", { ledgerOpen = false }) {
+        Mono("${ledger.size} 条", Modifier.padding(bottom = 16.dp))
+        if(table.hasEarlier) {
+            Mono("当前为已加载的问答，可加载更早的记录。")
+            TextButton(enabled = !loadingLedger, onClick = {
+                loadingLedger = true
+                scope.launch { try { table.earlier() } finally { loadingLedger = false } }
+            }) { Mono(if(loadingLedger) "正在加载" else "查看更早的记录 ↑") }
+        }
+        if(ledger.isEmpty()) Prose("向砚提问后，判断会自动记在这里。", size = 14, color = mutedColor())
+        if(table.error.isNotBlank()) Prose(table.error, size = 12, color = redColor())
+        ledger.forEach { item ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TableVerdictStamp(item.verdict)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Mono(roster.firstOrNull { it.str("uid") == item.actorId }?.str("name") ?: "汤友")
+                    SelectionContainer { Prose(item.question, size = 14) }
+                }
+            }
+            Rule()
+        }
+    }
     if(surface && s != null) TableSheet("汤面", { surface = false }) {
         Prose(s.obj("puzzle").str("title"), size = 23)
         Spacer(Modifier.height(20.dp))
@@ -193,11 +218,15 @@ import java.util.UUID
                 if(!s.optBoolean("readOnly")) TextButton(enabled = available, onClick = ::leave, modifier = Modifier.semantics { contentDescription = "离开同桌" }) { Mono("离开") }
             }
             Rule()
-            Row(Modifier.fillMaxWidth().clickable { surface = true }.padding(horizontal = 20.dp).heightIn(min = 42.dp).testTag("tableSurface"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Mono("汤面", color = redColor())
-                Text(s.obj("puzzle").str("surface"), Modifier.weight(1f), fontSize = 11.sp, color = mutedColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Icon(Icons.Outlined.ChevronRight, "查看汤面", Modifier.size(16.dp), tint = mutedColor())
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f).clickable { surface = true }.padding(start = 20.dp, end = 12.dp).heightIn(min = 44.dp).testTag("tableSurface"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Mono("汤面", color = redColor())
+                    Text(s.obj("puzzle").str("surface"), Modifier.weight(1f), fontSize = 11.sp, color = mutedColor(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Outlined.ChevronRight, "查看汤面", Modifier.size(16.dp), tint = mutedColor())
+                }
+                TextButton(onClick = { ledgerOpen = true }) { Mono("问答记录", size = 11) }
             }
+
         }
         if(!table.online) Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Mono(table.status, Modifier.weight(1f))
@@ -222,6 +251,7 @@ import java.util.UUID
                         Spacer(Modifier.width(6.dp)); Mono(if(e.str("type") == "question") "问砚" else if(e.str("type") == "discussion") "桌内讨论" else "主持人", size = 9)
                         Spacer(Modifier.weight(1f)); Mono(java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(e.optLong("at")))) }
                     if(e.str("referenceId").isNotBlank()) Mono("↳ ${table.events.firstOrNull { it.str("type") == "question" && it.str("questionId") == e.str("referenceId") }?.str("text") ?: "接着前面的问题"}")
+                    if(e.str("type") == "answer") tableVerdict(e.optJSONObject("turn"))?.let { TableVerdictStamp(it) }
                     SelectionContainer { Prose(e.str("text"), size = 15) }
                     if(e.str("type") == "question" && available) TextButton(onClick = { reference = e; tab = "ask" }) { Mono("引用提问 ↳") }
                     }
@@ -272,7 +302,7 @@ import java.util.UUID
             TextButton(onClick = close) { Mono("完成") }
         }
         Rule()
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp).padding(bottom = 24.dp), content = content)
+        Column(Modifier.fillMaxWidth().testTag("tableSheet.$title").verticalScroll(rememberScrollState()).padding(20.dp).padding(bottom = 24.dp), content = content)
     }
 }
 @Composable private fun TableWaiting(s: JSONObject, owner: String, available: Boolean, invite: () -> Unit, start: () -> Unit) {
@@ -297,5 +327,18 @@ import java.util.UUID
         if(report.str("truth").isNotBlank()) { Mono("汤底"); SelectionContainer { Prose(report.str("truth"), size = 15) } }
         if(report.str("story").isNotBlank()) { Mono("完整背景故事"); SelectionContainer { Prose(report.str("story"), size = 15) } }
         Mono(if(report.optBoolean("authorParticipated")) "作者参与过这一桌，不计入同桌轮数纪录。" else "同桌轮数单独记录，不影响单人纪录。")
+    }
+}
+
+@Composable private fun TableVerdictStamp(verdict: TableVerdict) {
+    val dark = isSystemInDarkTheme()
+    val color = when(verdict) {
+        TableVerdict.YES, TableVerdict.SOLVED -> androidx.compose.ui.graphics.Color(if(dark) 0xFF94B8A3 else 0xFF366451)
+        TableVerdict.NO -> redColor()
+        TableVerdict.PARTLY -> androidx.compose.ui.graphics.Color(if(dark) 0xFFD1B67D else 0xFF8A651E)
+        TableVerdict.IRRELEVANT -> mutedColor()
+    }
+    Box(Modifier.size(26.dp).border(1.dp, color.copy(alpha = 0.65f)).semantics { contentDescription = verdict.label }, contentAlignment = Alignment.Center) {
+        Mono(verdict.glyph, size = 11, color = color)
     }
 }

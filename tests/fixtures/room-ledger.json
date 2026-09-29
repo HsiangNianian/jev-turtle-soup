@@ -1,0 +1,192 @@
+[
+  {
+    "seq": 1,
+    "id": "e1",
+    "at": 1000,
+    "type": "question",
+    "text": "有人留下电梯吗？",
+    "questionId": "q1",
+    "actorId": "alice"
+  },
+  {
+    "seq": 2,
+    "id": "e2",
+    "at": 1001,
+    "type": "discussion",
+    "text": "我猜是邻居。",
+    "actorId": "bob"
+  },
+  {
+    "seq": 3,
+    "id": "e3",
+    "at": 1002,
+    "type": "question",
+    "text": "是陌生人吗？",
+    "questionId": "q2",
+    "actorId": "bob"
+  },
+  {
+    "seq": 4,
+    "id": "e4",
+    "at": 1003,
+    "type": "answer",
+    "text": "是。",
+    "questionId": "q1",
+    "turn": {
+      "intent": "yes_no_question",
+      "verdict": "yes",
+      "reply": "是。",
+      "solved": false,
+      "revealed": false,
+      "closeness": null
+    }
+  },
+  {
+    "seq": 5,
+    "id": "e5",
+    "at": 1004,
+    "type": "answer",
+    "text": "不是。",
+    "questionId": "q2",
+    "turn": {
+      "intent": "yes_no_question",
+      "verdict": "no",
+      "reply": "不是。",
+      "solved": false,
+      "revealed": false,
+      "closeness": null
+    }
+  },
+  {
+    "seq": 6,
+    "id": "e6",
+    "at": 1005,
+    "type": "question",
+    "text": "只是为了帮她？",
+    "questionId": "q3",
+    "actorId": "alice"
+  },
+  {
+    "seq": 7,
+    "id": "e7",
+    "at": 1006,
+    "type": "answer",
+    "text": "部分正确。",
+    "questionId": "q3",
+    "turn": {
+      "intent": "yes_no_question",
+      "verdict": "partly",
+      "reply": "部分正确。",
+      "solved": false,
+      "revealed": false,
+      "closeness": null
+    }
+  },
+  {
+    "seq": 8,
+    "id": "e8",
+    "at": 1007,
+    "type": "question",
+    "text": "电梯是蓝色吗？",
+    "questionId": "q4",
+    "actorId": "bob"
+  },
+  {
+    "seq": 9,
+    "id": "e9",
+    "at": 1008,
+    "type": "answer",
+    "text": "无关。",
+    "questionId": "q4",
+    "turn": {
+      "intent": "yes_no_question",
+      "verdict": "irrelevant",
+      "reply": "无关。",
+      "solved": false,
+      "revealed": false,
+      "closeness": null
+    }
+  },
+  {
+    "seq": 10,
+    "id": "e10",
+    "at": 1009,
+    "type": "question",
+    "text": "没有答完的问题",
+    "questionId": "q5",
+    "actorId": "bob"
+  },
+  {
+    "seq": 11,
+    "id": "e11",
+    "at": 1010,
+    "type": "answer",
+    "text": "暂时无法回答",
+    "questionId": "q5",
+    "turn": {
+      "intent": "yes_no_question",
+      "verdict": "unknown",
+      "reply": "暂时无法回答",
+      "solved": false,
+      "revealed": false,
+      "closeness": null
+    }
+  },
+  {
+    "seq": 12,
+    "id": "e12",
+    "at": 1011,
+    "type": "question",
+    "text": "提示一下",
+    "questionId": "q6",
+    "actorId": "alice"
+  },
+  {
+    "seq": 13,
+    "id": "e13",
+    "at": 1012,
+    "type": "answer",
+    "text": "想想是谁先出门",
+    "questionId": "q6",
+    "turn": {
+      "intent": "yes_no_question",
+      "verdict": "hint",
+      "reply": "想想是谁先出门",
+      "solved": false,
+      "revealed": false,
+      "closeness": null
+    }
+  },
+  {
+    "seq": 14,
+    "id": "e14",
+    "at": 1013,
+    "type": "question",
+    "text": "邻居先下楼替她留下了电梯",
+    "questionId": "q7",
+    "actorId": "alice"
+  },
+  {
+    "seq": 15,
+    "id": "e15",
+    "at": 1014,
+    "type": "system",
+    "text": "汤友暂时离线"
+  },
+  {
+    "seq": 16,
+    "id": "e16",
+    "at": 1015,
+    "type": "answer",
+    "text": "解开了！",
+    "questionId": "q7",
+    "turn": {
+      "intent": "guess",
+      "verdict": "yes",
+      "reply": "解开了！",
+      "solved": true,
+      "revealed": true,
+      "closeness": null
+    }
+  }
+]

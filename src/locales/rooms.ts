@@ -1,4 +1,16 @@
 const phrases: [string, string, string][] = [
+  ['部分正确', 'Partly correct', '一部正しい'],
+  ['已破案', 'Solved', '解決済み'],
+  [
+    '当前为已加载的问答，可加载更早的记录。',
+    'Showing loaded questions. Load earlier records to see more.',
+    '読み込み済みの質問を表示しています。以前の記録も読み込めます。',
+  ],
+  [
+    '向砚提问后，判断会自动记在这里。',
+    'Ask Yan a question and the verdict will appear here.',
+    '硯に質問すると、判定がここに記録されます。',
+  ],
   ['离开', 'Leave', '退席'],
   ['离开同桌', 'Leave table', '退席する'],
   ['只读案卷', 'Read-only case file', '閲覧用の記録'],

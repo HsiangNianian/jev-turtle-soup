@@ -60,6 +60,15 @@ try {
   await a.getByRole('textbox', { name: '向砚提问' }).fill('有人特意把电梯留在这一层吗？')
   await a.getByRole('button', { name: '发送', exact: true }).click()
   await a.getByText('是。', { exact: true }).waitFor()
+  await a.getByRole('button', { name: '问答记录', exact: true }).click()
+  const ledgerDialog = a.getByRole('dialog', { name: '问答记录' })
+  await ledgerDialog.locator('[data-verdict="yes"]').waitFor()
+  assert.equal(await ledgerDialog.locator('li').count(), 1)
+  assert.ok((await ledgerDialog.textContent()).includes('有人特意把电梯留在这一层吗？'))
+  await a.screenshot({ path: '.build/rooms/ledger-mobile.png' })
+  await ledgerDialog.getByRole('button', { name: '关闭' }).click()
+  await b.locator('[data-room-ledger] [data-verdict="yes"]').waitFor()
+  assert.equal(await b.locator('[data-room-ledger] li').count(), 1)
   assert.equal(
     await b.getByRole('textbox').count(),
     2,
@@ -129,6 +138,14 @@ try {
   const completedConnections = connections.get(a).total
   await a.reload()
   await a.getByText('共同案卷已保存', { exact: true }).waitFor()
+  await a.getByRole('button', { name: '问答记录', exact: true }).click()
+  await a.getByRole('dialog').locator('[data-verdict="yes"]').waitFor()
+  assert.equal(
+    await a.getByRole('dialog').locator('li').count(),
+    1,
+    'Archive keeps its question ledger',
+  )
+  await a.getByRole('dialog').getByRole('button', { name: '关闭' }).click()
   assert.equal(
     connections.get(a).total,
     completedConnections,
@@ -200,7 +217,7 @@ try {
   assert.equal(await a.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
   const overflow = await a.evaluate(() => document.documentElement.scrollWidth > innerWidth)
   if (errors.length || overflow) throw new Error(JSON.stringify({ errors, overflow }))
-  console.log(JSON.stringify({ roomId: id, errors, overflow, screenshots: 10 }))
+  console.log(JSON.stringify({ roomId: id, errors, overflow, screenshots: 11 }))
 } finally {
   await browser.close()
 }

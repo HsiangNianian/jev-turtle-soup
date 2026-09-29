@@ -65,6 +65,50 @@ struct TableEvent: Codable, Identifiable {
   let actorId, questionId, referenceId: String?
   let turn: TableTurn?
 }
+enum TableVerdict: String {
+  case yes, no, partly, irrelevant, solved
+  init?(turn: TableTurn?) {
+    if turn?.solved == true { self = .solved; return }
+    guard let value = turn?.verdict, let verdict = Self(rawValue: value), verdict != .solved else { return nil }
+    self = verdict
+  }
+  var glyph: String {
+    switch self {
+    case .yes: "是"
+    case .no: "否"
+    case .partly: "半"
+    case .irrelevant: "—"
+    case .solved: "中"
+    }
+  }
+  var label: String {
+    switch self {
+    case .yes: "是"
+    case .no: "不是"
+    case .partly: "部分正确"
+    case .irrelevant: "无关"
+    case .solved: "已破案"
+    }
+  }
+}
+struct TableLedgerItem: Identifiable {
+  let id, question: String
+  let actorId: String?
+  let verdict: TableVerdict
+}
+func tableLedger(_ events: [TableEvent]) -> [TableLedgerItem] {
+  var questions: [String: TableEvent] = [:]
+  var answers: [String: TableVerdict] = [:]
+  for event in events.sorted(by: { $0.seq < $1.seq }) {
+    guard let id = event.questionId else { continue }
+    if event.type == "question" { questions[id] = event }
+    if event.type == "answer", let verdict = TableVerdict(turn: event.turn) { answers[id] = verdict }
+  }
+  return questions.values.sorted { $0.seq < $1.seq }.compactMap { question in
+    guard let id = question.questionId, let verdict = answers[id] else { return nil }
+    return TableLedgerItem(id: id, question: question.text, actorId: question.actorId, verdict: verdict)
+  }
+}
 struct TablePage: Decodable {
   let snapshot: TableSnapshot
   let events: [TableEvent]

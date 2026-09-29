@@ -2,8 +2,8 @@ import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
 import type { GameSession } from '@/lib/api'
 import { Link } from '@/components/Link'
-import { cn } from '@/lib/utils'
-import { useI18n, type Locale } from '@/lib/i18n'
+import { VerdictToken } from './VerdictToken'
+import { useI18n } from '@/lib/i18n'
 import type { StoryRecovery } from '@/lib/use-report-story'
 
 interface PuzzlePanelProps {
@@ -32,22 +32,6 @@ export interface LedgerItem {
   verdict: string
 }
 
-/**
- * 台账左边那枚小戳：**一个字的记号，不是词**。
- *
- * 这里刻意不走翻译字典 ——「是」「否」在字典里是 yes / はい 这类**词**，
- * 塞进 24px 的方框里会溢出来糊成一团（切到日文最明显：いいえ 三个字挤在一格里）。
- * 所以每种语言单独给一个长度可控的记号：中日用汉字（是/否/半 在日文里也读得通），
- * 英文用字母。
- */
-const LEDGER: Record<string, { glyph: Record<Locale, string>; cls: string }> = {
-  yes: { glyph: { 'zh-CN': '是', en: 'Y', ja: '是' }, cls: 'verdict-yes' },
-  no: { glyph: { 'zh-CN': '否', en: 'N', ja: '否' }, cls: 'verdict-no' },
-  partly: { glyph: { 'zh-CN': '半', en: '~', ja: '半' }, cls: 'verdict-partly' },
-  irrelevant: { glyph: { 'zh-CN': '—', en: '—', ja: '—' }, cls: 'verdict-irrelevant' },
-  solved: { glyph: { 'zh-CN': '中', en: '✓', ja: '中' }, cls: 'verdict-yes' },
-}
-
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-2">
@@ -73,7 +57,7 @@ export function PuzzlePanel({
   onStart,
   readOnly = false,
 }: PuzzlePanelProps) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const caseNo = (session.sessionId.replace(/\D/g, '').slice(-3) || '000').padStart(3, '0')
   const progress = typeof closeness === 'number' ? Math.round(closeness * 100) : null
 
@@ -294,21 +278,12 @@ export function PuzzlePanel({
           </div>
           <ul className="mt-3">
             {ledger.map((item) => {
-              const tone = LEDGER[item.verdict] ?? LEDGER.irrelevant
               return (
                 <li
                   key={item.id}
                   className="rule-dashed flex items-center gap-3 py-2 last:border-b-0"
                 >
-                  <span
-                    className={cn(
-                      // min-w 而不是固定宽度：记号万一变长也只是变宽，不会溢出来
-                      'verdict-token flex h-6 min-w-6 shrink-0 items-center justify-center border px-1 font-mono text-[11px] font-bold',
-                      tone.cls,
-                    )}
-                  >
-                    {tone.glyph[locale]}
-                  </span>
+                  <VerdictToken verdict={item.verdict} />
                   <span className="truncate font-serif text-[13px] text-foreground/75">
                     {item.question}
                   </span>

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.39.0 - 2026-09-29
+
+### Features
+
+- Add shared question ledgers to Web/PWA, native iOS and Android tables. Open the ledger beside the premise on mobile, or read it in the desktop case rail.
+- Mark answers and ledger entries with the solo game's yes, no, partly, unrelated and solved stamps, and show who asked each question.
+- Pair questions and answers by question ID so interleaved discussion cannot mix up players or verdicts. Skip unanswered questions and replies without a supported verdict, and prioritize the solved stamp.
+- Preserve ledgers in shared archives, deduplicate reconnect replay and load earlier questions through existing history pagination. No additional model calls or database migration are required.
+
+### Validation
+
+- Pass 217 tests, lint, production web and native builds. Cover question pairing, replay, incomplete history pages and solved verdicts.
+- Verify the ledger with real browser, iOS Simulator and Android emulator clients against an isolated local Worker, including shared archives and mobile/desktop layouts.
+
+### Native apps
+
+- Update iOS to 0.7.0 (build 13) and Android to 0.4.0 (build 7).
+- The iOS attachment is an unsigned Simulator app for arm64 and x86_64, not an iPhone IPA. Physical iPhones use the Personal Team setup in `ios/README.md`. The Android APK is a debug-signed test build.
+
 ## 0.38.1 - 2026-09-28
 
 ### Fixes and resource usage

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.39.1 - 2026-09-29
+
+### Fixes
+
+- Make the desktop table's case-rail scrollbar thin and transparent at rest. Reveal a muted, paper-toned thumb on hover or keyboard focus without an opaque track or layout shift.
+- Keep wheel and keyboard scrolling available for long question ledgers, with a visible focus outline and system scrollbar colors in high-contrast mode.
+
+### Validation
+
+- Check a 30-question ledger in light and dark themes, including idle/hover appearance, stable width, wheel scrolling, keyboard scrolling and forced colors.
+- Pass lint and production build checks. This is a web-only presentation change with no database migration or room protocol changes.
+
+### Native apps
+
+- iOS remains 0.7.0 (build 13), and Android remains 0.4.0 (build 7), with the shared question ledger introduced in v0.39.0. Native attachments are unchanged from that release.
+- The iOS attachment is an unsigned Simulator app for arm64 and x86_64, not an iPhone IPA. The Android APK is a debug-signed test build.
+
 ## 0.39.0 - 2026-09-29
 
 ### Features

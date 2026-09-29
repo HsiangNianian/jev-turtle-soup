@@ -928,7 +928,7 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
 
       <div className="room-workspace">
         {desktop && s ? (
-          <aside className="room-case-rail" aria-label={t('案卷')}>
+          <aside className="room-case-rail" aria-label={t('案卷')} tabIndex={0}>
             <p className="font-mono text-[10px] tracking-widest text-stamp">{t('案卷')}</p>
             <h2 className="mt-3 font-serif text-xl leading-relaxed">{s.puzzle.title}</h2>
             <p className="mt-4 line-clamp-6 font-serif text-sm leading-7 text-muted-foreground">

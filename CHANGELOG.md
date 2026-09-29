@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.41.0 - 2026-09-29
+
+### Features
+
+- Adopt the selected compact A layout for solo and multiplayer play on Web/PWA, iOS and Android. Pair each question with its answers, keep round numbers in the margin, and replace oversized cards with continuous, paper-styled rows.
+- Narrow the desktop case rail while preserving a separate multiplayer discussion column. On phones, open the premise on demand and choose between asking Yan and chatting beside the compact composer without losing either draft.
+- Add verdict filters and clickable question ledgers, with useful marks pinned in the web case rail. Keep secondary actions, references and judge details available through each question's action menu.
+- Add private useful / set-aside marks and filters to both native apps, stored locally and separated by account, game type and case. Web/PWA keeps its existing browser-local mark storage.
+
+### Fixes
+
+- Preserve pending questions, retry errors, standalone host notices and paginated answers while grouping transcripts by question identity. Loading an earlier question attaches its existing answer without dropping it or changing the saved history.
+- Expand long solo questions within the web composer, keep it above mobile keyboards, and prevent Chinese input-method confirmation from submitting a question.
+
+### Validation
+
+- Pass 227 tests, lint and production builds. Verify paired filters, mark persistence and account isolation, history pagination, reference actions, judge details, ledger navigation, long input, keyboard viewports, narrow screens and dark mode.
+- Verify solo play, multiplayer questions and discussion, shared ledgers, local marks and archives with real browser, iOS Simulator and Android emulator clients against an isolated local Worker.
+- Use the existing database schema, room protocol and model request history; no database migration is required.
+
+### Native apps
+
+- Update iOS to 0.8.0 (build 14) and Android to 0.5.0 (build 8).
+- The iOS ZIP is an unsigned arm64/x86_64 Simulator app, not an iPhone IPA. Physical iPhones use the Personal Team setup in `ios/README.md`. The Android APK is a debug-signed test build.
+
 ## 0.40.0 - 2026-09-29
 
 ### Features

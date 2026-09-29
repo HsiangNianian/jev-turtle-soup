@@ -1,11 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.40.0 - 2026-09-29
 
 ### Features
 
 - Add personal useful / set-aside marks to solo and multiplayer Web/PWA questions and answers, including archived games and question ledgers. Click an active mark again to clear it; filter all, marked, useful or set-aside entries while keeping each question with its answer.
 - Save marks only in the current browser, separated by account and game/room. Keep tabs in sync, report local storage failures, and preserve marks through room replay and history pagination without API writes or model calls.
+
+### Validation
+
+- Pass 224 tests, lint and production build checks. Verify solo play and archives, private marks in real WebSocket rooms, browser refresh, cross-tab changes, account isolation, read-only history pagination, storage errors and mobile/desktop layouts.
+- Marks use browser-local storage only; this release adds no server-side storage, room protocol changes or model requests.
+
+### Native apps
+
+- iOS remains 0.7.0 (build 13), and Android remains 0.4.0 (build 7). Personal usefulness marks are currently a Web/PWA feature; the native apps retain the shared question ledger from v0.39.0.
+- Native attachments are unchanged from v0.39.1. The iOS ZIP is an unsigned arm64/x86_64 Simulator app, not an iPhone IPA. The Android APK is a debug-signed test build.
 
 ## 0.39.1 - 2026-09-29
 

@@ -53,11 +53,12 @@ interface ChatPanelProps {
   messages: ChatMessage[]
   asking: boolean
   disabled: boolean
+  disabledLabel?: string
   /** 今日官方汤：当天没有「揭晓」可点 */
   locked?: boolean
   onSend: (text: string) => void
   onQuick: (kind: 'hint' | 'reveal' | 'how_to_play') => void
-  onReport: (note: string) => Promise<void>
+  onReport?: (note: string) => Promise<void>
 }
 
 const VERDICT_TEXT: Record<string, string> = {
@@ -160,6 +161,7 @@ export function ChatPanel({
   messages,
   asking,
   disabled,
+  disabledLabel,
   locked = false,
   onSend,
   onQuick,
@@ -180,6 +182,7 @@ export function ChatPanel({
   const [reportError, setReportError] = useState('')
 
   async function sendReport() {
+    if (!onReport) return
     setReportState('sending')
     setReportError('')
     try {
@@ -310,7 +313,11 @@ export function ChatPanel({
             value={input}
             disabled={disabled}
             rows={1}
-            placeholder={disabled ? t('本案已结案 · 回到档案室可再立案') : t('提出你的问题……')}
+            placeholder={
+              disabled
+                ? (disabledLabel ?? t('本案已结案 · 回到档案室可再立案'))
+                : t('提出你的问题……')
+            }
             className="chat-scroll min-w-0 flex-1 resize-none bg-transparent font-serif text-base leading-6 outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
@@ -351,15 +358,17 @@ export function ChatPanel({
               onQuick('how_to_play')
             }}
           />
-          <QuickAction
-            icon={<Flag />}
-            label={t('反馈')}
-            active={reporting}
-            onClick={() => {
-              setReporting((value) => !value)
-              setReportState('idle')
-            }}
-          />
+          {onReport ? (
+            <QuickAction
+              icon={<Flag />}
+              label={t('反馈')}
+              active={reporting}
+              onClick={() => {
+                setReporting((value) => !value)
+                setReportState('idle')
+              }}
+            />
+          ) : null}
           {locked ? (
             <span className="ml-auto flex items-center gap-1.5 text-muted-foreground/70">
               <Lock className="size-3" />

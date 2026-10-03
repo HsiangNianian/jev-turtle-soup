@@ -1,11 +1,20 @@
 import type { D1Like } from './auth.ts'
 import { ApiError } from './errors.ts'
-import { askError, judge, readLocale, rerankCandidates, scoreGenre, type GameEnv } from './game.ts'
+import {
+  askError,
+  judge,
+  readLocale,
+  rerankCandidates,
+  scoreGenre,
+  truthText,
+  type GameEnv,
+} from './game.ts'
 import { countAuthorSocial, recognise } from './author.ts'
 import { reviewPuzzle } from './review.ts'
 import { logTurn } from './logs.ts'
 import { utcDateKey } from './daily.ts'
 import { teamRecords } from './room-store.ts'
+import { clozeAction, parseCloze } from './cloze.ts'
 
 export type Visibility = 'public' | 'private'
 
@@ -51,6 +60,7 @@ export interface OwnerInfo {
 
 export interface PublicPuzzle {
   id: string
+  mode: 'classic' | 'cloze'
   title: string
   surface: string
   difficulty: string
@@ -164,6 +174,7 @@ function toPublic(
 ): PublicPuzzle {
   return {
     id: row.id,
+    mode: row.truth.includes('[[') ? 'cloze' : 'classic',
     title: row.title,
     surface: row.surface,
     difficulty: row.difficulty,
@@ -228,6 +239,7 @@ export async function listPublicPuzzles(
     genre?: number
     scope?: 'community'
     featuredOnly?: boolean
+    mode?: 'cloze'
   },
 ): Promise<PublicPuzzle[]> {
   const limit = Math.min(Math.max(options.limit || 20, 1), 50)
@@ -246,6 +258,7 @@ export async function listPublicPuzzles(
 
   const filters = [options.scope === 'community' ? "p.visibility = 'public'" : PLAYABLE]
   const bindings: unknown[] = options.scope === 'community' ? [] : [utcDateKey()]
+  if (options.mode === 'cloze') filters.push("instr(p.truth, '[[') > 0")
   if (options.featuredOnly) {
     filters.push(
       "p.visibility = 'public' AND p.featured = 1 AND TRIM(COALESCE(p.featured_note, '')) <> ''",
@@ -290,7 +303,7 @@ function likePattern(query: string): string {
 export async function searchPublicPuzzles(
   env: GameEnv,
   db: D1Like,
-  options: { sort: string; query: string; genre?: number; limit?: number },
+  options: { sort: string; query: string; genre?: number; limit?: number; mode?: 'cloze' },
 ): Promise<PublicPuzzle[]> {
   const items = await listPublicPuzzles(db, {
     sort: options.sort,
@@ -298,6 +311,7 @@ export async function searchPublicPuzzles(
     offset: 0,
     query: options.query,
     genre: options.genre,
+    mode: options.mode,
   })
   const query = options.query.trim()
   if (!query || items.length < 2) return items
@@ -364,6 +378,29 @@ async function loadPlayable(
   return row
 }
 
+export async function playClozePuzzle(
+  env: GameEnv,
+  db: D1Like,
+  uid: string | null,
+  playerKey: string,
+  id: string,
+  body: Record<string, unknown>,
+) {
+  if (!body || typeof body !== 'object' || Array.isArray(body))
+    throw new ApiError(400, '请求格式不正确')
+  const row = await loadPlayable(db, id, uid, readLocale(body.locale))
+  if (!row.truth.includes('[[')) throw new ApiError(400, '这道汤不是填空类型')
+  const result = await clozeAction(env, body, { ...row, template: row.truth })
+  if (
+    body.action === 'ask' ||
+    (body.action === 'check' && result && 'complete' in result && result.complete)
+  )
+    await recordPlay(db, id, playerKey, body.action === 'check')
+  if (body.action === 'reveal')
+    await revealLibraryPuzzle(db, id, uid, readLocale(body.locale), true, body.playerKey)
+  return result
+}
+
 export async function askLibraryPuzzle(
   env: GameEnv,
   db: D1Like,
@@ -373,6 +410,7 @@ export async function askLibraryPuzzle(
   body: Record<string, unknown>,
 ) {
   const row = await loadPlayable(db, id, uid, readLocale(body.locale))
+  if (row.truth.includes('[[')) throw new ApiError(400, '请从填空模式开始这道汤')
   const daily =
     row.visibility === 'daily'
       ? await db
@@ -508,7 +546,7 @@ export async function revealLibraryPuzzle(
       : null
   return {
     title: row.title,
-    truth: row.truth,
+    truth: truthText(row.truth),
     hint: row.hint,
     ...(daily?.story?.trim() ? { story: daily.story } : {}),
   }
@@ -529,11 +567,15 @@ export async function createPuzzle(
     tags: parseTags(body.tags),
     visibility: visibility(body.visibility),
   }
+  if (body.mode !== undefined && body.mode !== 'classic' && body.mode !== 'cloze')
+    throw new ApiError(400, '未知的海龟汤类型')
+  if (body.mode === 'cloze') parseCloze(puzzle.truth)
+  else puzzle.truth = truthText(puzzle.truth)
   const id = crypto.randomUUID()
   // 两件独立的事一次并发：题材打分 + 发布前体检。串行会让上传等两倍。
   const [genre, review] = await Promise.all([
     scoreGenre(env, puzzle),
-    reviewPuzzle(env, puzzle, readLocale(body.locale)),
+    reviewPuzzle(env, { ...puzzle, truth: truthText(puzzle.truth) }, readLocale(body.locale)),
   ])
   // 题材坐标：判不了就退回标签估算
   const genreScore = genre ?? genreFromTags(puzzle.tags)
@@ -603,11 +645,13 @@ export async function updatePuzzle(
   body: Record<string, unknown>,
 ) {
   const row = await db
-    .prepare('SELECT owner_id FROM puzzles WHERE id = ?')
+    .prepare('SELECT owner_id, truth FROM puzzles WHERE id = ?')
     .bind(id)
-    .first<{ owner_id: string }>()
+    .first<{ owner_id: string; truth: string }>()
   if (!row) throw new ApiError(404, '这道汤不存在')
   if (row.owner_id !== uid) throw new ApiError(403, '只能修改自己上传的汤')
+  if (body.mode !== undefined && body.mode !== (row.truth.includes('[[') ? 'cloze' : 'classic'))
+    throw new ApiError(400, '发布后不能更改海龟汤类型')
 
   const fields: string[] = []
   const values: unknown[] = []
@@ -618,7 +662,11 @@ export async function updatePuzzle(
 
   if (body.title !== undefined) set('title', text(body.title, '标题', 40))
   if (body.surface !== undefined) set('surface', text(body.surface, '汤面', 200))
-  if (body.truth !== undefined) set('truth', text(body.truth, '汤底', 2000))
+  if (body.truth !== undefined) {
+    const truth = text(body.truth, '汤底', 2000)
+    if (row.truth.includes('[[')) parseCloze(truth)
+    set('truth', row.truth.includes('[[') ? truth : truthText(truth))
+  }
   if (body.hint !== undefined) set('hint', text(body.hint, '提示', 200, false))
   if (body.difficulty !== undefined) set('difficulty', difficulty(body.difficulty))
   if (body.tags !== undefined) set('tags', JSON.stringify(parseTags(body.tags)))

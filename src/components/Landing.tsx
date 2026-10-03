@@ -175,6 +175,9 @@ export function Landing({
 
       <div className="mt-5 flex flex-wrap items-center gap-4">
         <RoomEntry />
+        <Link to="/cloze" className="font-mono text-[11px] text-stamp underline underline-offset-4">
+          汤底填空 · 新模式 →
+        </Link>
         {signedIn ? (
           <Link to="/me/rooms" className="font-mono text-[11px] text-muted-foreground">
             {t('我的同桌')} →

@@ -19,6 +19,7 @@ const PRESET_TAGS = [SUPERNATURAL_TAG] as const
 const DRAFT_KEY = 'turtle-soup.upload-draft'
 
 interface UploadDraft {
+  mode: 'classic' | 'cloze'
   title: string
   surface: string
   truth: string
@@ -51,6 +52,9 @@ export function UploadPage() {
   const { t, locale } = useI18n()
   // 只读一次草稿，用它给每个字段定初值
   const [draft] = useState(readDraft)
+  const [mode, setMode] = useState<'classic' | 'cloze'>(
+    draft?.mode === 'cloze' ? 'cloze' : 'classic',
+  )
   const [title, setTitle] = useState(draft?.title ?? '')
   const [surface, setSurface] = useState(draft?.surface ?? '')
   const [truth, setTruth] = useState(draft?.truth ?? '')
@@ -74,12 +78,12 @@ export function UploadPage() {
     try {
       localStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ title, surface, truth, hint, difficulty, tags, visibility }),
+        JSON.stringify({ mode, title, surface, truth, hint, difficulty, tags, visibility }),
       )
     } catch {
       /* 隐私模式下忽略 */
     }
-  }, [title, surface, truth, hint, difficulty, tags, visibility])
+  }, [mode, title, surface, truth, hint, difficulty, tags, visibility])
 
   const ready = title.trim() && surface.trim() && truth.trim()
   const selectedTags = tags
@@ -99,6 +103,7 @@ export function UploadPage() {
     setError(null)
     try {
       const created = await createPuzzle({
+        mode,
         title: title.trim(),
         surface: surface.trim(),
         truth: truth.trim(),
@@ -180,12 +185,21 @@ export function UploadPage() {
         <Link to="/guide" className="text-stamp transition-opacity hover:opacity-70">
           {t('不会写？看看《怎么写一碗好汤》 →')}
         </Link>
-        <span className="text-muted-foreground/60">
-          {t('草稿会自动存在这台设备上')}
-        </span>
+        <span className="text-muted-foreground/60">{t('草稿会自动存在这台设备上')}</span>
       </div>
 
       <div className="mt-7 space-y-6">
+        <Field label={t('玩法')}>
+          <select
+            aria-label={t('玩法')}
+            value={mode}
+            onChange={(event) => setMode(event.target.value as 'classic' | 'cloze')}
+            className={inputClass}
+          >
+            <option value="classic">普通海龟汤</option>
+            <option value="cloze">汤底填空</option>
+          </select>
+        </Field>
         <Field label={t('标题')} hint={t('最多 40 字')}>
           <input
             value={title}
@@ -219,6 +233,12 @@ export function UploadPage() {
             onChange={(event) => setTruth(event.target.value)}
             className={`${inputClass} resize-none leading-7`}
           />
+          {mode === 'cloze' ? (
+            <p className="mt-2 text-xs leading-6 text-muted-foreground">
+              写下完整故事，用 [[答案]]
+              标记要挖空的部分，例如：他用[[雨伞]]按下按钮。每个字会变成一格，至少标记一处；答案内不要加空格或换行。
+            </p>
+          ) : null}
         </Field>
 
         <Field label={t('提示')} hint={t('可选，最多 200 字')}>

@@ -22,6 +22,7 @@ export interface OwnerInfo {
 }
 
 export interface LibraryPuzzle {
+  mode?: 'classic' | 'cloze'
   id: string
   title: string
   surface: string
@@ -49,6 +50,7 @@ export interface LibraryPuzzleDetail extends LibraryPuzzle {
 }
 
 export interface OwnPuzzle {
+  mode?: 'classic' | 'cloze'
   id: string
   title: string
   surface: string
@@ -143,6 +145,7 @@ export interface PublicProfile {
 }
 
 export interface PuzzleInput {
+  mode?: 'classic' | 'cloze'
   title: string
   surface: string
   truth: string
@@ -183,17 +186,23 @@ function rememberPuzzles(items: LibraryPuzzle[]): void {
   for (const item of items) knownPuzzles.set(item.id, item)
 }
 
-function puzzleCacheKey(options: { sort?: string; q?: string; genre?: number }): string {
-  return `puzzles:${options.sort ?? 'new'}:${options.q ?? ''}:${
+function puzzleCacheKey(options: {
+  sort?: string
+  q?: string
+  genre?: number
+  mode?: 'cloze'
+}): string {
+  return `puzzles:${options.mode ?? 'all'}:${options.sort ?? 'new'}:${options.q ?? ''}:${
     typeof options.genre === 'number' ? Math.round(options.genre) : ''
   }`
 }
 
 export function listPuzzles(
-  options: { sort?: 'new' | 'hot' | 'featured'; q?: string; genre?: number } = {},
+  options: { sort?: 'new' | 'hot' | 'featured'; q?: string; genre?: number; mode?: 'cloze' } = {},
   hooks: { onStale?: (items: LibraryPuzzle[]) => void } = {},
 ) {
   const params = new URLSearchParams()
+  if (options.mode) params.set('mode', options.mode)
   if (options.sort) params.set('sort', options.sort)
   if (options.q) params.set('q', options.q)
   if (typeof options.genre === 'number') params.set('genre', String(Math.round(options.genre)))
@@ -232,19 +241,25 @@ export function listCuratedPuzzles() {
  * 反复改同一个搜索词不该反复花钱。
  */
 export function rerankPuzzles(
-  options: { sort?: 'new' | 'hot' | 'featured'; q: string; genre?: number },
+  options: { sort?: 'new' | 'hot' | 'featured'; q: string; genre?: number; mode?: 'cloze' },
   hooks: { onStale?: (items: LibraryPuzzle[]) => void } = {},
 ) {
-  const key = `rerank:${options.sort ?? 'new'}:${options.q}:${
+  const key = `rerank:${options.mode ?? 'all'}:${options.sort ?? 'new'}:${options.q}:${
     typeof options.genre === 'number' ? Math.round(options.genre) : ''
   }`
   return staleWhileRevalidate(key, 10 * 60 * 1000, () => rerankRequest(options), hooks)
 }
 
-function rerankRequest(options: { sort?: 'new' | 'hot' | 'featured'; q: string; genre?: number }) {
+function rerankRequest(options: {
+  sort?: 'new' | 'hot' | 'featured'
+  q: string
+  genre?: number
+  mode?: 'cloze'
+}) {
   return request<{ items: LibraryPuzzle[] }>('/api/library/search/rerank', {
     method: 'POST',
     body: JSON.stringify({
+      mode: options.mode,
       sort: options.sort,
       q: options.q,
       genre: typeof options.genre === 'number' ? Math.round(options.genre) : undefined,

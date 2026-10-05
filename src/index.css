@@ -18,7 +18,7 @@
   --secondary: #e7e2d4;
   --secondary-foreground: #17150f;
   --muted: #e7e2d4;
-  --muted-foreground: #8c8677;
+  --muted-foreground: #716b5d;
   --accent: #e7e2d4;
   --accent-foreground: #17150f;
   --destructive: #b5342a;
@@ -29,8 +29,21 @@
 
   --rule: #17150f;
   --stamp: #b5342a;
+  --stamp-soft: rgba(181, 52, 42, 0.08);
+  --brand: #b5342a;
   --bar: #17150f;
   --bar-foreground: #f2efe6;
+
+  /* 纸张的层次：同一张台面上叠着几页纸，阴影偏暖、偏墨，不用冷灰 */
+  --sheet: #fbf9f3;
+  --sheet-edge: rgba(23, 21, 15, 0.14);
+  --shadow-sheet:
+    0 1px 0 rgba(23, 21, 15, 0.04), 0 1px 2px rgba(23, 21, 15, 0.06),
+    0 8px 24px -12px rgba(23, 21, 15, 0.18);
+  --shadow-lift:
+    0 1px 0 rgba(23, 21, 15, 0.04), 0 2px 4px rgba(23, 21, 15, 0.06),
+    0 22px 44px -18px rgba(23, 21, 15, 0.32);
+  --desk-glow: rgba(181, 52, 42, 0.07);
 
   --v-yes: #2f6b4f;
   --v-no: #b5342a;
@@ -59,7 +72,7 @@
   --secondary: #262319;
   --secondary-foreground: #ece7db;
   --muted: #262319;
-  --muted-foreground: #9a9384;
+  --muted-foreground: #a8a191;
   --accent: #2b2820;
   --accent-foreground: #ece7db;
   --destructive: #e0736a;
@@ -70,8 +83,16 @@
 
   --rule: #ece7db;
   --stamp: #e0736a;
+  --stamp-soft: rgba(224, 115, 106, 0.1);
+  --brand: #e0736a;
   --bar: #0e0d0a;
   --bar-foreground: #ece7db;
+
+  --sheet: #1f1d18;
+  --sheet-edge: rgba(236, 231, 219, 0.12);
+  --shadow-sheet: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 28px -14px rgba(0, 0, 0, 0.7);
+  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 48px -18px rgba(0, 0, 0, 0.85);
+  --desk-glow: rgba(224, 115, 106, 0.08);
 
   --v-yes: #7fb98f;
   --v-no: #e0736a;
@@ -105,6 +126,10 @@
   --color-ring: var(--ring);
   --color-rule: var(--rule);
   --color-stamp: var(--stamp);
+  --color-stamp-soft: var(--stamp-soft);
+  --color-brand: var(--brand);
+  --color-sheet: var(--sheet);
+  --color-sheet-edge: var(--sheet-edge);
   --color-bar: var(--bar);
   --color-bar-foreground: var(--bar-foreground);
   --font-sans: var(--font-sans);
@@ -151,6 +176,181 @@
 
   .dark ::selection {
     background: rgba(224, 115, 106, 0.3);
+  }
+}
+
+@layer components {
+  /* 分节眉题：一小段朱红短线 + 等宽字。整站的「这是哪一栏」都用它。 */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    color: var(--muted-foreground);
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 1.25rem;
+    height: 1px;
+    background: var(--stamp);
+  }
+
+  /* 一页纸：比台面亮一档，带一点墨色投影。可点的再加 sheet-hover 抬起来。 */
+  .sheet {
+    position: relative;
+    background: var(--sheet);
+    border: 1px solid var(--sheet-edge);
+    box-shadow: var(--shadow-sheet);
+  }
+
+  .sheet-hover {
+    transition:
+      transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 220ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      border-color 220ms ease;
+  }
+
+  .sheet-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+    border-color: color-mix(in srgb, var(--foreground) 35%, transparent);
+  }
+
+  /* 右上角折一个角：被翻过的卷宗。只在悬停时露出朱红。 */
+  .sheet-fold::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(
+      225deg,
+      var(--background) 0 50%,
+      color-mix(in srgb, var(--foreground) 14%, var(--sheet)) 50% 100%
+    );
+    transition: background 220ms ease;
+  }
+
+  .sheet-hover.sheet-fold:hover::after {
+    background: linear-gradient(225deg, var(--background) 0 50%, var(--stamp) 50% 100%);
+  }
+
+  /* 一叠卷宗：最上面一页是内容，底下两页错开一点角度露出纸边 */
+  .sheet-stack {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .sheet-stack::before,
+  .sheet-stack::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--sheet);
+    border: 1px solid var(--sheet-edge);
+    box-shadow: var(--shadow-sheet);
+  }
+
+  .sheet-stack::before {
+    transform: rotate(-2.2deg) translate(-6px, 8px);
+  }
+
+  .sheet-stack::after {
+    transform: rotate(1.4deg) translate(8px, 4px);
+  }
+
+  /* 印：实心朱红方块，单字白文。用于品牌和「今日」这类强调。 */
+  .seal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--stamp);
+    color: #fbf6ec;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1.5px rgba(251, 246, 236, 0.28);
+  }
+
+  /* 筛选胶囊：未选时只有字，选中压一块墨 */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2rem;
+    padding: 0 0.875rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--muted-foreground);
+    transition:
+      color 160ms ease,
+      background-color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  .chip:hover {
+    color: var(--foreground);
+    border-color: var(--border);
+  }
+
+  .chip[aria-pressed='true'],
+  .chip[aria-current='page'] {
+    background: var(--foreground);
+    color: var(--background);
+  }
+
+  /* 台面：顶上一盏暖灯，四周略暗。纸纹仍由 body::after 负责。 */
+  .desk {
+    background:
+      radial-gradient(1100px 520px at 50% -120px, var(--desk-glow), transparent 70%),
+      var(--background);
+  }
+
+  /* 横格纸：只在大标题区域淡淡铺一层 */
+  .ruled {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0 31px,
+      color-mix(in srgb, var(--foreground) 6%, transparent) 31px 32px
+    );
+  }
+
+  .ink-link {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0 1px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .ink-link:hover {
+    background-size: 100% 1px;
+  }
+
+  /* 难度点：●●○ 一眼看出深浅 */
+  .difficulty-dots {
+    display: inline-flex;
+    gap: 3px;
+  }
+
+  .difficulty-dots > i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+  }
+
+  .difficulty-dots > i[data-on] {
+    background: currentColor;
   }
 }
 
@@ -324,6 +524,8 @@
   .verdict-token {
     color: var(--tone);
     border-color: var(--tone);
+    background: color-mix(in srgb, var(--tone) 9%, transparent);
+    border-radius: 2px;
   }
 
   .stamp {

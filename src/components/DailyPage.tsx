@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { RoomEntry } from '@/components/RoomEntry'
 import { ArrowRight, Loader2, Lock, Unlock } from 'lucide-react'
 
-import { Button, Empty, Notice, OfficialMark, PageShell } from '@/components/Bits'
+import { Button, Difficulty, Empty, Notice, OfficialMark, PageShell } from '@/components/Bits'
 import { Link } from '@/components/Link'
 import { SolveTurnRecords } from '@/components/SolveTurnRecords'
 import { TagSpoiler } from '@/components/TagSpoiler'
@@ -52,10 +52,9 @@ function Meta({
   tags: string[]
   locked?: boolean
 }) {
-  const { t } = useI18n()
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-      <span className="border border-foreground/25 px-1.5 py-0.5">{t(difficulty)}</span>
+      <Difficulty value={difficulty} />
       {locked ? null : <TagSpoiler tags={tags} />}
     </div>
   )
@@ -99,8 +98,8 @@ function LanguageNote({
 
 function Surface({ text }: { text: string }) {
   return (
-    <div className="mt-6 border-l-2 border-brand/50 pl-4">
-      <p className="surface-prose font-serif text-[15px] leading-8 text-foreground/90">{text}</p>
+    <div className="sheet mt-6 border-l-2 border-l-stamp px-5 py-5 sm:px-6">
+      <p className="surface-prose font-serif text-[16px] leading-8 text-foreground/90">{text}</p>
     </div>
   )
 }
@@ -175,7 +174,7 @@ export function DailyDetailPage({
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
         {/* 认证勋章就放在难度左边，和题库卡片上那枚一致 */}
         <OfficialMark />
-        <span className="border border-foreground/25 px-1.5 py-0.5">{t(daily.difficulty)}</span>
+        <Difficulty value={daily.difficulty} />
         {daily.locked ? null : <TagSpoiler key={daily.puzzleId} tags={daily.tags} />}
         {genreLabel(daily.genreScore, t) ? (
           <span className="text-stamp/80">{genreLabel(daily.genreScore, t)}</span>
@@ -212,7 +211,7 @@ export function DailyDetailPage({
       ) : (
         <>
           {daily.truth ? (
-            <div className="animate-pop mt-8 border-l-4 border-stamp pl-5">
+            <div className="animate-pop sheet mt-8 border-l-4 border-l-stamp px-5 py-5 sm:px-6">
               <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.26em] text-stamp">
                 <Unlock className="size-3.5" /> {t('汤底')}
               </div>
@@ -274,7 +273,7 @@ export function DailyIndexPage({
   onStart: (daily: DailyDetail) => void
   onContinue: (id: string) => void
 }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [today, setToday] = useState<DailyDetail | null>(null)
   const [history, setHistory] = useState<DailySummary[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -299,105 +298,125 @@ export function DailyIndexPage({
   const past = history.filter((item) => item.date !== today?.date)
 
   return (
-    <PageShell label={t('官方汤')} title={t('每日官方汤')}>
-      <p className="mt-5 max-w-xl font-serif text-[14px] leading-7 text-foreground/75">
-        {t(
-          '每天零点（UTC）由砚熬一碗，所有人都拿到同一道题。当天的汤只能问，不能揭晓；过了午夜就能回看汤底。',
-        )}
-      </p>
-
-      {!loaded ? (
-        <div className="mt-8 flex justify-center text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-        </div>
-      ) : today ? (
-        <div className="mt-8 border border-foreground bg-card">
-          <div className="flex items-center justify-between gap-3 border-b border-foreground px-4 py-3 sm:px-5">
-            <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-              {t('今日')} · {today.date}
-            </span>
-            <span className="stamp flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
-              <Lock className="size-3" /> {t('明日解锁')}
-            </span>
-          </div>
-          <div className="px-4 py-5 sm:px-5">
-            <h2 className="font-serif text-2xl leading-snug font-semibold">{today.title}</h2>
-            <Meta difficulty={today.difficulty} tags={today.tags} locked={today.locked} />
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <Counts plays={today.plays} solves={today.solves} />
-              <LanguageNote locale={today.locale} genreScore={today.genreScore} />
-            </div>
-            <div className="mt-5 border-l-2 border-brand/50 pl-4">
-              <p className="surface-prose font-serif text-[15px] leading-8 text-foreground/90">
-                {today.surface}
-              </p>
-            </div>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <RoomEntry puzzleId={today.puzzleId} />
-              <StartButton
-                daily={today}
-                activeGames={activeGames}
-                onStart={onStart}
-                onContinue={onContinue}
-              />
-              <Link
-                to={`/daily/${today.date}`}
-                className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {t('查看案卷')}
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-8">
-          <Notice>{t('今天的汤还在熬，稍后再来。')}</Notice>
-        </div>
+    <PageShell
+      wide
+      label={t('官方汤')}
+      title={t('每日官方汤')}
+      lead={t(
+        '每天零点（UTC）由砚熬一碗，所有人都拿到同一道题。当天的汤只能问，不能揭晓；过了午夜就能回看汤底。',
       )}
-
-      {past.length ? (
-        <div className="mt-12">
-          <div className="flex items-baseline justify-between">
-            <span className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-              {t('往期')}
-            </span>
-            <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground/70">
-              {t('{count} 碗', { count: String(past.length).padStart(2, '0') })}
-            </span>
-          </div>
-          <ul className="mt-3 border-t border-foreground/25">
-            {past.map((item) => (
-              <li key={item.date} className="rule-dashed">
-                <Link
-                  to={`/daily/${item.date}`}
-                  className="flex items-center gap-3 py-3 transition-colors hover:text-foreground"
-                >
-                  <span className="shrink-0 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-                    {item.date}
+    >
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-14">
+        <div className="pt-10 lg:sticky lg:top-0 lg:self-start">
+          {!loaded ? (
+            <div className="sheet h-80 animate-pulse opacity-60" />
+          ) : today ? (
+            <article className="sheet-stack">
+              <div className="sheet overflow-hidden">
+                <div className="flex items-center justify-between gap-3 border-b border-dashed border-foreground/20 px-5 py-3.5 sm:px-7">
+                  <span className="flex items-center gap-3">
+                    <span aria-hidden className="seal size-6 text-[12px]">
+                      今
+                    </span>
+                    <span className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
+                      {t('今日')} · {today.date}
+                    </span>
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-serif text-[15px]">
-                    {item.title}
+                  <span className="stamp flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.2em]">
+                    <Lock className="size-3" /> {t('明日解锁')}
                   </span>
-                  <span className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-                    {dailyLanguageLabel(item.locale, t)}
-                  </span>
-                  <span className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-                    {t(item.difficulty)}
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </Link>
-              </li>
-            ))}
-          </ul>
+                </div>
+                <div className="px-5 pt-6 pb-7 sm:px-7">
+                  <h2 className="font-serif text-[clamp(1.75rem,3.5vw,2.25rem)] leading-tight font-semibold">
+                    {today.title}
+                  </h2>
+                  <Meta difficulty={today.difficulty} tags={today.tags} locked={today.locked} />
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Counts plays={today.plays} solves={today.solves} />
+                    <LanguageNote locale={today.locale} genreScore={today.genreScore} />
+                  </div>
+                  <p className="surface-prose mt-6 border-l-2 border-stamp/50 pl-4 font-serif text-[16px] leading-8 text-foreground/90">
+                    {today.surface}
+                  </p>
+                  <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-foreground/10 pt-6">
+                    <StartButton
+                      daily={today}
+                      activeGames={activeGames}
+                      onStart={onStart}
+                      onContinue={onContinue}
+                    />
+                    <RoomEntry puzzleId={today.puzzleId} />
+                    <Link
+                      to={`/daily/${today.date}`}
+                      className="ink-link ml-auto font-mono text-[11px] tracking-[0.16em] text-muted-foreground hover:text-foreground"
+                    >
+                      {t('查看案卷')} →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ) : (
+            <Notice>{t('今天的汤还在熬，稍后再来。')}</Notice>
+          )}
         </div>
-      ) : null}
 
-      <div className="mt-8">
+        {past.length ? (
+          <section className="pt-10">
+            <div className="flex items-end justify-between border-b border-foreground/20 pb-3">
+              <h2 className="font-serif text-xl leading-none font-semibold tracking-wide">
+                {t('往期')}
+              </h2>
+              <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+                {t('{count} 碗', { count: String(past.length).padStart(2, '0') })}
+              </span>
+            </div>
+            <ul className="mt-4 space-y-2">
+              {past.map((item) => {
+                const day = item.date.slice(8, 10)
+                const month = new Date(`${item.date}T00:00:00Z`).toLocaleString(locale, {
+                  month: 'short',
+                  timeZone: 'UTC',
+                })
+                return (
+                  <li key={item.date}>
+                    <Link
+                      to={`/daily/${item.date}`}
+                      className="group flex items-center gap-4 border border-transparent px-2 py-2 transition-colors hover:border-sheet-edge hover:bg-sheet hover:shadow-[var(--shadow-sheet)]"
+                    >
+                      <span className="flex w-12 shrink-0 flex-col items-center border-r border-foreground/15 pr-3">
+                        <span className="font-serif text-2xl leading-none font-semibold tabular-nums">
+                          {day}
+                        </span>
+                        <span className="mt-1 font-mono text-[9px] tracking-[0.18em] text-muted-foreground">
+                          {month}
+                        </span>
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-serif text-[16px] transition-colors group-hover:text-stamp">
+                          {item.title}
+                        </span>
+                        <span className="mt-1 flex items-center gap-3 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+                          <Difficulty value={item.difficulty} />
+                          <span>{dailyLanguageLabel(item.locale, t)}</span>
+                        </span>
+                      </span>
+                      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-stamp" />
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ) : null}
+      </div>
+
+      <div className="mt-12">
         <Link
           to="/"
-          className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
+          className="ink-link font-mono text-[11px] tracking-[0.18em] text-muted-foreground hover:text-foreground"
         >
-          {t('回首页')}
+          ← {t('回首页')}
         </Link>
       </div>
     </PageShell>

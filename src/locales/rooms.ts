@@ -1,4 +1,5 @@
 const phrases: [string, string, string][] = [
+  ['回到这一桌', 'Back to this table', 'この卓に戻る'],
   ['更多操作', 'More actions', 'その他の操作'],
   ['等待回答', 'Awaiting an answer', '回答待ち'],
   ['这次回答未能完成', 'This answer could not be completed', '回答を完了できませんでした'],

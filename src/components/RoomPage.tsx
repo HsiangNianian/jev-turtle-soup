@@ -53,17 +53,51 @@ function LoginGate() {
   const { t } = useI18n()
   return (
     <PageShell label={t('同桌')} title={t('和朋友一起，把这碗汤解开')}>
-      <p className="my-6 font-serif text-sm leading-7 text-muted-foreground">
-        {t('登录后入座，提问和讨论都会留在你们共同的案卷里。')}
-      </p>
-      <Link
-        className="inline-flex min-h-11 items-center bg-foreground px-5 font-mono text-xs text-background"
-        to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`}
-      >
-        {t('登录后入座')} →
-      </Link>
+      <div className="sheet-stack mt-10 max-w-xl">
+        <div className="sheet flex flex-col items-start gap-5 p-6 sm:p-8">
+          <SeatRow filled={2} />
+          <p className="font-serif text-[15px] leading-8 text-foreground/80">
+            {t('登录后入座，提问和讨论都会留在你们共同的案卷里。')}
+          </p>
+          <Link
+            className="inline-flex min-h-11 items-center gap-2 bg-foreground px-5 font-mono text-[11px] font-bold tracking-[0.18em] text-background transition-colors hover:bg-stamp hover:text-[#fbf6ec]"
+            to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`}
+          >
+            {t('登录后入座')} →
+          </Link>
+        </div>
+      </div>
     </PageShell>
   )
+}
+
+/** 六个座位的示意：实心是已经坐下的人，虚线圈是空位。只做装饰。 */
+function SeatRow({ filled }: { filled: number }) {
+  return (
+    <div className="flex items-center gap-2" aria-hidden>
+      {Array.from({ length: 6 }, (_, i) => (
+        <span
+          key={i}
+          className={cn(
+            'size-7 rounded-full',
+            i === 0
+              ? 'bg-stamp'
+              : i < filled
+                ? 'bg-foreground'
+                : 'border border-dashed border-foreground/30',
+          )}
+        />
+      ))}
+    </div>
+  )
+}
+
+const phaseTone: Record<keyof typeof phases, string> = {
+  waiting: 'bg-stamp-soft text-stamp',
+  playing: 'bg-[color-mix(in_srgb,var(--v-partly)_14%,transparent)] text-[var(--v-partly)]',
+  solved: 'bg-[color-mix(in_srgb,var(--v-yes)_14%,transparent)] text-[var(--v-yes)]',
+  revealed: 'bg-stamp-soft text-stamp',
+  abandoned: 'bg-muted text-muted-foreground',
 }
 
 export function RoomLobby({
@@ -129,90 +163,111 @@ export function RoomLobby({
     >
       {mode === 'list' ? (
         <>
-          <div className="my-6 flex flex-wrap items-center gap-4">
+          <div className="mt-8 flex flex-wrap items-center gap-4">
             <RoomEntry />
-            <Link to="/library" className="font-mono text-xs text-muted-foreground">
+            <Link
+              to="/library"
+              className="ink-link font-mono text-[11px] tracking-wider text-muted-foreground hover:text-foreground"
+            >
               {t('去题库选一碗汤')} →
             </Link>
           </div>
           {items.length ? (
-            <div className="border-t border-foreground/25">
+            <ul className="mt-8 grid gap-4 sm:grid-cols-2">
               {items.map((room) => (
-                <article
-                  key={room.roomId}
-                  className="flex items-center gap-4 border-b border-dashed border-foreground/25 py-5"
-                >
-                  <Link to={`/rooms/${room.roomId}`} className="min-w-0 flex-1">
-                    <p className="mb-2 font-mono text-[10px] tracking-wider text-muted-foreground">
-                      {t(phases[room.phase])} · {t('{turns} 轮', { turns: room.turns })}
-                    </p>
-                    <h2 className="font-serif text-xl">{room.title}</h2>
-                  </Link>
-                  <button
-                    className="min-h-11 px-2 font-mono text-[11px] text-muted-foreground"
-                    onClick={() => {
-                      if (confirm(t('仅从我的列表隐藏，其他同桌仍能看见记录。')))
-                        void roomAPI
-                          .hide(room.roomId)
-                          .then(() =>
-                            setItems((prev) => prev.filter((r) => r.roomId !== room.roomId)),
-                          )
-                          .catch((e) => setError(errorText(e)))
-                    }}
-                  >
-                    {t('隐藏')}
-                  </button>
-                </article>
+                <li key={room.roomId}>
+                  <article className="sheet sheet-hover group flex h-full flex-col p-5">
+                    <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.14em]">
+                      <span className={cn('rounded-full px-2 py-0.5', phaseTone[room.phase])}>
+                        {t(phases[room.phase])}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t('{turns} 轮', { turns: room.turns })}
+                      </span>
+                      <button
+                        className="relative z-10 ml-auto min-h-9 px-1 text-muted-foreground transition-colors hover:text-stamp"
+                        onClick={() => {
+                          if (confirm(t('仅从我的列表隐藏，其他同桌仍能看见记录。')))
+                            void roomAPI
+                              .hide(room.roomId)
+                              .then(() =>
+                                setItems((prev) => prev.filter((r) => r.roomId !== room.roomId)),
+                              )
+                              .catch((e) => setError(errorText(e)))
+                        }}
+                      >
+                        {t('隐藏')}
+                      </button>
+                    </div>
+                    <Link
+                      to={`/rooms/${room.roomId}`}
+                      className="mt-3 font-serif text-xl leading-snug font-semibold after:absolute after:inset-0 group-hover:text-stamp"
+                    >
+                      {room.title}
+                    </Link>
+                    <span className="mt-auto pt-4 font-mono text-[11px] tracking-wider text-muted-foreground">
+                      {t(
+                        room.phase === 'waiting' || room.phase === 'playing'
+                          ? '回到这一桌'
+                          : '查看案卷',
+                      )}{' '}
+                      →
+                    </span>
+                  </article>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             <Empty>{t('还没有同桌案卷。选一碗汤邀请朋友，或凭邀请码入座。')}</Empty>
           )}
         </>
       ) : (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            void enter()
-          }}
-          className="mt-7 space-y-6"
-        >
-          <p className="max-w-lg font-serif text-sm leading-7 text-muted-foreground">
-            {t('2—6 人围坐一桌。各自提问，一起讨论，由砚主持；想提前看答案，需要全体同意。')}
-          </p>
-          {mode === 'join' ? (
-            <label className="block">
-              <span className="mb-2 block font-mono text-[11px] tracking-wider">
-                {t('邀请码或邀请链接')}
-              </span>
-              <input
-                autoFocus
-                className={inputClass}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                autoComplete="off"
-                maxLength={512}
-                placeholder="ABCD EFGH 2345"
-                required
-              />
-            </label>
-          ) : null}
-          {mode === 'new' && enabled === false ? (
-            <Notice>{t('同桌正在准备，暂时不能开新桌。')}</Notice>
-          ) : (
-            <Button
-              type="submit"
-              disabled={loading || (mode === 'new' && (!puzzle || enabled !== true))}
-            >
-              {loading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <UsersRound className="size-4" />
-              )}
-              {t(mode === 'new' ? '开一桌，邀请朋友' : '入座')}
-            </Button>
-          )}
-        </form>
+        <div className="sheet-stack mt-10 max-w-xl">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void enter()
+            }}
+            className="sheet space-y-6 p-6 sm:p-8"
+          >
+            <SeatRow filled={mode === 'join' ? 3 : 1} />
+            <p className="font-serif text-[15px] leading-8 text-foreground/80">
+              {t('2—6 人围坐一桌。各自提问，一起讨论，由砚主持；想提前看答案，需要全体同意。')}
+            </p>
+            {mode === 'join' ? (
+              <label className="block">
+                <span className="mb-2 block font-mono text-[11px] tracking-[0.2em] text-muted-foreground">
+                  {t('邀请码或邀请链接')}
+                </span>
+                <input
+                  autoFocus
+                  className={cn(inputClass, 'py-3 font-mono text-lg tracking-[0.3em]')}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  autoComplete="off"
+                  maxLength={512}
+                  placeholder="ABCD EFGH 2345"
+                  required
+                />
+              </label>
+            ) : null}
+            {mode === 'new' && enabled === false ? (
+              <Notice>{t('同桌正在准备，暂时不能开新桌。')}</Notice>
+            ) : (
+              <Button
+                type="submit"
+                disabled={loading || (mode === 'new' && (!puzzle || enabled !== true))}
+              >
+                {loading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <UsersRound className="size-4" />
+                )}
+                {t(mode === 'new' ? '开一桌，邀请朋友' : '入座')}
+              </Button>
+            )}
+          </form>
+        </div>
       )}
       {error ? (
         <div role="alert" className="mt-5">
@@ -766,12 +821,15 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
       className="room-screen flex min-h-0 flex-1 flex-col"
       data-layout={desktop ? 'workbench' : 'conversation'}
     >
-      <header className="room-header shrink-0 border-b border-foreground/25 px-4 py-2">
+      <header className="room-header shrink-0 border-b border-foreground/20 px-4 py-2">
         <Link to="/me/rooms" aria-label={t('我的同桌')} className="room-icon-button">
           <ArrowLeft className="size-4" />
         </Link>
+        <span aria-hidden className="seal hidden size-8 shrink-0 text-[15px] sm:inline-flex">
+          桌
+        </span>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-serif text-base sm:text-lg">{title}</h1>
+          <h1 className="truncate font-serif text-base font-semibold sm:text-lg">{title}</h1>
           <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
             <span
               className={cn(
@@ -786,9 +844,23 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
         <button
           onClick={() => setMembersOpen(true)}
           aria-label={t('同桌成员')}
-          className="flex min-h-11 items-center gap-2 px-1 font-mono text-xs"
+          className="flex min-h-11 items-center gap-2 rounded-full px-2 font-mono text-xs transition-colors hover:bg-foreground/5"
         >
-          <UsersRound className="size-4" />
+          {seats.length ? (
+            <span className="room-avatar-stack" aria-hidden>
+              {seats.slice(0, 4).map((m, i) => (
+                <span
+                  key={m.uid}
+                  style={{ zIndex: 4 - i }}
+                  data-offline={m.disconnectedAt !== null || undefined}
+                >
+                  {m.name.slice(0, 1)}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <UsersRound className="size-4" />
+          )}
           {seats.length}/6
         </button>
         {s && !s.readOnly ? (
@@ -999,17 +1071,22 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
       <div className="room-workspace">
         {desktop && s ? (
           <aside className="room-case-rail" aria-label={t('案卷')} tabIndex={0}>
-            <p className="font-mono text-[10px] tracking-widest text-stamp">{t('案卷')}</p>
-            <h2 className="mt-3 font-serif text-xl leading-relaxed">{s.puzzle.title}</h2>
-            <p className="mt-4 line-clamp-6 font-serif text-sm leading-7 text-muted-foreground">
-              {s.puzzle.surface}
-            </p>
-            <button
-              className="mt-2 min-h-11 font-mono text-xs underline underline-offset-4"
-              onClick={() => setSurfaceOpen(true)}
-            >
-              {t('查看汤面')} ↗
-            </button>
+            <p className="eyebrow text-[10px]">{t('案卷')}</p>
+            <h2 className="mt-4 font-serif text-2xl leading-snug font-semibold">
+              {s.puzzle.title}
+            </h2>
+            <div className="sheet mt-5 border-l-2 border-l-stamp px-4 py-4">
+              <p className="font-mono text-[10px] tracking-[0.26em] text-stamp">{t('汤面')}</p>
+              <p className="mt-2 line-clamp-6 font-serif text-sm leading-7 text-foreground/85">
+                {s.puzzle.surface}
+              </p>
+              <button
+                className="ink-link mt-2 min-h-9 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                onClick={() => setSurfaceOpen(true)}
+              >
+                {t('查看汤面')} ↗
+              </button>
+            </div>
             {renderLedger()}
           </aside>
         ) : null}
@@ -1041,56 +1118,56 @@ function ConnectedRoom({ id, owner }: { id: string; owner: string }) {
           >
             <div className="mx-auto w-full max-w-3xl">
               {s?.phase === 'waiting' && marks.filter === 'all' && !verdictFilter ? (
-                <div className="room-waiting mb-4 border border-foreground/25 bg-card p-4">
-                  <p className="font-mono text-[10px] tracking-[.2em] text-stamp">
-                    {t('入座后就开汤')}
-                  </p>
-                  <h2 className="mt-1 font-serif text-lg">{t('空着的座位，留给朋友')}</h2>
-                  <div className="my-3 grid grid-cols-6 gap-2">
-                    {Array.from({ length: 6 }, (_, i) => {
-                      const m = seats[i]
-                      return (
-                        <div
-                          key={i}
-                          className={cn(
-                            'flex min-w-0 flex-col items-center border-b-2 pb-2',
-                            m ? 'border-foreground/60' : 'border-dashed border-foreground/15',
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'mb-2 flex size-8 items-center justify-center font-serif text-sm',
-                              m ? 'bg-foreground text-background' : 'text-muted-foreground/35',
-                            )}
-                          >
-                            {m ? m.name.slice(0, 1) : '＋'}
-                          </span>
-                          <span className="max-w-full truncate font-mono text-[9px] text-muted-foreground">
-                            {m?.name ?? t('空位')}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <p className="mb-3 font-mono text-[10px] leading-5 text-muted-foreground">
-                    {t('把邀请发给朋友。至少两人在线，房主就可以开始。')}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button size="sm" variant="outline" onClick={() => void copyInvite()}>
-                      <Copy className="size-3.5" />
-                      {t(copied ? '已复制' : '复制邀请')}
-                    </Button>
-                    {s.hostId === owner ? (
-                      <Button
-                        size="sm"
-                        disabled={
-                          !available || seats.filter((m) => m.disconnectedAt === null).length < 2
-                        }
-                        onClick={() => send({ type: 'start' })}
-                      >
-                        {t('开始同桌')}
+                <div className="room-waiting sheet-stack mb-6">
+                  <div className="sheet p-5 sm:p-6">
+                    <p className="eyebrow text-[10px]">{t('入座后就开汤')}</p>
+                    <h2 className="mt-3 font-serif text-xl font-semibold">
+                      {t('空着的座位，留给朋友')}
+                    </h2>
+                    <div className="my-5 grid grid-cols-6 gap-2">
+                      {Array.from({ length: 6 }, (_, i) => {
+                        const m = seats[i]
+                        return (
+                          <div key={i} className="flex min-w-0 flex-col items-center gap-2">
+                            <span
+                              className={cn(
+                                'flex size-11 items-center justify-center rounded-full font-serif text-base transition-colors',
+                                m
+                                  ? m.uid === s.hostId
+                                    ? 'bg-stamp text-[#fbf6ec] shadow-[0_6px_14px_-8px_var(--stamp)]'
+                                    : 'bg-foreground text-background'
+                                  : 'border border-dashed border-foreground/25 text-muted-foreground/40',
+                              )}
+                            >
+                              {m ? m.name.slice(0, 1) : '＋'}
+                            </span>
+                            <span className="max-w-full truncate font-mono text-[9px] text-muted-foreground">
+                              {m?.name ?? t('空位')}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <p className="mb-3 font-mono text-[10px] leading-5 text-muted-foreground">
+                      {t('把邀请发给朋友。至少两人在线，房主就可以开始。')}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button size="sm" variant="outline" onClick={() => void copyInvite()}>
+                        <Copy className="size-3.5" />
+                        {t(copied ? '已复制' : '复制邀请')}
                       </Button>
-                    ) : null}
+                      {s.hostId === owner ? (
+                        <Button
+                          size="sm"
+                          disabled={
+                            !available || seats.filter((m) => m.disconnectedAt === null).length < 2
+                          }
+                          onClick={() => send({ type: 'start' })}
+                        >
+                          {t('开始同桌')}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               ) : null}

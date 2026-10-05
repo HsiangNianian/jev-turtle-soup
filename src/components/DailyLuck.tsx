@@ -11,7 +11,7 @@ export function DailyLuck() {
   }, [])
 
   return (
-    <div className="flex h-[clamp(2.75rem,9vw,4.5rem)] shrink-0 flex-col items-center justify-center border border-foreground/40 bg-card px-2.5 sm:px-3">
+    <div className="sheet flex h-[clamp(3.25rem,11vw,5rem)] shrink-0 rotate-2 flex-col items-center justify-center border-dashed px-3 sm:px-4">
       <div className="font-mono text-[9px] leading-none tracking-[0.14em] whitespace-nowrap text-muted-foreground">
         {t('今日人品')}
       </div>

@@ -311,3 +311,90 @@
     font-size: 14px;
   }
 }
+
+/* ── 视觉细调：和单人对局的案卷、问答记录同一套纸面语言 ── */
+.room-header {
+  background: color-mix(in srgb, var(--sheet) 55%, transparent);
+}
+.room-avatar-stack {
+  display: inline-flex;
+}
+.room-avatar-stack > span {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: -7px;
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  font: 12px var(--font-serif);
+  box-shadow: 0 0 0 2px var(--background);
+}
+.room-avatar-stack > span:first-child {
+  margin-left: 0;
+}
+.room-avatar-stack > span[data-offline] {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.room-column-title {
+  letter-spacing: 0.2em;
+}
+.room-column-title h2 {
+  font-weight: 600;
+}
+.room-speaker-avatar {
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+  color: var(--foreground);
+}
+.room-event-answer .room-speaker-avatar {
+  background: var(--stamp);
+  color: #fbf6ec;
+}
+.room-event {
+  transition: background-color 160ms ease;
+}
+.room-discussion-column .room-event:hover {
+  background: color-mix(in srgb, var(--sheet) 70%, transparent);
+}
+.room-system-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.room-system-note::before,
+.room-system-note::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to var(--dir, right), transparent, var(--border));
+}
+.room-system-note::after {
+  --dir: left;
+}
+.room-empty-discussion {
+  margin: 24px 16px;
+  padding: 28px 16px;
+  border: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--sheet) 50%, transparent);
+}
+.room-composer {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--sheet) 60%, transparent)
+  );
+}
+@media (min-width: 1024px) {
+  .room-case-rail,
+  .room-discussion-column {
+    background: color-mix(in srgb, var(--sheet) 55%, transparent);
+  }
+}

@@ -174,7 +174,9 @@ export function ClozePage({ id }: { id: string }) {
         className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center"
         role="status"
       >
-        <span className="font-mono text-[10px] tracking-[0.24em] text-stamp">案卷</span>
+        <span aria-hidden className="seal size-10 text-lg">
+          填
+        </span>
         <p
           className={cn(
             'font-serif text-lg',
@@ -185,7 +187,7 @@ export function ClozePage({ id }: { id: string }) {
         </p>
         {error ? (
           <button
-            className="border border-foreground px-4 py-2 text-sm"
+            className="mt-2 border border-foreground/80 px-5 py-2.5 font-mono text-[11px] tracking-[0.18em] transition-colors hover:bg-foreground hover:text-background"
             onClick={() => window.location.reload()}
           >
             重试
@@ -199,7 +201,20 @@ export function ClozePage({ id }: { id: string }) {
     if (typeof part === 'string') {
       part.split(/\n{2,}/).forEach((text, i) => {
         if (i) paragraphs.push([])
-        if (text) paragraphs[paragraphs.length - 1].push(text)
+        const nodes = paragraphs[paragraphs.length - 1]
+        // 紧跟在空格后面的标点不能单独折到下一行：把它和前一个空格包在一起
+        const lead = i === 0 ? /^[，。、！？；：,.!?;:”’」』）)…]+/.exec(text)?.[0] : undefined
+        const previous = nodes[nodes.length - 1]
+        if (lead && previous && typeof previous !== 'string') {
+          nodes[nodes.length - 1] = (
+            <span key={`gap-${index}`} className="whitespace-nowrap">
+              {previous}
+              {lead}
+            </span>
+          )
+          text = text.slice(lead.length)
+        }
+        if (text) nodes.push(text)
       })
       return
     }
@@ -210,17 +225,11 @@ export function ClozePage({ id }: { id: string }) {
         role="group"
         aria-label={`第 ${part.id + 1} 处，共 ${part.letters.length} 字`}
         className={cn(
-          'relative mx-1.5 inline-flex max-w-full items-stretch rounded-[3px] border border-foreground/30 bg-card align-middle leading-normal transition-shadow focus-within:border-stamp focus-within:ring-2 focus-within:ring-stamp/25',
-          solved && 'border-[var(--v-yes)]/50',
+          'cloze-gap relative mx-1.5 inline-flex max-w-full items-stretch align-middle leading-normal',
+          solved && 'is-solved',
         )}
       >
-        <span
-          aria-hidden="true"
-          className={cn(
-            'absolute -top-[7px] left-1 bg-background px-1 font-mono text-[9px] leading-none',
-            solved ? 'text-[var(--v-yes)]' : 'text-stamp',
-          )}
-        >
+        <span aria-hidden="true" className="cloze-gap-no">
           {part.id + 1}
         </span>
         {part.letters.map((char, position) => {
@@ -235,13 +244,7 @@ export function ClozePage({ id }: { id: string }) {
               autoComplete="off"
               spellCheck={false}
               aria-invalid={wrong}
-              className={cn(
-                'h-9 w-[1.9rem] min-w-0 shrink rounded-none border-0 border-foreground/15 bg-transparent p-0 text-center font-serif text-[17px] outline-none transition-colors focus:bg-stamp/10 focus:shadow-[inset_0_-2px_0_var(--stamp)] disabled:opacity-100',
-                position > 0 && 'border-l',
-                char && 'border-[var(--v-yes)]/25 bg-[var(--v-yes)]/10 text-[var(--v-yes)]',
-                wrong &&
-                  'bg-stamp/5 text-stamp underline decoration-stamp/70 decoration-wavy underline-offset-4',
-              )}
+              className={cn('cloze-cell', char && 'is-right', wrong && 'is-wrong')}
               onFocus={(event) => event.currentTarget.select()}
               onCompositionStart={(event) => {
                 composing.current = event.currentTarget
@@ -311,10 +314,13 @@ export function ClozePage({ id }: { id: string }) {
   const story = (
     <div data-cloze-inputs className="px-5 pt-6 pb-10 sm:px-8 sm:pt-8">
       <header className="relative">
-        <div className="font-mono text-[10px] tracking-[0.24em] text-stamp">
-          案卷 · 汤底填空 · 体验版
+        <div className="flex items-center gap-3">
+          <span className="eyebrow text-[10px]">案卷 · 汤底填空</span>
+          <span className="rounded-full bg-stamp-soft px-2 py-0.5 font-mono text-[9px] tracking-[0.16em] text-stamp">
+            体验版
+          </span>
         </div>
-        <h1 className="mt-2 pr-24 font-serif text-[28px] leading-tight font-semibold">
+        <h1 className="mt-4 pr-24 font-serif text-[clamp(1.75rem,3vw,2.25rem)] leading-tight font-semibold">
           {puzzle.title}
         </h1>
         {done ? (
@@ -324,7 +330,7 @@ export function ClozePage({ id }: { id: string }) {
         ) : null}
       </header>
 
-      <section aria-label="汤面" className="mt-6 border border-foreground/20 bg-card px-5 py-4">
+      <section aria-label="汤面" className="sheet mt-6 border-l-2 border-l-stamp px-5 py-4">
         <h2 className="font-mono text-[10px] tracking-[0.24em] text-stamp">汤面</h2>
         <div className="mt-2 space-y-3 font-serif text-[15px] leading-8">
           {puzzle.surface.split(/\n{2,}/).map((text, index) => (
@@ -333,11 +339,13 @@ export function ClozePage({ id }: { id: string }) {
         </div>
       </section>
 
-      <div className="sticky top-0 z-10 -mx-5 mt-6 border-b border-foreground/25 bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
+      <div className="sticky top-0 z-10 -mx-5 mt-6 border-b border-foreground/15 bg-background/90 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
         <div className="flex items-center gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <span className="font-serif text-2xl leading-none tabular-nums">{found}</span>
+              <span className="font-serif text-3xl leading-none font-semibold tabular-nums">
+                {found}
+              </span>
               <span className="font-mono text-[11px] text-muted-foreground">/ {total} 字</span>
               <span className="ml-1 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
                 {revealed ? '已揭晓' : done ? '已还原' : '已找回'}
@@ -349,14 +357,35 @@ export function ClozePage({ id }: { id: string }) {
               aria-valuemin={0}
               aria-valuemax={total}
               aria-valuenow={found}
-              className="mt-2 h-1 w-full overflow-hidden bg-foreground/10"
+              className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-foreground/10"
             >
               <div
-                className="h-full bg-[var(--v-yes)] transition-[width] duration-500"
+                className="h-full rounded-full bg-[var(--v-yes)] transition-[width] duration-500"
                 style={{ width: `${total ? (found / total) * 100 : 0}%` }}
               />
             </div>
           </div>
+          {/* 每一处空的完成情况：一枚小方格，补齐了就填实 */}
+          <ol className="flex shrink-0 flex-wrap justify-end gap-1.5" aria-hidden>
+            {gaps.map((gap) => {
+              const filled = gap.letters.filter(Boolean).length
+              return (
+                <li
+                  key={gap.id}
+                  className={cn(
+                    'flex size-6 items-center justify-center font-mono text-[10px] tabular-nums transition-colors',
+                    filled === gap.letters.length
+                      ? 'bg-[var(--v-yes)] text-background'
+                      : filled
+                        ? 'border border-[var(--v-yes)] text-[var(--v-yes)]'
+                        : 'border border-stamp/35 text-stamp',
+                  )}
+                >
+                  {gap.id + 1}
+                </li>
+              )
+            })}
+          </ol>
         </div>
         <p role="status" className="sr-only">
           已找回 {found} / {total} 字
@@ -368,14 +397,36 @@ export function ClozePage({ id }: { id: string }) {
         ) : null}
       </div>
 
-      <h2 className="mt-8 font-mono text-[10px] tracking-[0.24em] text-stamp">汤底 · 待补全</h2>
-      <p className="mt-2 text-xs leading-6 text-muted-foreground">
-        一边提问，一边补齐故事。每格一字，填对的字会自动留下，也可以在第一格粘贴整段答案。进度仅在本页保留。
-      </p>
-      <div className="mt-6 space-y-5 font-serif text-[16px] leading-[2.5]">
-        {paragraphs.map((nodes, index) => (
-          <p key={index}>{nodes}</p>
-        ))}
+      {done ? (
+        <div className="animate-pop mt-8 flex items-center gap-4 border-l-4 border-[var(--v-yes)] bg-[color-mix(in_srgb,var(--v-yes)_10%,transparent)] px-5 py-4">
+          <span aria-hidden className="seal size-10 shrink-0 bg-[var(--v-yes)] text-lg">
+            {revealed ? '揭' : '全'}
+          </span>
+          <div>
+            <p className="font-serif text-lg font-semibold">
+              {revealed ? '汤底已经揭晓' : '全部补齐，真相还原！'}
+            </p>
+            <p className="mt-0.5 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+              {revealed ? '下方是完整的汤底原文' : `${total} 个字一个不差`}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="sheet mt-8 px-5 pt-6 pb-8 sm:px-8">
+        <h2 className="font-mono text-[10px] tracking-[0.24em] text-stamp">
+          汤底 · {done ? '原文' : '待补全'}
+        </h2>
+        {done ? null : (
+          <p className="mt-2 font-serif text-[13px] leading-6 text-muted-foreground">
+            一边提问，一边补齐故事。每格一字，填对的字会自动留下，也可以在第一格粘贴整段答案。进度仅在本页保留。
+          </p>
+        )}
+        <div className="cloze-story mt-6 space-y-5 font-serif text-[17px] leading-[2.6]">
+          {paragraphs.map((nodes, index) => (
+            <p key={index}>{nodes}</p>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -384,7 +435,7 @@ export function ClozePage({ id }: { id: string }) {
     <main className="play-layout flex min-h-0 flex-1">
       <section
         aria-label="填空故事"
-        className="chat-scroll hidden min-h-0 w-[58%] overflow-y-auto border-r border-foreground/25 lg:block"
+        className="chat-scroll hidden min-h-0 w-[58%] overflow-y-auto border-r border-foreground/20 bg-[color-mix(in_srgb,var(--sheet)_35%,transparent)] lg:block"
       >
         {story}
       </section>

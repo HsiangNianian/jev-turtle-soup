@@ -1054,8 +1054,8 @@ function GameApp({
       className="flex h-dvh flex-col overflow-hidden"
       style={playing ? { height: 'var(--play-viewport-height, 100dvh)' } : undefined}
     >
-      <header className="z-20 shrink-0 bg-bar text-bar-foreground">
-        <div className="mx-auto flex h-12 w-full min-w-0 items-center gap-2 px-4 sm:gap-4 sm:px-6">
+      <header className="z-20 shrink-0 border-b border-black/40 bg-bar text-bar-foreground shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]">
+        <div className="mx-auto flex h-12 w-full min-w-0 items-center gap-2 px-4 sm:h-14 sm:gap-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2">
             {path !== '/' ? (
               <button
@@ -1063,70 +1063,90 @@ function GameApp({
                 onClick={() => navigate('/')}
                 aria-label={t('返回首页')}
                 className={cn(
-                  '-ml-1.5 size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-60 sm:size-7',
+                  '-ml-1.5 size-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-bar-foreground/10',
                   playing ? 'flex' : 'hidden sm:flex',
                 )}
               >
                 <ArrowLeft className="size-4" />
               </button>
             ) : null}
-            <Link
-              to="/"
-              className="min-w-0 truncate font-mono text-[11px] font-bold tracking-[0.18em] sm:text-[12px] sm:tracking-[0.24em]"
-            >
-              {t('海龟汤调查局')}
+            <Link to="/" className="group flex min-w-0 items-center gap-2.5">
+              <span
+                aria-hidden
+                className="seal size-7 shrink-0 text-[15px] transition-transform duration-300 group-hover:-rotate-6"
+              >
+                汤
+              </span>
+              <span className="min-w-0 truncate font-serif text-[14px] font-semibold tracking-[0.14em] sm:text-[15px]">
+                {t('海龟汤调查局')}
+              </span>
             </Link>
           </div>
 
           <nav
             aria-label={t('主要导航')}
-            className="ml-auto hidden shrink-0 items-center gap-4 font-mono text-[10px] tracking-[0.2em] sm:flex"
+            className="ml-auto hidden shrink-0 items-center gap-1 font-mono text-[11px] tracking-[0.18em] sm:flex"
           >
-            <Link
-              to="/daily"
-              className={cn(
-                'transition-opacity hover:opacity-60',
-                path.startsWith('/daily') ? 'opacity-100' : 'opacity-70',
-              )}
-            >
-              {t('每日')}
-            </Link>
-            <Link
-              to="/library"
-              className={cn(
-                'transition-opacity hover:opacity-60',
-                path.startsWith('/library') ? 'opacity-100' : 'opacity-70',
-              )}
-            >
-              {t('题库')}
-            </Link>
+            {[
+              { to: '/daily', label: t('每日') },
+              { to: '/library', label: t('题库') },
+            ].map((item) => {
+              const active = path.startsWith(item.to)
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'relative rounded-full px-3.5 py-1.5 transition-colors',
+                    active
+                      ? 'bg-bar-foreground/12 text-bar-foreground'
+                      : 'text-bar-foreground/65 hover:bg-bar-foreground/8 hover:text-bar-foreground',
+                  )}
+                >
+                  {item.label}
+                  {active ? (
+                    <span
+                      aria-hidden
+                      className="absolute -bottom-[11px] left-1/2 h-0.5 w-5 -translate-x-1/2 bg-stamp"
+                    />
+                  ) : null}
+                </Link>
+              )
+            })}
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0 sm:gap-2">
-            <ThemeToggle className="size-9 sm:size-7" />
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0 sm:gap-1.5 sm:border-l sm:border-bar-foreground/15 sm:pl-3">
+            <ThemeToggle className="size-9 rounded-full hover:bg-bar-foreground/10 hover:opacity-100 sm:size-8" />
             <LocaleMenu />
           </div>
 
-          <div className="hidden shrink-0 items-center font-mono text-[10px] sm:flex">
+          <div className="hidden shrink-0 items-center font-mono text-[11px] sm:flex">
             {user ? (
-              <span className="inline-flex min-w-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => navigate('/me')}
-                  className="max-w-40 truncate tracking-[0.16em] opacity-80 transition-opacity hover:opacity-60"
-                >
+              <button
+                type="button"
+                onClick={() => navigate('/me')}
+                className="group inline-flex min-w-0 items-center gap-2 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-bar-foreground/10"
+              >
+                <span className="relative flex size-7 shrink-0 items-center justify-center rounded-full border border-bar-foreground/25 bg-bar-foreground/10 font-serif text-[13px]">
+                  {(user.name || user.email).slice(0, 1).toUpperCase()}
+                  {unread > 0 ? (
+                    <span
+                      aria-label={t('有新动态')}
+                      title={t('有新动态')}
+                      className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-stamp ring-2 ring-bar"
+                    />
+                  ) : null}
+                </span>
+                <span className="max-w-40 truncate tracking-[0.12em] text-bar-foreground/80 group-hover:text-bar-foreground">
                   {user.name || user.email}
-                </button>
-                {unread > 0 ? (
-                  <span
-                    aria-label={t('有新动态')}
-                    title={t('有新动态')}
-                    className="size-1.5 shrink-0 rounded-full bg-stamp"
-                  />
-                ) : null}
-              </span>
+                </span>
+              </button>
             ) : (
-              <Link to="/login" className="opacity-80 transition-opacity hover:opacity-60">
+              <Link
+                to="/login"
+                className="rounded-full border border-bar-foreground/30 px-4 py-1.5 tracking-[0.18em] transition-colors hover:border-bar-foreground hover:bg-bar-foreground hover:text-bar"
+              >
                 {t('登录')}
               </Link>
             )}
@@ -1172,7 +1192,7 @@ function GameApp({
 /** Document-style pages (library, profile, forms) scroll inside the fixed app shell. */
 function ScrollArea({ children }: { children: React.ReactNode }) {
   return (
-    <main className="chat-scroll min-h-0 flex-1 overflow-y-auto">
+    <main className="desk chat-scroll min-h-0 flex-1 overflow-y-auto">
       {children}
       <Footer />
     </main>

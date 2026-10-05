@@ -513,4 +513,12 @@ export const en: Record<string, string> = {
     'The server rejected this save. Retry or reduce the case size.',
   '重试同步': 'Retry sync',
   '稍后自动重试': 'Will retry automatically',
+  '读汤面': 'Read the surface',
+  '一段离奇的怪事': 'A strange little story',
+  '问是非': 'Ask yes or no',
+  '砚只答是、不是、无关': 'Yan answers only yes, no, or irrelevant',
+  '还原汤底': 'Solve the truth',
+  '拼出完整的真相': 'Piece together what really happened',
+  '这位作者还没有写简介。': "This author hasn't written a bio yet.",
+  '{count} 碗公开的汤': '{count} public puzzles',
 }

@@ -255,7 +255,7 @@ export function SocialPanel({
           </div>
 
           {social?.signedIn ? (
-            <div className="mt-3 border border-foreground bg-card px-4 py-3">
+            <div className="sheet mt-3 px-4 py-3 transition-shadow focus-within:shadow-[0_0_0_4px_var(--stamp-soft),var(--shadow-sheet)]">
               <textarea
                 value={draft}
                 rows={2}

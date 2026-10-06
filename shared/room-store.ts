@@ -41,6 +41,7 @@ export async function roomPuzzle(db: D1Like, id: string): Promise<RoomSecretPuzz
   ) {
     throw new ApiError(404, '只有公开的汤和每日官汤可以开桌')
   }
+  if (row.truth.includes('[[')) throw new ApiError(400, '填空汤暂不支持同桌，请单人开始填空')
   return {
     id: row.id,
     ownerId: row.owner_id,

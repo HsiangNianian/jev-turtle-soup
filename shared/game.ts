@@ -47,6 +47,11 @@ export interface Puzzle {
   story?: string
 }
 
+/** Fill-in markers belong to storage/editing; hosts and reveals read plain text. */
+export function truthText(truth: string): string {
+  return truth.replace(/\[\[|\]\]/g, '')
+}
+
 export function resolveLlm(env: GameEnv) {
   const genericKey = env.LLM_API_KEY?.trim()
   if (genericKey) {
@@ -1249,7 +1254,7 @@ export async function scoreGenre(env: GameEnv, puzzle: Puzzle): Promise<number |
   try {
     const { answers } = await getClient(env).systemOne({
       state: {
-        puzzle: { title: puzzle.title, surface: puzzle.surface, truth: puzzle.truth },
+        puzzle: { title: puzzle.title, surface: puzzle.surface, truth: truthText(puzzle.truth) },
       },
       questions: {
         genre: score(
@@ -1332,7 +1337,7 @@ export async function revealGame(store: PuzzleStore, body: Record<string, unknow
   if (!puzzle) throw askError(readLocale(body.locale), 'missing')
   return {
     title: puzzle.title,
-    truth: puzzle.truth,
+    truth: truthText(puzzle.truth),
     hint: puzzle.hint,
     ...(puzzle.story?.trim() ? { story: puzzle.story } : {}),
   }
@@ -1356,6 +1361,7 @@ export async function judge(
   body: Record<string, unknown>,
   options: JudgeOptions = {},
 ) {
+  puzzle = { ...puzzle, truth: truthText(puzzle.truth) }
   const locale = readLocale(body.locale)
   const message = typeof body.message === 'string' ? body.message.trim() : ''
   if (!message) throw askError(locale, 'empty')

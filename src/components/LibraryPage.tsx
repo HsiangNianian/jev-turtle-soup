@@ -22,6 +22,7 @@ function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
     >
       <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
         {puzzle.official ? <OfficialMark /> : null}
+        {puzzle.mode === 'cloze' ? <span className="text-stamp">汤底填空</span> : null}
         {puzzle.featured ? (
           <span className="border border-stamp px-1.5 py-0.5 font-bold tracking-[0.14em] text-stamp">
             {t('精选')}
@@ -51,7 +52,7 @@ function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
   )
 }
 
-export function LibraryPage() {
+export function LibraryPage({ mode }: { mode?: 'cloze' }) {
   const { t } = useI18n()
   const [items, setItems] = useState<LibraryPuzzle[] | null>(null)
   const [sort, setSort] = useState<'new' | 'hot' | 'featured'>('new')
@@ -74,7 +75,7 @@ export function LibraryPage() {
       try {
         // 本地优先：上次同一组筛选条件的结果先上屏，网络回来再替换
         keywords = await listPuzzles(
-          { sort, q: trimmed, genre: genreFilter },
+          { sort, q: trimmed, genre: genreFilter, mode },
           {
             onStale: (cached) => {
               if (!signal.alive) return
@@ -103,7 +104,7 @@ export function LibraryPage() {
         setReranking(true)
         try {
           const ranked = await rerankPuzzles(
-            { sort, q: trimmed, genre: genreFilter },
+            { sort, q: trimmed, genre: genreFilter, mode },
             {
               onStale: (cached) => {
                 if (!signal.alive || token !== rerankToken.current) return
@@ -122,7 +123,7 @@ export function LibraryPage() {
         }
       }, RERANK_DELAY_MS)
     },
-    [sort, genreFilter, t],
+    [sort, genreFilter, mode, t],
   )
 
   useEffect(() => {
@@ -138,7 +139,7 @@ export function LibraryPage() {
   return (
     <PageShell
       label={t('题库')}
-      title={t('别人熬的汤')}
+      title={mode === 'cloze' ? '汤底填空' : t('别人熬的汤')}
       meta={
         <div className="flex items-center gap-1">
           {(['new', 'hot', 'featured'] as const).map((key) => (
@@ -159,6 +160,14 @@ export function LibraryPage() {
         </div>
       }
     >
+      {mode === 'cloze' ? (
+        <Link
+          to="/upload"
+          className="mt-4 inline-block text-sm text-stamp underline underline-offset-4"
+        >
+          上传一碗填空汤 →
+        </Link>
+      ) : null}
       <GenreSlider onCommit={setCommittedGenre} />
 
       <div className="mt-4 flex items-center gap-2.5">

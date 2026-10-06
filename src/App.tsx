@@ -34,6 +34,9 @@ const ArchiveView = lazy(() =>
 const ChatPanel = lazy(() =>
   import('@/components/ChatPanel').then((m) => ({ default: m.ChatPanel })),
 )
+const ClozePage = lazy(() =>
+  import('@/components/ClozePage').then((m) => ({ default: m.ClozePage })),
+)
 const DailyIndexPage = lazy(() =>
   import('@/components/DailyPage').then((m) => ({ default: m.DailyIndexPage })),
 )
@@ -265,7 +268,8 @@ function GameApp({
 }) {
   const { t, locale } = useI18n()
   const path = usePath()
-  const playing = path === '/play' || /^\/rooms\/(?!new$|join$)/.test(path)
+  const playing =
+    path === '/play' || path.startsWith('/cloze/') || /^\/rooms\/(?!new$|join$)/.test(path)
   usePlayViewport(playing)
   const owner = user?.uid ?? null
   const [initialGames] = useState(() => loadGames(owner))
@@ -465,6 +469,10 @@ function GameApp({
 
   const startLibraryGame = useCallback(
     (puzzle: LibraryPuzzleDetail) => {
+      if (puzzle.mode === 'cloze') {
+        navigate(`/cloze/${puzzle.id}`)
+        return
+      }
       setSession({
         sessionId: uid(),
         title: puzzle.title,
@@ -831,6 +839,15 @@ function GameApp({
       )
     }
 
+    if (path === '/cloze')
+      return (
+        <ScrollArea>
+          <LibraryPage key="cloze" mode="cloze" />
+        </ScrollArea>
+      )
+    const clozeMatch = matchPath(path, '/cloze/:id')
+    if (clozeMatch) return <ClozePage key={clozeMatch.id} id={clozeMatch.id} />
+
     if (path === '/play') {
       if (!session) {
         return (
@@ -1047,7 +1064,7 @@ function GameApp({
                 aria-label={t('返回首页')}
                 className={cn(
                   '-ml-1.5 size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-60 sm:size-7',
-                  path === '/play' ? 'flex' : 'hidden sm:flex',
+                  playing ? 'flex' : 'hidden sm:flex',
                 )}
               >
                 <ArrowLeft className="size-4" />
@@ -1147,9 +1164,7 @@ function GameApp({
       ) : null}
 
       <Suspense fallback={<PageFallback />}>{renderBody()}</Suspense>
-      {path !== '/play' && !/^\/rooms\/(?!new$|join$)/.test(path) ? (
-        <MobileNavigation path={path} signedIn={Boolean(user)} unread={unread} />
-      ) : null}
+      {!playing ? <MobileNavigation path={path} signedIn={Boolean(user)} unread={unread} /> : null}
     </div>
   )
 }

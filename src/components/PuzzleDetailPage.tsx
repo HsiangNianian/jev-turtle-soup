@@ -90,6 +90,7 @@ export function PuzzleDetailPage({
     >
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
         {puzzle.official ? <OfficialMark /> : null}
+        {puzzle.mode === 'cloze' ? <span className="text-stamp">汤底填空</span> : null}
         <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
         <TagSpoiler tags={puzzle.tags} />
         {genreLabel(puzzle.genreScore, t) ? (
@@ -123,9 +124,9 @@ export function PuzzleDetailPage({
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Button onClick={() => onStart(puzzle)}>
-          {t('开始推理')} <ArrowRight className="size-3.5" />
+          {puzzle.mode === 'cloze' ? '开始填空' : t('开始推理')} <ArrowRight className="size-3.5" />
         </Button>
-        <RoomEntry puzzleId={puzzle.id} />
+        {puzzle.mode !== 'cloze' ? <RoomEntry puzzleId={puzzle.id} /> : null}
         <Link
           to="/library"
           className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"

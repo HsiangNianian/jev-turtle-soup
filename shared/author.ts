@@ -36,6 +36,7 @@ function safeTags(raw: string): string[] {
 
 export interface AuthorPuzzle {
   id: string
+  mode: 'classic' | 'cloze'
   title: string
   surface: string
   truth: string
@@ -127,6 +128,7 @@ export async function listOwnPuzzles(
 
   return (results ?? []).map((row) => ({
     id: row.id,
+    mode: row.truth.includes('[[') ? 'cloze' : 'classic',
     title: row.title,
     surface: row.surface,
     truth: row.truth,

@@ -270,6 +270,14 @@ export function MePage({
               </div>
 
               <div className="mt-4 flex items-center justify-end gap-2">
+                {puzzle.mode === 'cloze' ? (
+                  <Link
+                    to={`/cloze/${puzzle.id}`}
+                    className="mr-auto text-sm text-stamp underline underline-offset-4"
+                  >
+                    开始填空 →
+                  </Link>
+                ) : null}
                 <Button
                   variant="outline"
                   size="sm"

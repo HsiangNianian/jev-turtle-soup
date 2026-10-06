@@ -69,6 +69,7 @@ import {
 } from '../shared/auth.ts'
 import {
   askLibraryPuzzle,
+  playClozePuzzle,
   createPuzzle,
   recordPlay,
   defaultDisplayName,
@@ -595,6 +596,7 @@ async function routeLibrary(
         genre: Number.isFinite(genre) ? genre : undefined,
         scope: url.searchParams.get('scope') === 'community' ? 'community' : undefined,
         featuredOnly: url.searchParams.get('featuredOnly') === '1',
+        mode: url.searchParams.get('mode') === 'cloze' ? 'cloze' : undefined,
       })
       return json({ items }, 200, SHORT_BROWSER_CACHE)
     }
@@ -620,6 +622,7 @@ async function routeLibrary(
       sort: typeof body.sort === 'string' ? body.sort : 'new',
       query,
       genre,
+      mode: body.mode === 'cloze' ? 'cloze' : undefined,
     })
     return json({ items })
   }
@@ -639,12 +642,14 @@ async function routeLibrary(
     return json({ error: '方法不被允许' }, 405)
   }
 
-  if (action === 'ask') {
+  if (action === 'ask' || action === 'cloze') {
     if (request.method !== 'POST') return json({ error: '方法不被允许' }, 405)
     const body = await readJson(request)
     const current = await viewer(request, env)
     const playerKey =
       current.uid ?? (typeof body.playerKey === 'string' ? body.playerKey.slice(0, 64) : 'anon')
+    if (action === 'cloze')
+      return json(await playClozePuzzle(env, db, current.uid, playerKey, id, body))
     return json(await askLibraryPuzzle(env, db, current.uid, playerKey, id, body))
   }
 

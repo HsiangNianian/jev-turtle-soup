@@ -76,6 +76,20 @@ describe('cloze document model', () => {
     expect(clozeIssues('[[雨伞]]', 3)).toEqual(['tooLong'])
   })
 
+  it('counts length the way the server does (UTF-16 units, not code points)', () => {
+    // 1000 个生僻字 = 1000 个码点，但是 2000 个 UTF-16 单位，刚好在服务端上限内；再多一个就超了
+    expect(clozeIssues('𠮷'.repeat(1000), 2000)).toEqual([])
+    expect(clozeIssues('𠮷'.repeat(1001), 2000)).toEqual(['tooLong'])
+  })
+
+  it('flags punctuation inside an answer instead of silently blocking the upload', () => {
+    expect(clozeIssues('他[[，]]说')).toEqual(['punct'])
+    expect(clozeIssues('他[[雨伞，]]说')).toEqual(['punct'])
+    // 编辑一次后标点就被规整到答案外面
+    const doc = parseDoc('他[[雨伞，]]说')
+    expect(composeDoc(doc)).toBe('他[[雨伞]]，说')
+  })
+
   it('always produces templates the server accepts', () => {
     const doc = parseDoc('他用雨伞按下按钮，因为够不到十六层。')
     const all = doc.chars.map((_, index) => index)

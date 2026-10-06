@@ -106,7 +106,7 @@ export function blankGroups({ chars, blanks }: ClozeDoc): BlankGroup[] {
 }
 
 /** 后端 parseCloze 会拒绝的情况，提前告诉作者；没挖空不算错误，只是还没开始。 */
-export type ClozeIssue = 'unpaired' | 'blank' | 'spaced' | 'tooLong'
+export type ClozeIssue = 'unpaired' | 'blank' | 'spaced' | 'punct' | 'tooLong'
 
 export function clozeIssues(template: string, maxLength = 2000): ClozeIssue[] {
   const issues = new Set<ClozeIssue>()
@@ -117,9 +117,11 @@ export function clozeIssues(template: string, maxLength = 2000): ClozeIssue[] {
     cursor = match.index + match[0].length
     if (!match[1].trim()) issues.add('blank')
     else if (/\s/.test(match[1])) issues.add('spaced')
+    else if ([...match[1]].some((char) => !isBlankable(char))) issues.add('punct')
   }
   rest += template.slice(cursor)
   if (/\[\[|\]\]/.test(rest)) issues.add('unpaired')
-  if ([...template].length > maxLength) issues.add('tooLong')
+  // 服务端按 UTF-16 长度限制（String.length），生僻字占两个单位，这里要按同样的口径数
+  if (template.length > maxLength) issues.add('tooLong')
   return [...issues]
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
@@ -117,6 +117,22 @@ export function UploadPage() {
     setMode(next)
   }
 
+  // 单选组的标准键盘操作：方向键在选项间移动并选中，Tab 只停在当前选中的那张
+  function onModeKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? 1
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? -1
+          : 0
+    if (!step) return
+    event.preventDefault()
+    const at = MODES.findIndex((item) => item.value === mode)
+    const next = MODES[(at + step + MODES.length) % MODES.length]
+    chooseMode(next.value)
+    event.currentTarget.querySelector<HTMLElement>(`[data-mode="${next.value}"]`)?.focus()
+  }
+
   function toggleTag(tag: string) {
     const next = selectedTags.includes(tag)
       ? selectedTags.filter((item) => item !== tag)
@@ -215,7 +231,7 @@ export function UploadPage() {
       </div>
 
       <div className="mt-7 space-y-6">
-        <div role="radiogroup" aria-labelledby="upload-mode-label">
+        <div role="radiogroup" aria-labelledby="upload-mode-label" onKeyDown={onModeKeyDown}>
           <span
             id="upload-mode-label"
             className="font-mono text-[11px] tracking-[0.22em] text-muted-foreground"
@@ -231,6 +247,8 @@ export function UploadPage() {
                   type="button"
                   role="radio"
                   aria-checked={active}
+                  data-mode={item.value}
+                  tabIndex={active ? 0 : -1}
                   onClick={() => chooseMode(item.value)}
                   className={cn(
                     'relative border px-4 py-3 text-left transition-colors outline-none focus-visible:shadow-[0_0_0_3px_var(--stamp-soft)]',

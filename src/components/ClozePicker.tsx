@@ -18,6 +18,7 @@ const ISSUE_TEXT: Record<ClozeIssue, string> = {
   unpaired: '[[ ]] 没有成对，或者互相嵌套了',
   blank: '有一处填空是空的',
   spaced: '填空里不能有空格或换行',
+  punct: '填空里不要包含标点或符号，请只选文字',
   tooLong: '加上填空标记后超过了字数上限，请缩短故事或少挖几处',
 }
 
@@ -26,6 +27,8 @@ const DOUBLE_TAP_MS = 320
 const LONG_PRESS_MS = 280
 
 interface LastTap {
+  /** 记下点击时的故事文字：故事改过之后，这条记录里的下标就不作数了 */
+  text: string
   index: number
   time: number
   kind: 'tap' | 'range'
@@ -67,7 +70,11 @@ export function ClozePicker({
   const root = useRef<HTMLDivElement>(null)
   const press = useRef<Press | null>(null)
   const lastTap = useRef<LastTap | null>(null)
-  const [anchor, setAnchor] = useState<number | null>(null)
+  const text = doc.chars.join('')
+  // 起点和上一次点击都按下标记录，故事文字一改，它们指的位置就变了，必须作废
+  const [anchorAt, setAnchorAt] = useState<{ index: number; text: string } | null>(null)
+  const anchor = anchorAt?.text === text ? anchorAt.index : null
+  const setAnchor = (index: number | null) => setAnchorAt(index === null ? null : { index, text })
   const [drag, setDrag] = useState<{
     start: number
     current: number
@@ -101,7 +108,7 @@ export function ClozePicker({
   }
 
   function tap(index: number, now: number) {
-    const previous = lastTap.current
+    const previous = lastTap.current?.text === text ? lastTap.current : null
     const quick =
       previous !== null && previous.index === index && now - previous.time < DOUBLE_TAP_MS
     // 刚用这个字收尾了一次划选，紧跟着的第二下是同一个双击的一部分
@@ -117,10 +124,10 @@ export function ClozePicker({
       const before = doc.blanks
       commit(paint(doc.blanks, blankableBetween(doc.chars, anchor, index), 'add'))
       setAnchor(null)
-      lastTap.current = { index, time: now, kind: 'range', before }
+      lastTap.current = { index, time: now, kind: 'range', before, text }
       return
     }
-    lastTap.current = { index, time: now, kind: 'tap', before: doc.blanks }
+    lastTap.current = { index, time: now, kind: 'tap', before: doc.blanks, text }
     commit(paint(doc.blanks, [index]))
   }
 
@@ -252,6 +259,7 @@ export function ClozePicker({
               type="button"
               onClick={() => {
                 setAnchor(null)
+                lastTap.current = null
                 commit(new Set())
               }}
               className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-stamp"

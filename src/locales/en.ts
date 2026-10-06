@@ -543,4 +543,6 @@ export const en: Record<string, string> = {
     'Write the full story above, then pick the characters to blank out here.',
   '加上填空标记后超过了字数上限，请缩短故事或少挖几处':
     'With the blank markers the solution is over the length limit; shorten the story or blank fewer spots',
+  '填空里不要包含标点或符号，请只选文字':
+    'Do not include punctuation or symbols in a blank; select characters only',
 }

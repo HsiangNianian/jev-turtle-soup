@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.42.0 - 2026-10-06
+
+### Features
+
+- Add a web-only, single-player story cloze mode: ask Yan questions while filling missing characters, lock correct letters, correct mistakes, and reveal the full story on demand. Support Chinese input methods, pasting words, and keyboard navigation. ([#5](https://github.com/HsiangNianian/jev-turtle-soup/pull/5), by @muyuzhong)
+- Let authors mark blanks with `[[answer]]` in the existing truth field. Add a dedicated cloze library and entry points from puzzle details and the author's works, with server-side validation and existing visibility permissions. ([#5](https://github.com/HsiangNianian/jev-turtle-soup/pull/5), by @muyuzhong)
+- Refresh the web interface with paper-dossier cards, warm shadows, red seals, clearer secondary text, navigation and responsive layouts across the home, library, daily, play, room, login and profile pages. Preserve the existing paper, ink and red brand palette and serif typography. ([#7](https://github.com/HsiangNianian/jev-turtle-soup/pull/7), by @muyuzhong)
+
+### Fixes
+
+- Keep punctuation attached to cloze answer cells and move shared component styles into the components layer so utility classes can override them correctly. ([#7](https://github.com/HsiangNianian/jev-turtle-soup/pull/7), by @muyuzhong)
+
+### Validation and scope
+
+- Pass all 227 tests, lint and the production build. Verify solo play density, local marks, filtering, mobile keyboards, real local WebSocket room lifecycles, and cloze permissions, hidden answers, wrong-letter correction, Chinese input and completion on desktop and mobile.
+- No database migration is required. Cloze progress currently lasts only for the open page; cloud saves, native cloze clients and multiplayer cloze are not included.
+
+### Native apps
+
+- iOS remains 0.8.0 (build 14), and Android remains 0.5.0 (build 8). Native attachments are unchanged from v0.41.0; this release updates the website and shared backend.
+- The iOS ZIP is an unsigned arm64/x86_64 Simulator app, not an iPhone IPA. The Android APK is a debug-signed test build.
+
 ## 0.41.0 - 2026-09-29
 
 ### Features

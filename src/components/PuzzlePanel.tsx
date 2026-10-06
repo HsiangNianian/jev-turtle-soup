@@ -67,11 +67,9 @@ export function PuzzlePanel({
   const progress = typeof closeness === 'number' ? Math.round(closeness * 100) : null
 
   return (
-    <div className="play-case-file flex min-h-full flex-col px-5 py-5">
+    <div className="play-case-file flex min-h-full flex-col px-5 py-6 lg:px-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-          {t('案卷 NO.{no}', { no: caseNo })}
-        </div>
+        <div className="eyebrow text-[10px]">{t('案卷 NO.{no}', { no: caseNo })}</div>
         <div className="flex items-center gap-2">
           {solved ? (
             <span
@@ -84,14 +82,14 @@ export function PuzzlePanel({
         </div>
       </div>
 
-      <h2 className="mt-3 font-serif text-xl leading-relaxed font-semibold">{session.title}</h2>
+      <h2 className="mt-4 font-serif text-2xl leading-snug font-semibold">{session.title}</h2>
 
-      <div className="mt-4 h-px w-full bg-foreground/25" />
-
-      <div className="mt-4 font-mono text-[10px] tracking-[0.26em] text-muted-foreground">
-        {t('汤面')}
+      <div className="sheet mt-5 border-l-2 border-l-stamp px-4 py-4">
+        <div className="font-mono text-[10px] tracking-[0.26em] text-stamp">{t('汤面')}</div>
+        <p className="mt-2 font-serif text-[15px] leading-7 text-foreground/90">
+          {session.surface}
+        </p>
       </div>
-      <p className="mt-3 font-serif text-[15px] leading-7 text-foreground/90">{session.surface}</p>
 
       <div className="mt-5 flex flex-wrap gap-x-3 gap-y-2 border-t border-dashed border-foreground/25 pt-4">
         <Field label={t('等级')} value={t(session.difficulty)} />
@@ -117,9 +115,9 @@ export function PuzzlePanel({
       </div>
 
       {progress !== null && !revealed ? (
-        <div className="mt-3 h-1 w-full bg-foreground/10">
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-foreground/10">
           <div
-            className="h-1 bg-stamp transition-all duration-700 ease-out"
+            className="h-full rounded-full bg-gradient-to-r from-stamp/60 to-stamp transition-all duration-700 ease-out"
             style={{ width: `${Math.max(3, progress)}%` }}
           />
         </div>

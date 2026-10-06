@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Search } from 'lucide-react'
+import { CircleCheck, Eye, Loader2, Search } from 'lucide-react'
 
-import { Empty, OfficialMark, PageShell, inputClass } from '@/components/Bits'
+import { Difficulty, Empty, OfficialMark, PageShell } from '@/components/Bits'
 
 import { genreLabel, listPuzzles, rerankPuzzles, type LibraryPuzzle } from '@/lib/library-client'
-import { cn } from '@/lib/utils'
 import { Link } from '@/components/Link'
 import { GenreSlider, GENRE_NEUTRAL } from '@/components/GenreSlider'
 import { useI18n } from '@/lib/i18n'
@@ -14,39 +13,63 @@ const RERANK_DELAY_MS = 700
 
 function PuzzleCard({ puzzle }: { puzzle: LibraryPuzzle }) {
   const { t } = useI18n()
+  // 和对局页「案卷 NO.」同一种取法：从 id 里抽数字，稳定不随排序变
+  const caseNo = (puzzle.id.replace(/\D/g, '').slice(-3) || '000').padStart(3, '0')
   const label = genreLabel(puzzle.genreScore, t)
   return (
     <Link
       to={`/library/${puzzle.id}`}
-      className="flex h-full flex-col border border-foreground/30 bg-card p-4 transition-colors hover:border-foreground"
+      className="sheet sheet-hover sheet-fold group flex h-full flex-col p-5"
     >
       <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
         {puzzle.official ? <OfficialMark /> : null}
-        {puzzle.mode === 'cloze' ? <span className="text-stamp">汤底填空</span> : null}
+        {puzzle.mode === 'cloze' ? (
+          <span className="rounded-full bg-stamp-soft px-2 py-0.5 text-stamp">汤底填空</span>
+        ) : null}
         {puzzle.featured ? (
-          <span className="border border-stamp px-1.5 py-0.5 font-bold tracking-[0.14em] text-stamp">
+          <span className="rounded-full bg-stamp px-2 py-0.5 font-bold tracking-[0.14em] text-[#fbf6ec]">
             {t('精选')}
           </span>
         ) : null}
-        <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
-        <span>{t('游玩 {plays}', { plays: puzzle.plays })}</span>
-        <span>·</span>
-        <span>{t('解开 {solves}', { solves: puzzle.solves })}</span>
-        {label ? <span className="ml-auto text-stamp/80">{label}</span> : null}
+        <span className="ml-auto tabular-nums text-muted-foreground/70">No.{caseNo}</span>
       </div>
-      <h3 className="mt-2.5 font-serif text-lg leading-snug">{puzzle.title}</h3>
-      <p className="mt-1.5 line-clamp-3 font-serif text-[13px] leading-6 text-foreground/75">
+      <h3 className="mt-4 font-serif text-[20px] leading-snug font-semibold transition-colors group-hover:text-stamp">
+        {puzzle.title}
+      </h3>
+      <p className="mt-2 line-clamp-3 font-serif text-[14px] leading-7 text-foreground/75">
         {puzzle.surface}
       </p>
-      <div className="mt-auto flex items-center gap-1.5 pt-3 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
-        {puzzle.official ? (
-          <span className="truncate">{t('海龟汤调查局')}</span>
-        ) : (
-          <>
-            <span className="text-stamp">@</span>
-            <span className="truncate">{puzzle.owner.displayName}</span>
-          </>
-        )}
+      <div className="mt-auto pt-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-dashed border-foreground/15 pt-3 font-mono text-[10px] tracking-[0.12em] text-muted-foreground">
+          <Difficulty value={puzzle.difficulty} />
+          {label ? <span className="text-stamp/80">{label}</span> : null}
+          <span className="ml-auto inline-flex items-center gap-3 tabular-nums">
+            <span
+              title={t('游玩 {plays}', { plays: puzzle.plays })}
+              className="inline-flex items-center gap-1"
+            >
+              <Eye className="size-3" aria-hidden />
+              {puzzle.plays}
+            </span>
+            <span
+              title={t('解开 {solves}', { solves: puzzle.solves })}
+              className="inline-flex items-center gap-1"
+            >
+              <CircleCheck className="size-3" aria-hidden />
+              {puzzle.solves}
+            </span>
+          </span>
+        </div>
+        <div className="mt-2 flex items-center gap-1.5 font-mono text-[10px] tracking-[0.14em] text-muted-foreground">
+          {puzzle.official ? (
+            <span className="truncate">{t('海龟汤调查局')}</span>
+          ) : (
+            <>
+              <span className="text-stamp">@</span>
+              <span className="truncate">{puzzle.owner.displayName}</span>
+            </>
+          )}
+        </div>
       </div>
     </Link>
   )
@@ -138,21 +161,23 @@ export function LibraryPage({ mode }: { mode?: 'cloze' }) {
 
   return (
     <PageShell
+      wide
       label={t('题库')}
       title={mode === 'cloze' ? '汤底填空' : t('别人熬的汤')}
+      lead={
+        mode === 'cloze'
+          ? '汤底被挖掉了几处字。一边向砚提问，一边把缺的字一格一格补回去，补齐就是真相。'
+          : undefined
+      }
       meta={
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 rounded-full border border-foreground/15 bg-sheet/60 p-1">
           {(['new', 'hot', 'featured'] as const).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setSort(key)}
-              className={cn(
-                'px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] transition-colors',
-                sort === key
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
+              aria-pressed={sort === key}
+              className="chip min-h-7 hover:border-transparent"
             >
               {key === 'new' ? t('最新') : key === 'hot' ? t('最热') : t('精选')}
             </button>
@@ -163,31 +188,33 @@ export function LibraryPage({ mode }: { mode?: 'cloze' }) {
       {mode === 'cloze' ? (
         <Link
           to="/upload"
-          className="mt-4 inline-block text-sm text-stamp underline underline-offset-4"
+          className="mt-6 inline-flex min-h-10 items-center gap-2 rounded-full bg-stamp-soft px-4 font-mono text-[11px] tracking-wider text-stamp transition-colors hover:bg-stamp hover:text-[#fbf6ec]"
         >
+          <span className="size-1.5 rounded-full bg-current" aria-hidden />
           上传一碗填空汤 →
         </Link>
       ) : null}
-      <GenreSlider onCommit={setCommittedGenre} />
-
-      <div className="mt-4 flex items-center gap-2.5">
-        <Search className="size-4 shrink-0 text-muted-foreground" />
-        <input
-          value={query}
-          placeholder={t('搜索标题、汤面、标签或作者……')}
-          onChange={(event) => setQuery(event.target.value)}
-          className={inputClass}
-        />
-        {reranking ? (
-          <span className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
-            {t('语义重排中…')}
-          </span>
-        ) : reranked ? (
-          <span className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
-            {t('已按语义重排')}
-          </span>
-        ) : null}
+      <div className="sheet mt-8 px-5 pt-5 pb-2 sm:px-7">
+        <div className="flex items-center gap-3 border-b border-foreground/15 pb-4 focus-within:border-foreground">
+          <Search className="size-5 shrink-0 text-muted-foreground" />
+          <input
+            value={query}
+            placeholder={t('搜索标题、汤面、标签或作者……')}
+            onChange={(event) => setQuery(event.target.value)}
+            className="min-w-0 flex-1 bg-transparent font-serif text-lg outline-none placeholder:text-muted-foreground/60"
+          />
+          {reranking ? (
+            <span className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" />
+              {t('语义重排中…')}
+            </span>
+          ) : reranked ? (
+            <span className="shrink-0 rounded-full bg-stamp-soft px-2 py-0.5 font-mono text-[10px] tracking-[0.16em] text-stamp">
+              {t('已按语义重排')}
+            </span>
+          ) : null}
+        </div>
+        <GenreSlider onCommit={setCommittedGenre} />
       </div>
 
       {error ? <Empty>{error}</Empty> : null}
@@ -205,9 +232,13 @@ export function LibraryPage({ mode }: { mode?: 'cloze' }) {
       ) : null}
 
       {items?.length ? (
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-          {items.map((puzzle) => (
-            <li key={puzzle.id}>
+        <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((puzzle, index) => (
+            <li
+              key={puzzle.id}
+              className="animate-rise-in"
+              style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+            >
               <PuzzleCard puzzle={puzzle} />
             </li>
           ))}

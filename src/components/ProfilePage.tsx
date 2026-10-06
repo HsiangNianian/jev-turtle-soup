@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Lock } from 'lucide-react'
+import { Eye, Loader2, Lock } from 'lucide-react'
 
-import { Badges, Empty, PageShell } from '@/components/Bits'
+import { Badges, Difficulty, Empty, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
 
 import { getPublicProfile, type PublicProfile } from '@/lib/library-client'
@@ -61,29 +61,44 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
       label={t('作者')}
       title={profile.displayName}
       meta={
-        <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+        <span className="font-mono text-[11px] tracking-[0.16em] text-muted-foreground">
           @{profile.handle}
         </span>
       }
     >
-      {profile.bio ? (
-        <div className="mt-6 max-w-xl font-serif text-[15px] leading-8 text-foreground/80">
-          {renderInline(profile.bio)}
+      <div className="sheet mt-8 flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:p-6">
+        <span
+          aria-hidden
+          className="flex size-16 shrink-0 items-center justify-center rounded-full bg-foreground font-serif text-2xl text-background ring-4 ring-stamp-soft"
+        >
+          {profile.displayName.slice(0, 1)}
+        </span>
+        <div className="min-w-0 flex-1">
+          {profile.bio ? (
+            <div className="font-serif text-[15px] leading-8 text-foreground/85">
+              {renderInline(profile.bio)}
+            </div>
+          ) : (
+            <p className="font-serif text-[15px] leading-8 text-muted-foreground">
+              {t('这位作者还没有写简介。')}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+            <span>{t('加入于 {date}', { date: formatDate(profile.createdAt) })}</span>
+            {profile.puzzles.length ? (
+              <span>{t('{count} 碗公开的汤', { count: profile.puzzles.length })}</span>
+            ) : null}
+            {isSelf ? (
+              <Link to="/me/profile" className="ink-link text-stamp">
+                {t('编辑资料')} →
+              </Link>
+            ) : null}
+          </div>
+          {profile.recognition?.badges.length ? (
+            <Badges badges={profile.recognition.badges} className="mt-4" />
+          ) : null}
         </div>
-      ) : null}
-
-      <div className="mt-5 flex flex-wrap items-center gap-3 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
-        <span>{t('加入于 {date}', { date: formatDate(profile.createdAt) })}</span>
-        {isSelf ? (
-          <Link to="/me/profile" className="transition-colors hover:text-foreground">
-            {t('编辑资料')}
-          </Link>
-        ) : null}
       </div>
-
-      {profile.recognition?.badges.length ? (
-        <Badges badges={profile.recognition.badges} className="mt-4" />
-      ) : null}
 
       {!profile.profilePublic ? (
         <div className="mt-8 flex items-center gap-3 border border-dashed border-foreground/25 px-5 py-8 font-mono text-[11px] tracking-[0.16em] text-muted-foreground">
@@ -97,34 +112,40 @@ export function ProfilePage({ handle, isSelf }: { handle: string; isSelf: boolea
       ) : null}
 
       {profile.puzzles.length ? (
-        <>
-          <div className="mt-9 font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-            {t('公开的汤')}
+        <section className="mt-12">
+          <div className="flex items-end justify-between border-b border-foreground/20 pb-3">
+            <h2 className="font-serif text-xl leading-none font-semibold tracking-wide">
+              {t('公开的汤')}
+            </h2>
+            <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
+              {String(profile.puzzles.length).padStart(2, '0')}
+            </span>
           </div>
-          <ul className="mt-3 border-t border-foreground/20">
+          <ul className="mt-5 grid gap-4 sm:grid-cols-2">
             {profile.puzzles.map((puzzle) => (
               <li key={puzzle.id}>
                 <Link
                   to={`/library/${puzzle.id}`}
-                  className="rule-dashed flex items-center gap-3 py-3.5 transition-colors hover:bg-foreground/[0.03]"
+                  className="sheet sheet-hover sheet-fold group flex h-full flex-col p-5"
                 >
-                  <span className="shrink-0 border border-foreground/25 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                    {t(puzzle.difficulty)}
+                  <span className="font-serif text-lg leading-snug font-semibold transition-colors group-hover:text-stamp">
+                    {puzzle.title}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-serif text-[15px]">{puzzle.title}</span>
-                    <span className="mt-0.5 block truncate font-serif text-[12px] text-muted-foreground">
-                      {puzzle.surface}
+                  <span className="mt-2 line-clamp-2 font-serif text-[13px] leading-6 text-foreground/70">
+                    {puzzle.surface}
+                  </span>
+                  <span className="mt-auto flex items-center justify-between gap-3 pt-4 font-mono text-[10px] tracking-[0.12em] text-muted-foreground">
+                    <Difficulty value={puzzle.difficulty} />
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                      <Eye className="size-3" aria-hidden />
+                      {puzzle.plays}
                     </span>
-                  </span>
-                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {puzzle.plays}
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
-        </>
+        </section>
       ) : null}
 
       {profile.profilePublic ? (

@@ -54,9 +54,11 @@ function StatCell({
   className?: string
 }) {
   return (
-    <div className={cn('border border-foreground/20 px-4 py-3', className)}>
+    <div className={cn('sheet px-4 py-3 sm:py-4', className)}>
       <div className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-1.5 font-serif text-2xl leading-none tabular-nums">{value}</div>
+      <div className="mt-2 font-serif text-2xl leading-none font-semibold tabular-nums sm:mt-2.5 sm:text-3xl">
+        {value}
+      </div>
     </div>
   )
 }
@@ -140,18 +142,19 @@ export function MePage({
 
   return (
     <PageShell
+      wide
       label={t('我的题库')}
       title={t('我的海龟汤')}
       meta={
         <Link
           to={`/u/${handle}`}
-          className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
+          className="ink-link font-mono text-[11px] tracking-[0.16em] text-muted-foreground hover:text-foreground"
         >
           {t('查看我的主页 →')}
         </Link>
       }
     >
-      <div className="mt-6 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+      <div className="mt-8 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <Button
           variant="outline"
           className="min-h-10 px-3 sm:px-5"
@@ -180,7 +183,7 @@ export function MePage({
         ) : null}
         <Button
           variant="ghost"
-          className="min-h-10 justify-self-end min-[360px]:col-span-2 sm:min-h-0"
+          className="min-h-10 justify-self-end min-[360px]:col-span-2 sm:ml-auto sm:min-h-0"
           onClick={onLogout}
         >
           {t('退出')}
@@ -188,8 +191,12 @@ export function MePage({
       </div>
 
       {summary && summary.total ? (
-        <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCell label={t('公开的汤')} value={summary.public} />
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <StatCell
+            label={t('公开的汤')}
+            value={summary.public}
+            className="border-l-2 border-l-stamp"
+          />
           <StatCell label={t('累计问过')} value={summary.plays} />
           <StatCell label={t('累计解开')} value={summary.solves} />
           <StatCell label={t('主动揭晓')} value={summary.reveals} />
@@ -209,9 +216,7 @@ export function MePage({
 
       {recognition && recognition.badges.length ? (
         <div className="mt-5">
-          <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-            {t('成就')}
-          </div>
+          <div className="eyebrow text-[10px]">{t('成就')}</div>
           <Badges badges={recognition.badges} className="mt-2" />
         </div>
       ) : null}
@@ -229,131 +234,139 @@ export function MePage({
       ) : null}
       {items && !items.length ? <Empty>{t('还没有上传过。点「上传新汤」写一个吧。')}</Empty> : null}
 
-      {items?.length ? (
-        <ul className="mt-7 border-t border-foreground/20">
-          {items.map((puzzle) => (
-            <li key={puzzle.id} className="rule-dashed py-5 sm:py-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h2 className="break-words font-serif text-lg leading-7">{puzzle.title}</h2>
-                  <p className="mt-1 line-clamp-2 break-words font-serif text-[13px] leading-6 text-muted-foreground">
-                    {puzzle.surface}
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    'mt-0.5 shrink-0 border px-2 py-1 font-mono text-[10px] font-bold tracking-[0.14em]',
-                    puzzle.visibility === 'public'
-                      ? 'border-[var(--v-yes)] text-[var(--v-yes)]'
-                      : 'border-foreground/30 text-muted-foreground',
-                  )}
-                >
-                  {puzzle.visibility === 'public' ? t('公开') : t('私密')}
-                </span>
-              </div>
-
-              <div className="mt-4 grid grid-cols-3 divide-x divide-foreground/15 border-y border-foreground/15 py-3">
-                <PuzzleStat label={t('累计问过')} value={puzzle.plays} />
-                <PuzzleStat label={t('累计解开')} value={puzzle.solves} />
-                <PuzzleStat label={t('主动揭晓')} value={puzzle.reveals} />
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] leading-5 tabular-nums text-muted-foreground">
-                <span>
-                  {puzzle.plays
-                    ? t('解开率 {rate}%', { rate: solveRate(puzzle) })
-                    : t('还没有人提问。')}
-                </span>
-                {puzzle.playsThisWeek > 0 ? (
-                  <span>{t('本周 +{count}', { count: puzzle.playsThisWeek })}</span>
-                ) : null}
-              </div>
-
-              <div className="mt-4 flex items-center justify-end gap-2">
-                {puzzle.mode === 'cloze' ? (
-                  <Link
-                    to={`/cloze/${puzzle.id}`}
-                    className="mr-auto text-sm text-stamp underline underline-offset-4"
-                  >
-                    开始填空 →
-                  </Link>
-                ) : null}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="min-h-10"
-                  disabled={busyId === puzzle.id}
-                  onClick={() => void toggle(puzzle)}
-                >
-                  {puzzle.visibility === 'public' ? t('转为私密') : t('设为公开')}
-                </Button>
-                <button
-                  type="button"
-                  aria-label={t('删除')}
-                  disabled={busyId === puzzle.id}
-                  onClick={() => void remove(puzzle)}
-                  className="flex size-10 items-center justify-center border border-foreground/30 text-muted-foreground transition-colors hover:border-stamp hover:text-stamp disabled:opacity-40"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {items?.length ? (
-        <section className="mt-12">
-          <div className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground">
-            {t('最近动态')}
-          </div>
-          {!activity ? (
-            <div className="mt-6 flex justify-center text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-          ) : !activity.length ? (
-            <div className="mt-3">
-              <Empty>{t('还没有动态。')}</Empty>
-            </div>
-          ) : (
-            <ul className="mt-3 border-t border-foreground/20">
-              {activity.map((event, index) => (
-                <li
-                  key={`${event.kind}-${event.target}-${event.at}-${index}`}
-                  className="rule-dashed grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 py-3 sm:flex sm:items-baseline"
-                >
+      <div className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        {items?.length ? (
+          <ul className="space-y-4">
+            {items.map((puzzle) => (
+              <li key={puzzle.id} className="sheet p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="break-words font-serif text-xl leading-7 font-semibold">
+                      <Link to={`/library/${puzzle.id}`} className="hover:text-stamp">
+                        {puzzle.title}
+                      </Link>
+                    </h2>
+                    <p className="mt-1 line-clamp-2 break-words font-serif text-[13px] leading-6 text-muted-foreground">
+                      {puzzle.surface}
+                    </p>
+                  </div>
                   <span
                     className={cn(
-                      'shrink-0 font-mono text-[10px] font-bold tracking-[0.14em]',
-                      event.kind === 'solve'
-                        ? 'text-[var(--v-yes)]'
-                        : event.kind === 'comment' || event.kind === 'like'
-                          ? 'text-stamp/80'
-                          : 'text-muted-foreground',
+                      'mt-0.5 shrink-0 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold tracking-[0.14em]',
+                      puzzle.visibility === 'public'
+                        ? 'bg-[color-mix(in_srgb,var(--v-yes)_14%,transparent)] text-[var(--v-yes)]'
+                        : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    {t(
-                      event.kind === 'play'
-                        ? '挑战'
-                        : event.kind === 'solve'
-                          ? '解开'
-                          : event.kind === 'like'
-                            ? '点赞'
-                            : '留言',
-                    )}
+                    {puzzle.visibility === 'public' ? t('公开') : t('私密')}
                   </span>
-                  <span className="col-span-2 row-start-2 min-w-0 font-serif text-[13px] leading-6 break-words sm:flex-1">
-                    {describe(event, t)}
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 divide-x divide-foreground/15 border-y border-dashed border-foreground/15 py-3.5">
+                  <PuzzleStat label={t('累计问过')} value={puzzle.plays} />
+                  <PuzzleStat label={t('累计解开')} value={puzzle.solves} />
+                  <PuzzleStat label={t('主动揭晓')} value={puzzle.reveals} />
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] leading-5 tabular-nums text-muted-foreground">
+                  <span>
+                    {puzzle.plays
+                      ? t('解开率 {rate}%', { rate: solveRate(puzzle) })
+                      : t('还没有人提问。')}
                   </span>
-                  <span className="col-start-2 row-start-1 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/60">
-                    {formatWhen(event.at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ) : null}
+                  {puzzle.playsThisWeek > 0 ? (
+                    <span>{t('本周 +{count}', { count: puzzle.playsThisWeek })}</span>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  {puzzle.mode === 'cloze' ? (
+                    <Link
+                      to={`/cloze/${puzzle.id}`}
+                      className="mr-auto text-sm text-stamp underline underline-offset-4"
+                    >
+                      开始填空 →
+                    </Link>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-10"
+                    disabled={busyId === puzzle.id}
+                    onClick={() => void toggle(puzzle)}
+                  >
+                    {puzzle.visibility === 'public' ? t('转为私密') : t('设为公开')}
+                  </Button>
+                  <button
+                    type="button"
+                    aria-label={t('删除')}
+                    disabled={busyId === puzzle.id}
+                    onClick={() => void remove(puzzle)}
+                    className="flex size-10 items-center justify-center border border-foreground/30 text-muted-foreground transition-colors hover:border-stamp hover:text-stamp disabled:opacity-40"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {items?.length ? (
+          <section className="lg:sticky lg:top-6 lg:self-start">
+            <div className="flex items-end justify-between border-b border-foreground/20 pb-3">
+              <h2 className="font-serif text-xl leading-none font-semibold tracking-wide">
+                {t('最近动态')}
+              </h2>
+            </div>
+            {!activity ? (
+              <div className="mt-6 flex justify-center text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+              </div>
+            ) : !activity.length ? (
+              <div className="mt-3">
+                <Empty>{t('还没有动态。')}</Empty>
+              </div>
+            ) : (
+              <ul className="relative mt-4 space-y-1 before:absolute before:top-2 before:bottom-2 before:left-[3px] before:w-px before:bg-foreground/15">
+                {activity.map((event, index) => (
+                  <li
+                    key={`${event.kind}-${event.target}-${event.at}-${index}`}
+                    className="relative grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 py-2.5 pl-5 before:absolute before:top-[15px] before:left-0 before:size-[7px] before:rounded-full before:bg-foreground/25"
+                  >
+                    <span
+                      className={cn(
+                        'shrink-0 font-mono text-[10px] font-bold tracking-[0.14em]',
+                        event.kind === 'solve'
+                          ? 'text-[var(--v-yes)]'
+                          : event.kind === 'comment' || event.kind === 'like'
+                            ? 'text-stamp/80'
+                            : 'text-muted-foreground',
+                      )}
+                    >
+                      {t(
+                        event.kind === 'play'
+                          ? '挑战'
+                          : event.kind === 'solve'
+                            ? '解开'
+                            : event.kind === 'like'
+                              ? '点赞'
+                              : '留言',
+                      )}
+                    </span>
+                    <span className="col-span-2 row-start-2 min-w-0 font-serif text-[13px] leading-6 break-words">
+                      {describe(event, t)}
+                    </span>
+                    <span className="col-start-2 row-start-1 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/60">
+                      {formatWhen(event.at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : null}
+      </div>
     </PageShell>
   )
 }

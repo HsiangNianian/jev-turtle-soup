@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, Loader2 } from 'lucide-react'
 
-import { Button, Empty, OfficialMark, PageShell } from '@/components/Bits'
+import { Button, Difficulty, Empty, OfficialMark, PageShell } from '@/components/Bits'
 import { SocialPanel } from '@/components/SocialPanel'
 import { SolveTurnRecords } from '@/components/SolveTurnRecords'
 import { OfficialStory } from '@/components/OfficialStory'
@@ -91,7 +91,7 @@ export function PuzzleDetailPage({
       <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
         {puzzle.official ? <OfficialMark /> : null}
         {puzzle.mode === 'cloze' ? <span className="text-stamp">汤底填空</span> : null}
-        <span className="border border-foreground/25 px-1.5 py-0.5">{t(puzzle.difficulty)}</span>
+        <Difficulty value={puzzle.difficulty} />
         <TagSpoiler tags={puzzle.tags} />
         {genreLabel(puzzle.genreScore, t) ? (
           <span className="text-stamp/80">{genreLabel(puzzle.genreScore, t)}</span>
@@ -109,7 +109,7 @@ export function PuzzleDetailPage({
         )}
       </div>
 
-      <div className="mt-6 border-l-2 border-brand/50 pl-4">
+      <div className="sheet mt-6 border-l-2 border-l-stamp px-5 py-5 sm:px-6">
         <p className="surface-prose font-serif text-[15px] leading-8 text-foreground/90">
           {puzzle.surface}
         </p>

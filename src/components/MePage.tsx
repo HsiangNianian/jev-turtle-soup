@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 
-import { Badges, Button, Empty, Notice, PageShell } from '@/components/Bits'
+import { Badges, Button, ConfirmDialog, Empty, Notice, PageShell } from '@/components/Bits'
 import { navigate } from '@/lib/router'
 import { Link } from '@/components/Link'
 import {
@@ -91,6 +91,7 @@ export function MePage({
   const [activity, setActivity] = useState<AuthorEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<OwnPuzzle | null>(null)
 
   useEffect(() => {
     listMyPuzzles()
@@ -128,7 +129,6 @@ export function MePage({
   }
 
   async function remove(puzzle: OwnPuzzle) {
-    if (!window.confirm(t('删除《{title}》？删除后无法恢复。', { title: puzzle.title }))) return
     setBusyId(puzzle.id)
     try {
       await deletePuzzle(puzzle.id)
@@ -301,7 +301,7 @@ export function MePage({
                     type="button"
                     aria-label={t('删除')}
                     disabled={busyId === puzzle.id}
-                    onClick={() => void remove(puzzle)}
+                    onClick={() => setPendingDelete(puzzle)}
                     className="flex size-10 items-center justify-center border border-foreground/30 text-muted-foreground transition-colors hover:border-stamp hover:text-stamp disabled:opacity-40"
                   >
                     <Trash2 className="size-3.5" />
@@ -367,6 +367,20 @@ export function MePage({
           </section>
         ) : null}
       </div>
+      {pendingDelete ? (
+        <ConfirmDialog
+          eyebrow={t('删除确认')}
+          title={t('删除《{title}》', { title: pendingDelete.title })}
+          description={t('删除后无法恢复。')}
+          confirmLabel={t('确认删除')}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            const puzzle = pendingDelete
+            setPendingDelete(null)
+            void remove(puzzle)
+          }}
+        />
+      ) : null}
     </PageShell>
   )
 }

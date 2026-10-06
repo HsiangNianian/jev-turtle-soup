@@ -51,8 +51,9 @@
 .play-verdict-counts .verdict-token {
   border: 0;
   min-width: 16px;
-  width: 16px;
-  padding: 0;
+  /* 中文「无关」是两个字，不能再锁死 16px，否则会压到旁边的计数 */
+  width: auto;
+  padding: 0 1px;
 }
 .play-verdict-counts button > span:last-child {
   font: 10px var(--font-mono);

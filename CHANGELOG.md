@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.43.0 - 2026-10-08
+
+### Features
+
+- Add an interactive cloze editor to the web upload page: write the full story, then select missing characters by clicking, dragging, choosing a range, or using the keyboard. Keep spaces and punctuation visible, preserve selections through text edits, and validate the existing `[[answer]]` storage format before upload. ([#8](https://github.com/HsiangNianian/jev-turtle-soup/pull/8), by @muyuzhong)
+- Replace the gameplay dropdown with descriptive, keyboard-accessible mode cards, and replace the personal puzzle deletion browser prompt with a themed confirmation dialog. Focus Cancel by default, support Escape and backdrop cancellation, and restore focus to the triggering button. ([#8](https://github.com/HsiangNianian/jev-turtle-soup/pull/8), by @muyuzhong)
+
+### Fixes
+
+- Display the Chinese irrelevant verdict as “无关” and let its token expand without overlapping the adjacent count. ([#8](https://github.com/HsiangNianian/jev-turtle-soup/pull/8), by @muyuzhong)
+
+### Dependencies
+
+- Include the newly merged Undici 7.29.1 update, with Wrangler 4.147.0 and Miniflare 5.20261001.0-alpha in the development toolchain. ([#4](https://github.com/HsiangNianian/jev-turtle-soup/pull/4), by @dependabot)
+
+### Validation and scope
+
+- Pass all 236 tests, lint and the production build. Verify upload, stored templates, draft restoration, selection after text edits, mouse and keyboard ranges, mobile taps, cancellation without deletion, focus restoration and confirmed deletion against an isolated local Worker.
+- Pass the existing browser checks for solo play, filters, mobile keyboards and multiplayer room lifecycles. Check desktop/light and mobile/dark authoring layouts. Touch verification uses browser emulation, not a physical phone.
+- This is a web interface update; backend contracts, existing puzzles and database schema are unchanged. No migration is required.
+
+### Native apps
+
+- iOS remains 0.8.0 (build 14), and Android remains 0.5.0 (build 8). Native attachments are unchanged from v0.41.0.
+- The iOS ZIP is an unsigned arm64/x86_64 Simulator app, not an iPhone IPA. The Android APK is a debug-signed test build.
+
 ## 0.42.0 - 2026-10-06
 
 ### Features

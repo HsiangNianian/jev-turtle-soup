@@ -91,7 +91,8 @@ export const en: Record<string, string> = {
   主要导航: 'Main navigation',
   删除: 'Delete',
   '删除《{title}》': 'Delete “{title}”',
-  '删除《{title}》？删除后无法恢复。': 'Delete “{title}”? This cannot be undone.',
+  删除确认: 'Delete confirmation',
+  '删除后无法恢复。': 'This cannot be undone.',
   删除失败: 'Could not delete',
   别人熬的汤: 'Bowls brewed by others',
   '题库里的汤': 'From the library',
@@ -521,4 +522,27 @@ export const en: Record<string, string> = {
   '拼出完整的真相': 'Piece together what really happened',
   '这位作者还没有写简介。': "This author hasn't written a bio yet.",
   '{count} 碗公开的汤': '{count} public puzzles',
+  '普通海龟汤': 'Classic lateral puzzle',
+  '汤底填空': 'Fill in the blanks',
+  '玩家提问，主持人只答「是 / 不是 / 无关」，一步步还原真相。':
+    'Players ask questions; the host answers only yes / no / irrelevant, and the truth comes together step by step.',
+  '把汤底里的关键词挖成空格，玩家边提问边猜字、补全故事。':
+    'Key words in the solution become blank cells; players ask questions and guess the characters to complete the story.',
+  '[[ ]] 没有成对，或者互相嵌套了': '[[ ]] markers are unpaired or nested',
+  '有一处填空是空的': 'One blank has no answer in it',
+  '填空里不能有空格或换行': 'Blanks cannot contain spaces or line breaks',
+  '共 {count} 处 · {cells} 格': '{count} blanks · {cells} cells',
+  '挖空': 'Blanks',
+  '清除全部': 'Clear all',
+  '已选起点：再点一个字，两字之间都会挖空。':
+    'Start set: tap another character and everything between will be blanked.',
+  '点字挖空，拖动划选（手机上先长按）；双击起点字再点终点字，中间一起挖空。':
+    'Tap a character to blank it, drag to select a run (on phones, long-press first); or double-tap a start character, then tap an end character to blank everything between.',
+  '点选要挖空的字': 'Pick the characters to blank out',
+  '先在上面写下完整的故事，然后在这里点选要挖空的字。':
+    'Write the full story above, then pick the characters to blank out here.',
+  '加上填空标记后超过了字数上限，请缩短故事或少挖几处':
+    'With the blank markers the solution is over the length limit; shorten the story or blank fewer spots',
+  '填空里不要包含标点或符号，请只选文字':
+    'Do not include punctuation or symbols in a blank; select characters only',
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { BadgeCheck } from 'lucide-react'
 
 import { useI18n } from '@/lib/i18n'
@@ -198,5 +198,74 @@ export function Empty({ children }: { children: ReactNode }) {
     <p className="mt-6 border border-dashed border-foreground/25 bg-sheet/50 px-4 py-10 text-center font-mono text-[11px] tracking-[0.16em] text-muted-foreground">
       {children}
     </p>
+  )
+}
+
+/**
+ * 确认弹窗：替代 window.confirm，沿用卷宗纸面的样式。
+ * 默认焦点落在「取消」上，Esc / 点遮罩都算取消；破坏性操作用朱红按钮。
+ */
+export function ConfirmDialog({
+  eyebrow,
+  title,
+  description,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  eyebrow: string
+  title: string
+  description?: string
+  confirmLabel: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const { t } = useI18n()
+  const ref = useRef<HTMLDialogElement>(null)
+  const labelId = useId()
+  useEffect(() => {
+    const dialog = ref.current
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialog?.showModal()
+    return () => {
+      dialog?.close()
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
+    }
+  }, [])
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={labelId}
+      className="confirm-dialog"
+      onCancel={(e) => {
+        e.preventDefault()
+        onCancel()
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel()
+      }}
+    >
+      <div className="confirm-dialog-body">
+        <span className="eyebrow">{eyebrow}</span>
+        <h2 id={labelId} className="mt-4 font-serif text-xl leading-snug font-semibold break-words">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        ) : null}
+        <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+          <Button variant="outline" autoFocus className="min-h-10" onClick={onCancel}>
+            {t('取消')}
+          </Button>
+          <Button
+            className="min-h-10 bg-destructive text-destructive-foreground shadow-none hover:bg-foreground hover:text-background"
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </dialog>
   )
 }

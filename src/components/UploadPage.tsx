@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import { Button, Field, Notice, PageShell, inputClass } from '@/components/Bits'
+import { ClozePicker } from '@/components/ClozePicker'
 import { Link } from '@/components/Link'
 import { navigate } from '@/lib/router'
+import { blankGroups, clozeIssues, composeDoc, editText, parseDoc } from '@/lib/cloze-template'
 import { SUPERNATURAL_TAG, createPuzzle, type PuzzleIssue } from '@/lib/library-client'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 
+const TRUTH_MAX = 2000
 const DIFFICULTIES = ['简单', '中等', '困难'] as const
 const PRESET_TAGS = [SUPERNATURAL_TAG] as const
 
@@ -39,6 +42,19 @@ function readDraft(): Partial<UploadDraft> | null {
     return null
   }
 }
+
+const MODES = [
+  {
+    value: 'classic',
+    title: '普通海龟汤',
+    desc: '玩家提问，主持人只答「是 / 不是 / 无关」，一步步还原真相。',
+  },
+  {
+    value: 'cloze',
+    title: '汤底填空',
+    desc: '把汤底里的关键词挖成空格，玩家边提问边猜字、补全故事。',
+  },
+] as const
 
 /** 体检结论的四种小标签，和《怎么写一碗好汤》里的「常见毛病」同名。 */
 const REVIEW_LABEL: Record<string, string> = {
@@ -85,11 +101,37 @@ export function UploadPage() {
     }
   }, [mode, title, surface, truth, hint, difficulty, tags, visibility])
 
-  const ready = title.trim() && surface.trim() && truth.trim()
+  const clozeDoc = parseDoc(truth)
+  const clozeOk =
+    mode !== 'cloze' ||
+    (blankGroups(clozeDoc).length > 0 && clozeIssues(truth, TRUTH_MAX).length === 0)
+  const ready = title.trim() && surface.trim() && truth.trim() && clozeOk
   const selectedTags = tags
     .split(/[\s,，]+/)
     .map((tag) => tag.replace(/^#/, '').trim())
     .filter(Boolean)
+
+  function chooseMode(next: 'classic' | 'cloze') {
+    // 填空的标记只在填空模式里有意义；换回普通模式时把 [[ ]] 去掉，别留在汤底里
+    if (next === 'classic' && mode === 'cloze') setTruth(clozeDoc.chars.join(''))
+    setMode(next)
+  }
+
+  // 单选组的标准键盘操作：方向键在选项间移动并选中，Tab 只停在当前选中的那张
+  function onModeKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown'
+        ? 1
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? -1
+          : 0
+    if (!step) return
+    event.preventDefault()
+    const at = MODES.findIndex((item) => item.value === mode)
+    const next = MODES[(at + step + MODES.length) % MODES.length]
+    chooseMode(next.value)
+    event.currentTarget.querySelector<HTMLElement>(`[data-mode="${next.value}"]`)?.focus()
+  }
 
   function toggleTag(tag: string) {
     const next = selectedTags.includes(tag)
@@ -189,17 +231,46 @@ export function UploadPage() {
       </div>
 
       <div className="mt-7 space-y-6">
-        <Field label={t('玩法')}>
-          <select
-            aria-label={t('玩法')}
-            value={mode}
-            onChange={(event) => setMode(event.target.value as 'classic' | 'cloze')}
-            className={inputClass}
+        <div role="radiogroup" aria-labelledby="upload-mode-label" onKeyDown={onModeKeyDown}>
+          <span
+            id="upload-mode-label"
+            className="font-mono text-[11px] tracking-[0.22em] text-muted-foreground"
           >
-            <option value="classic">普通海龟汤</option>
-            <option value="cloze">汤底填空</option>
-          </select>
-        </Field>
+            {t('玩法')}
+          </span>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {MODES.map((item) => {
+              const active = mode === item.value
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  data-mode={item.value}
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => chooseMode(item.value)}
+                  className={cn(
+                    'relative border px-4 py-3 text-left transition-colors outline-none focus-visible:shadow-[0_0_0_3px_var(--stamp-soft)]',
+                    active
+                      ? 'border-foreground bg-sheet shadow-[inset_3px_0_0_var(--stamp)]'
+                      : 'border-foreground/25 text-muted-foreground hover:border-foreground/60 hover:text-foreground',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'block font-serif text-[15px] font-semibold',
+                      active && 'text-foreground',
+                    )}
+                  >
+                    {t(item.title)}
+                  </span>
+                  <span className="mt-1 block text-xs leading-6">{t(item.desc)}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <Field label={t('标题')} hint={t('最多 40 字')}>
           <input
             value={title}
@@ -224,22 +295,27 @@ export function UploadPage() {
           </span>
         </Field>
 
-        <Field label={t('汤底')} hint={t('最多 2000 字')}>
-          <textarea
-            value={truth}
-            rows={5}
-            maxLength={2000}
-            placeholder={t('完整交代真正发生了什么。')}
-            onChange={(event) => setTruth(event.target.value)}
-            className={`${inputClass} resize-none leading-7`}
-          />
+        <div>
+          <Field label={t('汤底')} hint={t('最多 2000 字')}>
+            <textarea
+              value={mode === 'cloze' ? clozeDoc.chars.join('') : truth}
+              rows={5}
+              maxLength={TRUTH_MAX}
+              placeholder={t('完整交代真正发生了什么。')}
+              onChange={(event) =>
+                setTruth(
+                  mode === 'cloze'
+                    ? composeDoc(editText(clozeDoc, event.target.value))
+                    : event.target.value,
+                )
+              }
+              className={`${inputClass} resize-none leading-7`}
+            />
+          </Field>
           {mode === 'cloze' ? (
-            <p className="mt-2 text-xs leading-6 text-muted-foreground">
-              写下完整故事，用 [[答案]]
-              标记要挖空的部分，例如：他用[[雨伞]]按下按钮。每个字会变成一格，至少标记一处；答案内不要加空格或换行。
-            </p>
+            <ClozePicker value={truth} maxLength={TRUTH_MAX} onChange={setTruth} />
           ) : null}
-        </Field>
+        </div>
 
         <Field label={t('提示')} hint={t('可选，最多 200 字')}>
           <input

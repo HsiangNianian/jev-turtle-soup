@@ -1,267 +1,151 @@
-# 海龟汤调查局 · Jev 情境推理
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/banner-dark.svg">
+    <img src="docs/readme/banner.svg" alt="海龟汤调查局 — 每一碗怪事，都等你来问。" width="960">
+  </picture>
+</p>
 
-汤友投稿、一起推理与讨论的海龟汤社群。AI 主持人**砚**（Ellis）
-替作者守住汤底；服务端通过 TypeSafe Jev 判读玩家的问题。
+<h1 align="center">海龟汤调查局</h1>
 
-- **题库**：玩家可以上传自己的海龟汤；也可以玩每天定时生成的官方汤。
-  出题口不对玩家开放——汤是**攒出来的**，不是现场点出来的。
-- **主持**：服务端读取汤底，把玩家消息、最近对话和故事状态交给 **Jev**，
-  并行判读意图、是非、接近度、动机、手法、关键反转等，再由代码组合回答。
-- **档案室**：游客与每个账号分别保存本机进度；登录后同步到账号，随时继续或回看。
-- **社群**：首页和 iPhone 广场展示带编者按的汤友原创精选；结案后进入防剧透讨论，
-  作者主页与题库作品也有点赞和留言。
+<p align="center">
+  <strong>汤友写下怪事，砚守住真相。你来问，一起破案。</strong><br>
+  一个可以独自推理、邀朋友同桌，也能亲手出题的海龟汤社群。
+</p>
 
-## 同桌实时游玩
+<p align="center">
+  <a href="https://hgt.mmstudio.games"><img src="https://img.shields.io/badge/在线游玩-hgt.mmstudio.games-b5342a?style=flat-square" alt="在线游玩"></a>
+  <a href="https://github.com/HsiangNianian/jev-turtle-soup/releases/latest"><img src="https://img.shields.io/github/v/release/HsiangNianian/jev-turtle-soup?style=flat-square&amp;color=716b5d&amp;label=release" alt="最新版本"></a>
+  <a href="https://github.com/HsiangNianian/jev-turtle-soup/releases"><img src="https://img.shields.io/badge/clients-Web%20%2F%20iOS%20%2F%20Android-716b5d?style=flat-square" alt="Web, iOS, Android"></a>
+</p>
 
-Web/PWA、iPhone 和 Android 都可在题目页「邀朋友同桌」，2–6 人提问、讨论与共同结案。邀请链接在网页打开，原生 App 可粘贴邀请码或链接；「我的同桌」保存共同案卷。团队最长/最短解开轮数单独统计，排除作者参与的房间。
+<p align="center">
+  <a href="https://hgt.mmstudio.games/library">挑一碗汤</a> ·
+  <a href="https://hgt.mmstudio.games/daily">每日官汤</a> ·
+  <a href="https://github.com/HsiangNianian/jev-turtle-soup/releases">下载测试 App</a> ·
+  <a href="CONTRIBUTING.md">参与贡献</a>
+</p>
 
-手机端将提问、回答和聊天放在同一条时间线里，底部切换发送对象，汤面按需打开；电脑网页使用案卷、正式问答、桌内讨论三栏，各自滚动并保留独立草稿。
+<p align="center"><b>简体中文</b> · <a href="README.en.md">English</a></p>
 
-协议、权限、数据库升级与本地多端检查见 [同桌说明](docs/rooms.md)。
+---
 
-## 技术栈
+## 一段离奇的事，一桌好奇的人
 
-React 19 · Vite · Tailwind CSS v4 · Cloudflare Workers · TypeSafe Jev · DeepSeek / OpenAI
+**海龟汤**是一种情境推理游戏：你先读到简短而反常的「汤面」，再向主持人提问，逐步还原隐藏的「汤底」。这里的故事来自汤友投稿与每日官汤，AI 主持人**砚**（Ellis）负责判读与回应。
 
-## iPhone 测试 App
+1. **挑一碗汤。** 从题库、编辑精选或每日官汤开始。
+2. **问一个问题。** 根据「是／不是／是也不是／无关」的回答，整理线索、修正猜想。
+3. **还原真相。** 独自结案，或把邀请发给朋友，一起讨论到水落石出。
 
-`ios/` 提供 SwiftUI 原生客户端：广场、每日、动态、我的四栏导航，原生推理、作者主页、讨论与写汤。
-作者登录后可在网页或 App 的自己的作品页查看每碗汤的主动揭晓人数；每位玩家对每碗汤只计一次，推理通关不计入。
-客户端直接调用线上 API，可用 Xcode Personal Team 装到自己的 iPhone。
-运行 `npm run ios:doctor` 检查环境，`npm run ios:build` 验证编译，
-`npm run ios:install -- --team YOURTEAMID` 自动签名、安装和启动。
-首次账号与设备准备见 [iOS 使用说明](ios/README.md)。
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/home-dark.jpg">
+    <img src="docs/readme/home.jpg" alt="调查局首页：每日官汤、汤友原创和编辑精选，使用暖纸色、宋体与朱红印章" width="960">
+  </picture>
+</p>
 
-## Android 测试 App
+## 在调查局里
 
-`android/` 提供 Kotlin + Jetpack Compose 原生客户端，沿用网站与 iPhone App 的纸白、墨色、朱红及中英文品牌字体。四栏为广场、每日、动态、我的；可搜索、推理、评论点赞、写汤，并查看自己的主动揭晓数据。两端使用同一线上 API；用同一邮箱登录后同步案卷和作品。
+- **发现与创作** — 浏览、搜索汤友原创，查看作者主页，点赞与留言。写下自己的汤面和汤底，发布给下一位调查员。
+- **单人推理** — 向砚提问、查看是非记录、标记有用的问答并筛选回看。游客可保存本机案卷，登录后同步到账号。
+- **朋友同桌** — 2–6 人实时游玩。正式提问依次回答，桌内讨论随时继续；共同决定是否揭晓，保留共同案卷。
+- **汤底填空** — 一边提问，一边补全故事。填对的字会锁定；作者可直接点选或框选要挖空的文字。当前为网页单人体验，进度仅在当前页面保留。
+- **每日官汤** — 每天 UTC 00:00 开新案，当天不能主动揭晓；成功解开可结案，次日可回看汤底与完整故事。
+- **作者与社群** — 防剧透讨论、作品数据、作者周报。公开的最长／最短轮数只统计成功解开的玩家并排除作者；主动揭晓人数仅作者本人可见。
 
-安装 JDK 17 和 Android SDK Platform 36 后，运行 `npm run android:build` 构建调试 APK。连接已开启 USB 调试的安卓设备后运行 `npm run android:install`。首次设置和 APK 路径见 [Android 使用说明](android/README.md)。
+### 同桌：一个人提问，大家接着想
 
-## 本地开发
+电脑端把案卷、正式问答和讨论放在三栏；手机端合为连续会话，随时切换「问砚」与「和大家聊」。个人标记只存本机，不会干扰同桌的线索。
 
-使用 Node.js 22.13+（测试用内置 SQLite；也支持更新的 Node 版本）。
-Wrangler **4.136.2**、Vitest **5.0.1** 已锁定在开发依赖中，所有命令使用项目本地版本。
+<p align="center">
+  <img src="docs/readme/room.jpg" alt="同桌桌面界面：左侧汤面与问答记录，中间主持人问答，右侧朋友讨论" width="960">
+</p>
+
+<details>
+<summary><strong>再看一眼：汤底填空与手机网页</strong></summary>
+
+<p>填空时仍可向砚提问；中文输入、粘贴和键盘导航均可使用。</p>
+<img src="docs/ui-redesign/after-cloze.jpg" alt="汤底填空：故事中的空格、已找回的文字和主持人问答" width="960">
+
+<p align="center">
+  <img src="docs/readme/home-mobile.jpg" alt="手机网页首页：原创汤、每日官汤和底部导航" width="320">
+</p>
+
+</details>
+
+## 从浏览器到口袋里
+
+网页、PWA 与两个原生客户端共用账号和后端。纸白、墨色、朱红印章与衬线字体贯穿深浅两套外观；界面支持中文、英文和日文。
+
+- **Web / PWA** — [直接打开调查局](https://hgt.mmstudio.games)，或在浏览器中安装到主屏幕。可离线阅读已保存的本机案卷；新题、登录、主持人判读和同步仍需联网。
+- **iOS** — SwiftUI 原生测试 App。[构建与真机安装](ios/README.md) · [Nightly](docs/ios-nightly-release.md)。真机使用自己的 Apple 开发签名；Release ZIP 是模拟器 App，不是 iPhone IPA。
+- **Android** — Kotlin + Jetpack Compose 原生测试 App。[构建与安装](android/README.md) · [下载测试包](https://github.com/HsiangNianian/jev-turtle-soup/releases/latest)。Release APK 使用调试签名。
+
+## 本地跑起来
+
+需要 **Node.js 22.13+** 与 npm；工具版本以 [package-lock.json](package-lock.json) 为准。
 
 ```bash
+git clone https://github.com/HsiangNianian/jev-turtle-soup.git
+cd jev-turtle-soup
 npm ci
-cp .env.example .env   # 本地验证码模式已开启，按需填模型密钥
+cp .env.example .env
 ```
 
-保留两个入口：
-
-| 命令                 | 适用场景                                                  | 修改前端后                                            |
-| -------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
-| `npm run dev`        | Vite 首页、组件与样式开发；API 仅有 health 和内存对局接口 | 自动热更新                                            |
-| `npm run dev:worker` | 完整业务：验证码登录、题库、每日汤、云存档；本地 KV / D1  | 重新运行此命令，或另开终端运行 `npm run build` 后刷新 |
-
-Vite 不提供完整题库、登录、每日汤或云存档；控制台也会提示使用 Workers 入口。
-Workers 入口先构建 `dist/`，再运行 `wrangler dev --local`，不会自动构建前端。
-它使用与线上相同的 Worker 代码，但数据和绑定均在本地，不需要部署。
-
-### 本地数据库：初始化与升级
-
-**新库**只执行当前全量 schema，然后启动 Worker：
+在 `.env` 中设置本地 `AUTH_SECRET`，填入 `TYPESAFE_API_KEY` 后可使用砚的判读；每日生成还需要 DeepSeek、OpenAI 或兼容端点的密钥。
 
 ```bash
-npm run db:local
-npm run dev:worker
+npm run db:local       # 仅用于新的本地数据库
+npm run dev:worker     # 完整应用：http://localhost:8787
 ```
 
-**已有库**不要用全量 schema 代替升级，也不要重放所有历史迁移。
-先对照 `db/migrations/` 检查本地表与列，仅按编号执行尚未应用的迁移。
-例如此前已完成 001–015、只缺云存档表时：
+本地默认开启验证码展示，不发送邮件。不配置模型密钥也能调试登录、题库与存档；新数据库没有预置作品，可登录后自行投稿。已有数据库请按 [升级说明](docs/development.md#数据库初始化与升级) 处理。
+
+**只想先看界面？** 运行 `npm run rooms:preview`，打开 `http://localhost:8799`。这是带示例题目的隔离预览，使用本地数据和模拟主持人，不需要模型密钥；多账号同桌验证见 [同桌说明](docs/rooms.md#可复现检查)。
+
+> `npm run dev` 是 Vite 前端热更新入口，只提供有限的内存对局 API。登录、题库、每日汤、云存档与同桌需要 `npm run dev:worker`。环境变量和日常命令见 [开发指南](docs/development.md)。
+
+## 它如何工作
+
+**React 19 · TypeScript · Vite · Tailwind CSS 4** 构建网页；**SwiftUI** 与 **Jetpack Compose** 构建原生客户端。三端通过同一个 **Cloudflare Worker** 访问题库、账号、推理和同桌服务。
+
+```mermaid
+flowchart LR
+  Web[Web / PWA] --> API[Cloudflare Worker]
+  iOS[SwiftUI · iOS] --> API
+  Android[Compose · Android] --> API
+  API --> Jev[TypeSafe Jev · 主持判读]
+  API --> LLM[DeepSeek / OpenAI · 官汤生成]
+  API --> D1[(D1 · 题库与案卷)]
+  API --> KV[(KV · 登录会话)]
+  API --> Rooms[Durable Objects · 实时同桌]
+  Rooms --> Jev
+  Rooms --> D1
+```
+
+判读以服务端保存的故事为依据；客户端提交问题，同桌状态、提问队列和揭晓权限由服务端管理。模型密钥不交给客户端。部署、自建资源与三条定时任务见 [部署与运维](docs/operations.md)。
+
+## 开发与贡献
+
+欢迎改进玩法、交互、翻译和文档，也欢迎提交可复现的判读或同步问题。涉及汤底的反馈请标记剧透，附上题目与具体提问。
 
 ```bash
-npm run wrangler -- d1 execute jev-turtle-soup --local --command "PRAGMA table_info(dailies); PRAGMA table_info(saves);"
-npm run wrangler -- d1 execute jev-turtle-soup --local --file=./db/migrations/016-saves.sql
+npm test                 # 单元与集成测试，使用受控模型／网络替身
+npm run lint             # 静态检查
+npm run build            # 类型检查与前端生产构建
+npm run deploy:dry-run   # 检查 Worker 打包，不部署
 ```
 
-当前 `dailies` 应有 `generate_attempts`，标题和汤面等字段以 `puzzles` 为准。
-社区版本还需要 `017-community-entry.sql`：给作品增加精选推荐语，并建立保留 30 天的
-匿名设备事件表。新库的 `db/schema.sql` 已包含最终结构；已有库只执行缺失的迁移。
-010 包含重命名和删列等一次性操作；新库已包含其最终结构，不要再执行。
-这些 SQL 文件未通过 Wrangler 的迁移跟踪表管理，应结合已有升级记录和表结构判断缺失项。
-以上命令均指定 `--local`，不会清空已有数据。
+| 想了解                                | 从这里开始                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 本地环境、数据库、目录结构            | [开发指南](docs/development.md)                                                                   |
+| Cloudflare 部署、Cron、接口与存档边界 | [部署与运维](docs/operations.md)                                                                  |
+| 多人协议、权限、重连与多端验证        | [同桌模式](docs/rooms.md)                                                                         |
+| 紧凑对局界面与回归检查                | [游玩布局](docs/play-density.md)                                                                  |
+| 定时周报、手动发送与重试              | [作者周报](docs/weekly-digest.md)                                                                 |
+| 提交问题或 PR                         | [贡献指南](CONTRIBUTING.md) · [Issues](https://github.com/HsiangNianian/jev-turtle-soup/issues)   |
+| 最近有哪些变化                        | [Changelog](CHANGELOG.md) · [Releases](https://github.com/HsiangNianian/jev-turtle-soup/releases) |
 
-如需隔离验证，用同一个新目录同时初始化数据库和启动 Worker：
+感谢 [@muyuzhong](https://github.com/muyuzhong)、[@YUZHEthefool](https://github.com/YUZHEthefool) 与[所有贡献者](https://github.com/HsiangNianian/jev-turtle-soup/graphs/contributors)，也感谢每一位写汤、试汤、留下反馈的汤友。
 
-```bash
-npm run db:local -- --persist-to .wrangler/smoke
-npm run dev:worker -- --persist-to .wrangler/smoke --port 8788
-```
-
-D1 默认本地持久化目录为 `.wrangler/state`；参见 [D1 本地开发规则](https://developers.cloudflare.com/d1/best-practices/local-development/)。
-
-### 环境变量
-
-统一推荐 `.env`。**如果已有 `.dev.vars`，Wrangler 将不加载 `.env`**；请将配置合并到一种文件中。
-Vite 使用 `.env`，因此同时保留两种文件容易造成两个入口配置不同。
-具体优先级见 [Workers 本地 secrets 规则](https://developers.cloudflare.com/workers/configuration/secrets/)。
-生产 secrets 另行配置，`.env` 不会随部署上传。
-
-| 变量                                                          | 说明                                                                         |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `TYPESAFE_API_KEY`                                            | Jev 判读、每日审核等模型能力需要；登录、题库读取与存档不需要                 |
-| `AUTH_SECRET`                                                 | 登录会话与验证码签名；本地和生产应分别生成随机值                             |
-| `AUTH_EXPOSE_CODE`                                            | 本地设为 `1`：接口及登录页显示验证码，跳过邮件发送；生产默认关闭，勿设为 `1` |
-| `MAIL_FROM`                                                   | 邮件发件地址，Wrangler 配置已有默认值                                        |
-| `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL`   | 每日生成，默认模型 `deepseek-chat`                                           |
-| `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL`         | 未配 DeepSeek 时使用，默认 `gpt-4o-mini`                                     |
-| `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` / `LLM_PROVIDER` | 自定义 OpenAI 兼容端点，优先级最高；provider 用作显示名称                    |
-| `DAILY_ADMIN_TOKEN`                                           | 管理生成和维护接口口令，未设置时使用 `AUTH_SECRET`                           |
-
-不配置模型密钥也能验证本地验证码登录、已有题库读取与存档增删改查；不要触发判读或每日生成即可。
-
-## 架构
-
-```
-worker/entry.ts   ← Worker 入口与 Durable Object 导出
-worker/index.ts   ← Cloudflare Worker：/api/* 与静态资源 SPA 兜底
-server/index.ts   ← Vite dev 中间件：health / 内存对局，前端开发用
-shared/game.ts    ← 共用逻辑：主持提问、判定拼装（不依赖 Node API）
-src/              ← React 前端；提问发送题号或会话号，未揭晓汤底留在服务端
-```
-
-| 路由                                         | 作用                                                                              |
-| -------------------------------------------- | --------------------------------------------------------------------------------- |
-| `GET /api/health`                            | 返回当前配置的模型与兜底题库数量                                                  |
-| `POST /api/game/ask`                         | 带上会话号与玩家消息，返回主持人回答                                              |
-| `POST /api/game/reveal`                      | 揭晓这一局的汤底                                                                  |
-| `/api/library/puzzles[...]`                  | 公开题库：列表、详情、判读、上传、改可见性、删除                                  |
-| `/api/me/saves`、`/api/me/saves/:id`         | 登录态存档列表/兼容批量导入、单局 PUT/DELETE                                      |
-| `/api/auth/*`、`/api/me/*`、`/api/u/:handle` | 邮箱验证码登录、我的题库、作者主页                                                |
-| `GET /api/daily`、`GET /api/daily/:date`     | 官方每日汤：今天的一碗与往期（当天不下发汤底）                                    |
-| `POST /api/daily/generate`                   | 手动生成当天官方汤（SSE，需 `x-admin-token`）                                     |
-| `GET /api/audit/flags`                       | 判读巡检结果：复核后改判的条目（需 `x-admin-token`）                              |
-| `POST /api/audit/run`                        | 手动跑一次维护：清理过期日志 + 巡检（需 `x-admin-token`）                         |
-| `/api/social/{profile\|puzzle}/:id`          | 点赞与留言板：`GET` 取数据，`POST/DELETE .../like` 点赞，`POST .../comments` 留言 |
-| `/api/social/comments/:id`                   | 删除留言（留言作者或对象主人）；`/report` 举报                                    |
-
-管理接口的口令取自 `DAILY_ADMIN_TOKEN`，没配时退回 `AUTH_SECRET`：
-
-```bash
-npm run wrangler -- secret put DAILY_ADMIN_TOKEN
-curl -X POST -H "x-admin-token: $DAILY_ADMIN_TOKEN" \
-  https://hgt.mmstudio.games/api/daily/generate
-```
-
-## 定时任务
-
-`wrangler.jsonc` 里配了两条 Cron，处理入口都在 `worker/index.ts` 的 `scheduled`，按 `event.cron` 分流：
-
-| Cron（UTC）   | 做什么                                                        |
-| ------------- | ------------------------------------------------------------- |
-| `0 */6 * * *` | 00:00 UTC 首次生成，每 6 小时检查并补缺题                     |
-| `0 4 * * *`   | 维护：清理过期日志（判读流水 90 天、反馈 1 年）+ 巡检可疑判读 |
-
-**判读巡检**（`shared/audit.ts`）抽查最近 7 天里判成「无关 / 是，也不是」的记录，让 Jev
-**盲判**一次（不告诉它原判读，避免迁就），只把「漏掉真线索」和「前后矛盾」这一类改判写进
-`judge_flags`；`无关 → 不是` 这种两说都成立的差异不计，免得淹没信号。一次巡检只花一次
-LLM 调用。
-
-**点赞与留言板**（`shared/social.ts`）：作者主页与题库的汤共用一套，只有 `profile`（按 handle）
-和 `puzzle`（按题号）两种对象。点赞**不需要登录**——登录了用 uid、没登录用本机设备号，
-唯一索引保证一个人只算一票；留言**需要登录**，有署名才谈得上留言板。删除权限给留言作者本人
-和这个对象的主人（主页作者 / 题主）；举报走的还是 `reports` 表，`kind = 'comment'`。
-私密主页和未公开的题一律当作不存在，不参与点赞留言。
-
-**汤底永远留在服务端**：对局写进 D1（`visibility = 'session'`，默认保留 90 天），
-题库的题也写进 D1。浏览器只会收到汤面，提问时只发会话号，因此 F12 看不到答案；
-只有揭晓或结案时才会拿到汤底。未登录的本机进度只能在同一浏览器继续；
-登录并同步成功后，才可在其他设备登录同一账号接着玩。
-
-### 云存档恢复与边界
-
-本机 `turtle-soup.archive.v2` 将游客、各账号的进度和待同步操作放在独立空间中，
-以一次 localStorage 写入同时保存。旧 `turtle-soup.archive.v1` 只迁移一次：
-有缓存账号时归入该账号，否则归游客，原 key 保留为备份。写入失败不标记迁移成功。
-游客记录归首次登录账号；目标空间和源清除原子保存，后续账号不会重复导入。
-
-缓存账号只用于离线显示；服务端认证成功后才上传。登录导入走逐条 PUT，
-500ms 合并频繁保存，同账号串行发送。失败操作和删除标记在刷新后仍保留；
-网络错误、429、5xx 按 1/2/4/8/16/30 秒重试，之后最多间隔 30 秒，联网或页面重新可见时可提前重试。
-401/账号不匹配暂停等待认证，其他错误保留操作并提示重试；本机写入失败显示“进度尚未保存”。
-正常同步在后台静默进行；仅断网、同步失败、认证失效或本机未保存时显示状态与重试入口。
-“已并入账号”只统计服务端已确认的记录。
-
-存档 URL 和 `updatedAt` 冲突规则不变：较新的覆盖较旧的，时间相等保留已有值。
-新客户端携带 `X-Save-Owner`，服务端与会话账号不符返回 409；未携带此头的旧客户端仍兼容。
-云端列表仍最多返回 200 局，未返回的局不会被当作删除。
-本次没有跨设备删除墓碑，另一台长期离线设备仍可能重新上传其持有的旧存档。
-
-## 安装为 PWA
-
-网站也可以作为 PWA 安装：浏览器从 `/manifest.webmanifest` 读取名称和图标，
-`/sw.js` 随每次构建写入当版资源清单。iPhone 用 Safari 的「分享 → 添加到主屏幕」，
-Chrome/Android 可在浏览器菜单选择安装，网站「关于」页也会在支持时提供安装按钮。
-联网时页面入口始终走网络，断网时才回退到预缓存的应用外壳；在已安装应用中保存的
-案卷仍可阅读。iPhone 主屏幕应用可能使用独立于 Safari 的本地存储；登录可同步已有
-进度。`/api/*`、账号数据、每日汤和题库数据不由 Service Worker 缓存，
-需要联网才能更新或继续判读。更新后的 Worker 等旧页面关闭再接管，避免切换版本时
-丢失正在玩的状态。
-
-## 部署到 Cloudflare Workers
-
-仓库已带 `wrangler.jsonc`：Worker 处理 `/api/*`，其余请求交给 `./dist` 的
-SPA（`not_found_handling: single-page-application` + `run_worker_first: true`，支持页面分享元信息）。
-
-**Dashboard 连 Git 的构建配置：**
-
-| 项             | 值                           |
-| -------------- | ---------------------------- |
-| Build command  | `npm run build`              |
-| Deploy command | `npm run wrangler -- deploy` |
-
-**再配上密钥**（Workers & Pages → 该项目 → Settings → Variables and Secrets）：
-
-```bash
-npm run wrangler -- secret put TYPESAFE_API_KEY
-npm run wrangler -- secret put DEEPSEEK_API_KEY
-npm run wrangler -- secret put AUTH_SECRET
-```
-
-也可以本地直接部署：
-
-```bash
-npm run build
-npm run wrangler -- deploy
-```
-
-生产数据库的初始化与升级也应区分新库和已有库，规则同上；线上操作需要明确选择远程目标。
-本文的开发和验证命令只使用本地 D1。
-
-编辑在后台「题库精选」为公开原创汤填写不剧透的推荐语后，作品才进入首页和 App
-的精选区。首批人工选择记录在 `db/curation/2026-09-24-community-launch.sql`；
-后台「社群观察」展示来源、第一问、第二碗、外部留言和跨周投稿等站内指标。
-作者邮件周报的预览与发送接口已关闭，旧邮件退订入口保留。
-
-## 验证命令
-
-```bash
-npm test                 # Vitest；真实内存 SQLite schema，可控模型/网络替身，无真实邮件或模型调用
-npm run lint             # oxlint
-npm run build            # 类型检查 + 构建 dist/
-npm run deploy:dry-run   # 构建并检查 Worker 打包，不部署
-npm run preview          # 预览前端构建，API 能力与 Vite 开发入口相同
-```
-
-回归覆盖每日汤历史关联查询、持久队列失败恢复、并发顺序、账号隔离、一次性迁移、
-存储失败、账号请求头和时间戳冲突规则。
-
-## 关于中文
-
-TypeSafe 文档说明 Jev 以英文为主要训练语言，中日韩文字可用但准确率相对较低。因此
-主持人的问题指令与选项描述使用英文，故事状态保留中文，实测分类稳定；若你的数据上
-表现不佳，可在 `shared/game.ts` 的 `HOST_QUESTIONS` 中调整措辞或阈值。
-
-### 页面加载恢复
-
-发布后旧页面引用的按需资源可能已失效。客户端只对本站应用资源失败执行恢复，
-第三方脚本失败不会触发整页刷新。每个标签页 60 秒内最多自动刷新一次；
-断网时等待联网，本机进度未保存或 sessionStorage 不可用时提供手动重试。
-慢启动只显示加载提示，不强制中断下载，也不计作客户端错误。
-错误台账保留实际失败的资源路径、版本与组件栈，历史计数不会因发布而清空。
-
-主持人判读单次等待最多 20 秒，临时故障最多重试一次，退避最多 1 秒；
-仍失败时返回本地化的超时或连接提示。判读问题、模型选择和结案规则不变。
+<p align="center"><sub>下一碗怪事，等你来问。</sub></p>
